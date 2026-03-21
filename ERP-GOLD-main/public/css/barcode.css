@@ -1,0 +1,48 @@
+
+@font-face {
+    font-family: 'Montserrat-Arabic-Regular';
+    src: url('../fonts/Montserrat-Arabic-Regular.ttf');
+}
+body,html{
+    -webkit-print-color-adjust: exact;
+    -moz-print-color-adjust: exact;
+    print-color-adjust: exact;
+    -o-print-color-adjust: exact;
+    padding: 0px 2px;
+    margin: 0;
+    color: #000!important;
+    height: 100%;
+}
+.company_name,.item_name,.barcode-number,.item_prices{
+    font-family: 'Montserrat-Arabic-Regular';
+    font-size: 11px;
+}
+@page{margin:0;size:auto}
+div.barcode {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    height: 100%;
+    border: 1px solid #000;
+    text-align: center;
+    font-size: 14px;
+    page-break-before: always;
+    page-break-after: always;
+    page-break-inside: avoid;
+}
+
+.barcode-img {
+    text-align: center;
+    margin-top: 5px;
+
+}
+
+div.barcode div.barcode-number {
+    margin-top: 0px;
+}
+@media print {
+    div.barcode{
+        border:none !important;
+    }
+}
