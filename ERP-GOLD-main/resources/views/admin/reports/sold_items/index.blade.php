@@ -38,10 +38,16 @@
                                 @else
                                 <h5 class="text-center"> [ جميع الفروع ] </h5>
                                 @endif
+                                @if(isset($selectedUser) && $selectedUser)
+                                <h6 class="text-center"> المستخدم: {{ $selectedUser->name }} </h6>
+                                @endif
+                                @if(!empty($filters['inventory_classification'] ?? null))
+                                <h6 class="text-center text-muted">التصنيف: {{ \App\Models\Item::inventoryClassificationOptions()[$filters['inventory_classification']] ?? $filters['inventory_classification'] }}</h6>
+                                @endif
                                 <h5 class="text-center">  {{$periodFrom}} - {{$periodTo}} </h5>
                             </div>
                             <div class="col-3 text-left"> 
-                                <img src="{{URL::asset('assets/img/logo.png')}}"   id="profile-img-tag" width="70px" height="70px" class="profile-img"/>
+                                <img src="{{ $brandLogoUrl }}"   id="profile-img-tag" width="70px" height="70px" class="profile-img"/>
                             </div>   
                           </div>
                         </div>
@@ -54,8 +60,12 @@
                                             <th>#</th>
                                             <th>{{__('main.bill_no')}}</th>
                                             <th>{{__('main.date')}}</th> 
+                                            <th>الوقت</th>
+                                            <th>الفرع</th>
+                                            <th>المستخدم</th>
                                             <th>{{__('main.code')}}</th>
                                             <th>{{__('main.name_ar')}}</th>
+                                            <th>التصنيف</th>
                                             <th> {{__('main.carats')}} </th>
                                             <th> {{__('main.weight')}} </th> 
                                         </tr>
@@ -65,11 +75,15 @@
                                     @foreach($itemsTransactions??[] as $transaction)
                                         <tr>
                                             <td class="text-center">{{$loop -> iteration}}</td>
-                                            <td class="text-center">{{$transaction -> invoice -> id}}</td>
+                                            <td class="text-center">{{ $transaction->invoice?->bill_number }}</td>
                                             <td class="text-center">{{ \Carbon\Carbon::parse($transaction -> invoice -> date) -> format('d-m-Y')  }}</td>
+                                            <td class="text-center">{{ $transaction->invoice?->time }}</td>
+                                            <td class="text-center">{{ $transaction->invoice?->branch?->name ?? '-' }}</td>
+                                            <td class="text-center">{{ $transaction->invoice?->user?->name ?? '-' }}</td>
                                             <td class="text-center">{{$transaction -> item -> code}}</td>
                                             <td class="text-center">{{$transaction -> item -> title}}</td>
-                                            <td class="text-center">{{ $transaction -> carat -> title }}</td>
+                                            <td class="text-center">{{ $transaction->item?->inventory_classification_label ?? '-' }}</td>
+                                            <td class="text-center">{{ $transaction->carat?->title ?? $transaction->item?->inventory_classification_label ?? '-' }}</td>
                                             <td class="text-center">{{$transaction -> out_weight}}</td> 
                                         </tr>
                                         <?php $total += $transaction->out_weight; ?>
@@ -79,7 +93,7 @@
                                         <tr class="text-white bg-primary">
                                             <td></td>
                                             <td>الإجمالي</td>
-                                            <td colspan="4" class="text-center"></td>
+                                            <td colspan="8" class="text-center"></td>
                                             <td >{{$total}} </td>  
                                         </tr>
                                     </tfoot>   
@@ -120,4 +134,3 @@
     });
 </script>
  
-

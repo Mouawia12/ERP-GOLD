@@ -1,5 +1,6 @@
 @php
-    $balance = $account->closingBalance($periodFrom, $periodTo);
+    $metrics = $accountMetrics[$account->id] ?? null;
+    $balance = $metrics['closing_net'] ?? $account->closingBalance($periodFrom, $periodTo);
     $font_percentage = 130 - (($account->level - 1) * 10);
 @endphp
 
@@ -8,8 +9,8 @@
         style="padding-right: {{$account->level}}rem !important; font-size:{{$font_percentage}}% !important">
         {{ $account->name }}
     </td>
-    <td>{{ number_format($account->closingBalance($periodFrom, $periodTo, 'debit'), 2) }}</td>
-    <td>{{ number_format($account->closingBalance($periodFrom, $periodTo, 'credit'), 2) }}</td>
+    <td>{{ number_format($metrics['closing_debit'] ?? $account->closingBalance($periodFrom, $periodTo, 'debit'), 2) }}</td>
+    <td>{{ number_format($metrics['closing_credit'] ?? $account->closingBalance($periodFrom, $periodTo, 'credit'), 2) }}</td>
     <td>
         {{ number_format(abs($balance), 2) }}
         {{ $balance != 0 ? ' / ' . ($balance > 0 ? __('main.debit') : __('main.credit')) : '' }}

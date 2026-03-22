@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Admin\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Providers\RouteServiceProvider;
-use Illuminate\Http\Response;
+use App\Services\Auth\LoginModeService;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -31,15 +31,18 @@ class LoginController extends Controller
         $this->middleware('guest:admin-web')->except('logout');
     }
 
-    protected function loggedOut(Request $request)
+    public function logout(Request $request)
     {
+        app(LoginModeService::class)->clearAuthenticatedSession(
+            Auth::guard('admin-web')->user(),
+            $request->session()->getId()
+        );
+
         Auth::guard('admin-web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return $request->wantsJson()
-            ? new Response('', 204)
-            : redirect('/');
+        return redirect('/');
     }
 
     protected function guard()
@@ -49,7 +52,10 @@ class LoginController extends Controller
 
     protected function credentials(Request $request)
     {
-        return $request->only($this->username(), 'password');
+        return array_merge(
+            $request->only($this->username(), 'password'),
+            ['status' => true],
+        );
     }
 
     protected function validateLogin(Request $request)
@@ -83,6 +89,11 @@ class LoginController extends Controller
         return back()->withErrors([
             'email' => 'The provided credentials do not match our records.',
         ])->onlyInput('email');
+    }
+
+    protected function authenticated(Request $request, $user): void
+    {
+        app(LoginModeService::class)->syncAuthenticatedSession($user, $request->session()->getId());
     }
     
 }

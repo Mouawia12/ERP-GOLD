@@ -49,10 +49,12 @@
                                             <th> {{__('main.code')}} </th>
                                             <th> {{__(' الصنف')}} </th>  
                                             <th> {{__('المجموعة')}} </th>
+                                            <th> {{__('التصنيف')}} </th>
                                             <th> {{__('النوع')}} </th>
                                             <th> {{__('العيار')}} </th>
                                             <th> {{__('الوزن جرام')}} </th>
                                             <th> {{__('المصنعية / جرام')}} </th> 
+                                            <th> {{__('الفروع المنشورة')}} </th>
                                             <th> {{__('الحالة')}} </th>
                                             <th> {{__('main.actions')}} </th>
                                         </tr>
@@ -214,6 +216,10 @@
                         name: 'category'
                     },
                     {
+                        data: 'inventory_classification',
+                        name: 'inventory_classification'
+                    },
+                    {
                         data: 'gold_carat_type',
                         name: 'gold_carat_type'
                     },
@@ -228,6 +234,12 @@
                     {
                         data: 'labor_cost_per_gram',
                         name: 'labor_cost_per_gram'
+                    },
+                    {
+                        data: 'published_branches',
+                        name: 'published_branches',
+                        orderable: false,
+                        searchable: false
                     }, 
                     {
                         data: 'status',

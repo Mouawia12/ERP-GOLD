@@ -1,15 +1,28 @@
 <!-- main-header opened -->
+<style>
+    .responsive-logo a {
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .responsive-logo .brand-header-logo {
+        width: 112px;
+        max-width: 100%;
+        max-height: 48px;
+        object-fit: contain;
+    }
+</style>
 <div class="main-header sticky side-header nav nav-item" id="main-header">
     <div class="container-fluid">
         <div class="main-header-left ">
             <div class="responsive-logo">
                 <a href="{{ url('/admin/' . $page='home') }}">
-                    <img src="{{URL::asset('assets/img/logo.png')}}"
-                         class="logo-1" alt="logo">
+                    <img src="{{ $brandLogoUrl }}"
+                         class="logo-1 brand-header-logo" alt="logo">
                 </a>
                 <a href="{{ url('/admin/' . $page='home') }}">
-                    <img src="{{URL::asset('assets/img/logo.png')}}"
-                         class="logo-2" alt="logo">
+                    <img src="{{ $brandLogoUrl }}"
+                         class="logo-2 brand-header-logo" alt="logo">
                 </a>
             </div> 
             <div class="app-sidebar__toggle" data-toggle="sidebar">

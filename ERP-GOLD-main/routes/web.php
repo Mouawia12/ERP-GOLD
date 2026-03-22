@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AccountingReportsController;
 use App\Http\Controllers\Admin\AccountsController;
 use App\Http\Controllers\Admin\AccountSettingController;
 use App\Http\Controllers\Admin\BranchController;
+use App\Http\Controllers\Admin\BankAccountController;
 use App\Http\Controllers\Admin\CaratController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CustomerController;
@@ -20,6 +21,8 @@ use App\Http\Controllers\Admin\RolesController;
 use App\Http\Controllers\Admin\SalesController;
 use App\Http\Controllers\Admin\StockReportsController;
 use App\Http\Controllers\Admin\StockSettlementController;
+use App\Http\Controllers\Admin\SystemSettingController;
+use App\Http\Controllers\Admin\ShiftController;
 use App\Http\Controllers\Admin\UsersController;
 use App\Http\Controllers\Admin\WarehouseController;
 use App\Models\Invoice;
@@ -59,7 +62,7 @@ Route::group(
             }
         );
         Route::group(
-            ['middleware' => ['auth:admin-web'],
+            ['middleware' => ['auth:admin-web', 'enforce.admin.session'],
                     'prefix' => 'admin',
                     'namespace' => 'Admin'], function () {
                 Route::get('/', [LoginController::class, 'showLoginForm']);
@@ -73,7 +76,9 @@ Route::group(
                 Route::get('/getCategory/{id}', [CategoryController::class, 'show'])->name('getCategory');
 
                 Route::get('/customers/{type}', [CustomerController::class, 'index'])->name('customers');
+                Route::get('/customers/report/{id}', [CustomerController::class, 'report'])->name('customers.report');
                 Route::post('customers/store/{type}', [CustomerController::class, 'store'])->name('customers.store');
+                Route::post('customers/quick-store/{type}', [CustomerController::class, 'quickStore'])->name('customers.quick-store');
                 Route::post('/customers/delete/{id}', [CustomerController::class, 'destroy'])->name('customers.delete');
                 Route::get('/customers/get/{id}', [CustomerController::class, 'edit'])->name('customers.get');
 
@@ -105,6 +110,12 @@ Route::group(
                 Route::get('/purchases/create', [PurchasesController::class, 'create'])->name('purchases.create');
                 Route::post('/purchases/store', [PurchasesController::class, 'store'])->name('purchases.store');
                 Route::get('/purchases/show/{id}', [PurchasesController::class, 'show'])->name('purchases.show');
+                Route::post('/purchases/payments', [PurchasesController::class, 'purchase_payment_show'])->name('purchases.payments');
+
+                Route::get('/shifts', [ShiftController::class, 'index'])->name('admin.shifts.index');
+                Route::post('/shifts', [ShiftController::class, 'store'])->name('admin.shifts.store');
+                Route::patch('/shifts/{shift}/close', [ShiftController::class, 'close'])->name('admin.shifts.close');
+                Route::get('/shifts/{shift}', [ShiftController::class, 'show'])->name('admin.shifts.show');
 
                 Route::get('/items', [ItemController::class, 'index'])->name('items.index');
                 Route::get('/items/create', [ItemController::class, 'create'])->name('items.create');
@@ -182,6 +193,9 @@ Route::group(
                 Route::get('/reports/purchases_total_report', [StockReportsController::class, 'purchases_total_report_search'])->name('reports.purchases_total_report.search');
                 Route::post('/reports/purchases_total_report', [StockReportsController::class, 'purchases_total_report'])->name('reports.purchases_total_report.index');
 
+                Route::get('/reports/daily_carat_report', [StockReportsController::class, 'daily_carat_report_search'])->name('reports.daily_carat_report.search');
+                Route::post('/reports/daily_carat_report', [StockReportsController::class, 'daily_carat_report'])->name('reports.daily_carat_report.index');
+
                 Route::any('/reports/gold_stock', [WarehouseController::class, 'gold_stock'])->name('reports.gold_stock.index');
                 Route::get('/reports/gold_stock/search', [WarehouseController::class, 'gold_stock_search'])->name('reports.gold_stock.search');
 
@@ -189,7 +203,7 @@ Route::group(
 
                 Route::get('/prices', [PricingController::class, 'index'])->name('prices');
                 Route::get('/gold-stock-market-prices', [PricingController::class, 'get_gold_stock_market_prices'])->name('gold.stock.market.prices');
-                Route::get('/updatePrices', [PricingController::class, 'edit'])->name('updatePrices');
+                Route::post('/updatePrices', [PricingController::class, 'sync'])->name('updatePrices');
                 Route::post('/updatePricesManual', [PricingController::class, 'update'])->name('updatePricesManual');
                 Route::get('/gold-price-api', [PricingController::class, 'Gold_Price_Api'])->name('gold.price.api');
                 Route::get('/exchange_rates_all', [PricingController::class, 'exchange_rates_all'])->name('exchange_rates_all');
@@ -227,6 +241,33 @@ Route::group(
                     'store' => 'admin.users.store',
                     'show' => 'admin.users.show'
                 ]);
+
+                Route::get('system-settings/login-mode', [SystemSettingController::class, 'editLoginMode'])
+                    ->name('admin.system-settings.login-mode.edit');
+                Route::patch('system-settings/login-mode', [SystemSettingController::class, 'updateLoginMode'])
+                    ->name('admin.system-settings.login-mode.update');
+                Route::get('system-settings/invoice-terms', [SystemSettingController::class, 'editInvoiceTerms'])
+                    ->name('admin.system-settings.invoice-terms.edit');
+                Route::patch('system-settings/invoice-terms', [SystemSettingController::class, 'updateInvoiceTerms'])
+                    ->name('admin.system-settings.invoice-terms.update');
+                Route::get('system-settings/invoice-print', [SystemSettingController::class, 'editInvoicePrint'])
+                    ->name('admin.system-settings.invoice-print.edit');
+                Route::patch('system-settings/invoice-print', [SystemSettingController::class, 'updateInvoicePrint'])
+                    ->name('admin.system-settings.invoice-print.update');
+                Route::get('system-settings/branding', [SystemSettingController::class, 'editBranding'])
+                    ->name('admin.system-settings.branding.edit');
+                Route::patch('system-settings/branding', [SystemSettingController::class, 'updateBranding'])
+                    ->name('admin.system-settings.branding.update');
+                Route::get('system-settings/bank-accounts', [BankAccountController::class, 'index'])
+                    ->name('admin.system-settings.bank-accounts.index');
+                Route::get('system-settings/bank-accounts/create', [BankAccountController::class, 'create'])
+                    ->name('admin.system-settings.bank-accounts.create');
+                Route::post('system-settings/bank-accounts', [BankAccountController::class, 'store'])
+                    ->name('admin.system-settings.bank-accounts.store');
+                Route::get('system-settings/bank-accounts/{bankAccount}/edit', [BankAccountController::class, 'edit'])
+                    ->name('admin.system-settings.bank-accounts.edit');
+                Route::patch('system-settings/bank-accounts/{bankAccount}', [BankAccountController::class, 'update'])
+                    ->name('admin.system-settings.bank-accounts.update');
 
                 Route::get('profile/edit/{id}', [UsersController::class, 'edit'])->name('admin.profile.edit');
                 Route::patch('profile/update/{id}', [UsersController::class, 'update'])->name('admin.profile.update');

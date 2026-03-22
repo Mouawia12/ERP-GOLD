@@ -37,7 +37,7 @@ class HomeController extends Controller
         $roles = [];
         $users = [];
         $branches = [];
-        $pricings = GoldPrice::all();
+        $pricings = GoldPrice::query()->orderByDesc('last_update')->limit(1)->get();
         $startDate = Carbon::now()->startOfDay();
         $endDate = Carbon::now()->endOfDay();
 

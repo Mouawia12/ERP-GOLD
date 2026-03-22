@@ -128,9 +128,23 @@
                                                         <select class="form-control mr-sm-2"
                                                                 name="customer_id" id="customer_id"> 
                                                             @foreach ($customers as $customer)
-                                                                <option value="{{$customer -> id}}"> {{ $customer -> name}}</option>
+                                                                <option
+                                                                    value="{{$customer -> id}}"
+                                                                    data-name="{{ $customer->name }}"
+                                                                    data-phone="{{ $customer->phone }}"
+                                                                    data-identity-number="{{ $customer->identity_number }}"
+                                                                    data-cash-party="{{ $customer->is_cash_party ? 1 : 0 }}"
+                                                                >
+                                                                    {{ $customer -> name}}
+                                                                </option>
                                                             @endforeach
                                                         </select>
+                                                        <div class="custom-control custom-switch text-right mt-2">
+                                                            <input type="checkbox" class="custom-control-input" id="cash_party_only_toggle">
+                                                            <label class="custom-control-label" for="cash_party_only_toggle">
+                                                                عرض العملاء النقديين فقط
+                                                            </label>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div class="col-md-3">
@@ -142,21 +156,58 @@
                                                 </div>
                                                 <div class="col-md-3">
                                                     <div class="form-group">
+                                                        <label>رقم هوية العميل</label>
+                                                        <input class="form-control text-right" name="bill_client_identity_number" autocomplete="off">
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="form-group">
                                                         <label >
                                                             {{ __('main.bill_client_name') }} 
                                                         </label>
                                                       <input class="form-control text-right" name="bill_client_name" autocomplete="off">
+                                                      @can('employee.customers.add')
+                                                          <button
+                                                              type="button"
+                                                              class="btn btn-outline-primary btn-block mt-2"
+                                                              id="quick_save_customer_btn"
+                                                              data-url="{{ route('customers.quick-store', ['type' => 'customer']) }}"
+                                                          >
+                                                              حفظ الاسم الحالي كعميل
+                                                          </button>
+                                                          <div class="custom-control custom-switch text-right mt-2">
+                                                              <input type="checkbox" class="custom-control-input" id="quick_save_customer_is_cash_party">
+                                                              <label class="custom-control-label" for="quick_save_customer_is_cash_party">
+                                                                  حفظه كطرف نقدي
+                                                              </label>
+                                                          </div>
+                                                      @endcan
                                                     </div>
                                                 </div>
                                                 <div class="col-md-6">
                                                     <div class="form-group">
-                                                    <label >{{ __('main.notes') }} 
-                                                    </label>
-                                                        <textarea name="notes" id="notes" rows="2"
-                                                                  placeholder="{{ __('main.notes') }}"
-                                                                  class="form-control"
-                                                                  style="width: 100%">
-                                                        </textarea>
+                                                        <label>{{ __('main.notes') }}</label>
+                                                        <textarea
+                                                            name="notes"
+                                                            id="notes"
+                                                            rows="2"
+                                                            placeholder="{{ __('main.notes') }}"
+                                                            class="form-control"
+                                                            style="width: 100%"
+                                                        >{{ old('notes') }}</textarea>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-group">
+                                                        <label>شروط الفاتورة</label>
+                                                        <textarea
+                                                            name="invoice_terms"
+                                                            id="invoice_terms"
+                                                            rows="2"
+                                                            placeholder="اكتب شروط الفاتورة"
+                                                            class="form-control"
+                                                            style="width: 100%"
+                                                        >{{ old('invoice_terms', $defaultInvoiceTerms) }}</textarea>
                                                     </div>
                                                 </div>
                                             </div>
@@ -377,17 +428,97 @@
     var sItems = {};
     var count = 1; 
     document.title = "فاتورة مبيعات مبسطة";
+    var quickCustomerStoreUrl = $('#quick_save_customer_btn').data('url');
 
     $(document).ready(function () {  
 
         $('#add_item').focus();
+        applyCashPartyFilter();
+        syncSelectedPartySnapshot();
+
+        $(document).on('change', '#customer_id', function () {
+            syncSelectedPartySnapshot();
+        });
+        $(document).on('change', '#cash_party_only_toggle', function () {
+            applyCashPartyFilter();
+            syncSelectedPartySnapshot();
+        });
+
+        $(document).on('click', '#quick_save_customer_btn', function () {
+            var button = $(this);
+            var name = $.trim($('input[name="bill_client_name"]').val());
+            var phone = $.trim($('input[name="bill_client_phone"]').val());
+            var identityNumber = $.trim($('input[name="bill_client_identity_number"]').val());
+            var isCashParty = $('#quick_save_customer_is_cash_party').is(':checked') ? 1 : 0;
+
+            if (!name.length) {
+                Swal.fire({
+                    title: 'بيانات ناقصة',
+                    text: 'أدخل اسم العميل أولًا قبل الحفظ السريع.',
+                    icon: 'warning',
+                    confirmButtonText: 'موافق'
+                });
+                return;
+            }
+
+            button.prop('disabled', true).text('جاري الحفظ...');
+
+            $.ajax({
+                type: 'post',
+                url: quickCustomerStoreUrl,
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    name: name,
+                    phone: phone,
+                    identity_number: identityNumber,
+                    is_cash_party: isCashParty
+                },
+                dataType: 'json',
+                success: function (response) {
+                    upsertPartyOption(
+                        '#customer_id',
+                        response.customer_id,
+                        response.customer_name,
+                        response.phone,
+                        response.identity_number,
+                        response.is_cash_party
+                    );
+                    syncSelectedPartySnapshot();
+                    Swal.fire({
+                        title: response.created ? 'تم الحفظ' : 'موجود مسبقًا',
+                        text: response.message,
+                        icon: 'success',
+                        confirmButtonText: 'موافق'
+                    });
+                },
+                error: function (xhr) {
+                    Swal.fire({
+                        title: 'تعذر الحفظ',
+                        text: extractPartyErrors(xhr),
+                        icon: 'error',
+                        confirmButtonText: 'موافق'
+                    });
+                },
+                complete: function () {
+                    button.prop('disabled', false).text('حفظ الاسم الحالي كعميل');
+                }
+            });
+        });
+
         $(document).on('click', '#payment_btn', function (){
             const money = document.getElementById('money').value;
             const cash = document.getElementById('cash').value;
-            const visa = document.getElementById('visa').value;
+            const paymentLines = collectPaymentLines();
+            const visa = paymentLines
+                .filter(function (line) { return line.method_type === 'credit_card'; })
+                .reduce(function (sum, line) { return sum + Number(line.amount || 0); }, 0)
+                .toFixed(2);
             const type = document.getElementById('type').value;
+            const nonCashTotal = paymentLines.reduce(function (sum, line) {
+                return sum + Number(line.amount || 0);
+            }, 0);
 
-            if(Number(money) == (Number(cash) + Number(visa))){
+            if(Math.abs(Number(money) - (Number(cash) + Number(nonCashTotal))) < 0.01){
 
                 var url = $('#pos_sales_form').attr('action');
                 var user_id = $('input[name="user_id"]').val();
@@ -396,7 +527,9 @@
                 var branch_id = $('#branch_id').val();
                 var bill_client_phone = $('input[name="bill_client_phone"]').val();
                 var bill_client_name = $('input[name="bill_client_name"]').val();
-                var notes = $('input[name="notes"]').val();
+                var bill_client_identity_number = $('input[name="bill_client_identity_number"]').val();
+                var notes = $('textarea[name="notes"]').val();
+                var invoice_terms = $('textarea[name="invoice_terms"]').val();
                 $.ajax({
                     type: 'post',
                     url: url,
@@ -407,10 +540,13 @@
                         branch_id: branch_id,
                         bill_client_phone: bill_client_phone,
                         bill_client_name: bill_client_name,
+                        bill_client_identity_number: bill_client_identity_number,
                         type: type,
                         cash: cash,
-                        visa: visa,   
+                        visa: visa,
+                        payment_lines: paymentLines,
                         notes: notes,
+                        invoice_terms: invoice_terms,
                         unit_id: getFormValuesForKey('unit_id'),
                         carats_id: getFormValuesForKey('carats_id'),
                         weight: getFormValuesForKey('weight'),
@@ -443,11 +579,21 @@
                         }
                     },
                     error: function (err){
-                        console.log( JSON.parse(JSON.stringify(err.responseText)) );
+                        Swal.fire({
+                            title: 'تعذر حفظ الفاتورة',
+                            text: extractAjaxErrors(err, 'حدث خطأ أثناء حفظ الفاتورة.'),
+                            icon: 'error',
+                            confirmButtonText: 'موافق'
+                        });
                     }
                 });
             } else {
-                alert($('<div>{{trans('main.paid_must_equal_net')}}</div>').text());
+                Swal.fire({
+                    title: 'بيانات دفع غير متطابقة',
+                    text: $('<div>{{trans('main.paid_must_equal_net')}}</div>').text(),
+                    icon: 'warning',
+                    confirmButtonText: 'موافق'
+                });
             } 
         });
 
@@ -460,18 +606,77 @@
             });
             return data;
         }
-            
-        $(document).on('change', '#cash', function () {
-            const money = document.getElementById('money').value;
-            var visa = (Number(money) - Number(this.value)).toFixed(2);
-            document.getElementById('visa').value = visa ;
-        });
-        
-        $(document).on('keyup', '#cash', function () {
-            const money = document.getElementById('money').value;
-            var visa = (Number(money) - Number(this.value)).toFixed(2);
-            document.getElementById('visa').value = visa ;
-        });
+
+        function syncSelectedPartySnapshot() {
+            var selectedOption = $('#customer_id option:selected');
+            $('input[name="bill_client_name"]').val(selectedOption.data('name') || '');
+            $('input[name="bill_client_phone"]').val(selectedOption.data('phone') || '');
+            $('input[name="bill_client_identity_number"]').val(selectedOption.data('identity-number') || '');
+            $('#quick_save_customer_is_cash_party').prop('checked', String(selectedOption.data('cash-party')) === '1');
+        }
+
+        function applyCashPartyFilter() {
+            var select = $('#customer_id');
+            var cashOnly = $('#cash_party_only_toggle').is(':checked');
+            var firstEnabledValue = null;
+
+            select.find('option').each(function () {
+                var option = $(this);
+                var isCashParty = String(option.data('cash-party')) === '1';
+                var isEnabled = !cashOnly || isCashParty;
+
+                option.prop('disabled', !isEnabled);
+
+                if (isEnabled && firstEnabledValue === null) {
+                    firstEnabledValue = option.val();
+                }
+            });
+
+            var selectedOption = select.find('option:selected');
+            if (!selectedOption.length || selectedOption.prop('disabled')) {
+                select.val(firstEnabledValue || '');
+            }
+
+            select.trigger('change.select2');
+        }
+
+        function upsertPartyOption(selectSelector, id, name, phone, identityNumber, isCashParty) {
+            var select = $(selectSelector);
+            var option = select.find('option[value="' + id + '"]');
+
+            if (!option.length) {
+                option = $('<option></option>').val(id).appendTo(select);
+            }
+
+            option
+                .text(name)
+                .attr('data-name', name)
+                .attr('data-phone', phone || '')
+                .attr('data-identity-number', identityNumber || '')
+                .attr('data-cash-party', isCashParty ? 1 : 0);
+
+            select.val(String(id)).trigger('change');
+        }
+
+        function extractPartyErrors(xhr) {
+            if (xhr.responseJSON && Array.isArray(xhr.responseJSON.errors) && xhr.responseJSON.errors.length) {
+                return xhr.responseJSON.errors.join('\n');
+            }
+
+            return 'حدث خطأ أثناء حفظ بيانات العميل.';
+        }
+
+        function extractAjaxErrors(xhr, fallbackMessage) {
+            if (xhr.responseJSON && Array.isArray(xhr.responseJSON.errors) && xhr.responseJSON.errors.length) {
+                return xhr.responseJSON.errors.join('\n');
+            }
+
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                return xhr.responseJSON.message;
+            }
+
+            return fallbackMessage;
+        }
  
 
         $(document).on('click', '#sales_btn', function () {
@@ -483,7 +688,7 @@
             if(client > 0) {
                 if (rows > 0){
                     if (true) {
-                        openPaymentModal(document_type, net_total);
+                        openPaymentModal(document_type, net_total, $('#branch_id').val());
                         localStorage.setItem('openModal', net_total);
                     } else {
                         alert($('<div>{{trans('main.paid_must_equal_net')}}</div>').text());
@@ -601,15 +806,122 @@
     }
 
 
-    function openPaymentModal(document_type, net_total){
+    function openPaymentModal(document_type, net_total, branch_id){
         let url = "{{ route('sales.payments')}}";
-        $.post( url,{document_type: document_type, net_after_discount: net_total}, function( data ) {
+        $.post( url,{document_type: document_type, net_after_discount: net_total, branch_id: branch_id}, function( data ) {
             $(".show_modal1").html( data ); 
+            refreshPaymentSummary();
 
             $('#paymentsModal').modal({backdrop: 'static', keyboard: false} ,'show');
         });
     }
-	
+
+    function buildBankAccountOptions(methodType, selectedId) {
+        var options = '<option value="">حدد الحساب البنكي</option>';
+        var items = window.currentSalesBankAccounts || [];
+
+        items.forEach(function (item) {
+            var supported = methodType === 'credit_card' ? item.supports_credit_card : item.supports_bank_transfer;
+
+            if (!supported) {
+                return;
+            }
+
+            var selected = String(selectedId || '') === String(item.id) ? 'selected' : '';
+            options += '<option value="' + item.id + '" ' + selected + '>' + item.name + '</option>';
+        });
+
+        return options;
+    }
+
+    function appendPaymentLineRow(line) {
+        var methodType = (line && line.method_type) ? line.method_type : 'credit_card';
+        var bankAccountId = line && line.bank_account_id ? line.bank_account_id : '';
+        var referenceNo = line && line.reference_no ? line.reference_no : '';
+        var amount = line && line.amount ? line.amount : '';
+
+        var rowHtml = ''
+            + '<tr class="payment-line-row">'
+            + '<td>'
+            + '<select class="form-control payment-line-method">'
+            + '<option value="credit_card"' + (methodType === 'credit_card' ? ' selected' : '') + '>شبكة / بطاقة</option>'
+            + '<option value="bank_transfer"' + (methodType === 'bank_transfer' ? ' selected' : '') + '>تحويل بنكي</option>'
+            + '</select>'
+            + '</td>'
+            + '<td><select class="form-control payment-line-bank-account">' + buildBankAccountOptions(methodType, bankAccountId) + '</select></td>'
+            + '<td><input type="text" class="form-control payment-line-reference" value="' + referenceNo + '" placeholder="رقم المرجع"></td>'
+            + '<td><input type="number" min="0" step="any" class="form-control payment-line-amount" value="' + amount + '" placeholder="0.00"></td>'
+            + '<td><button type="button" class="btn btn-outline-danger btn-sm remove-payment-line">حذف</button></td>'
+            + '</tr>';
+
+        $('#payment_lines_table tbody').append(rowHtml);
+        refreshPaymentSummary();
+    }
+
+    function collectPaymentLines() {
+        var lines = [];
+
+        $('#payment_lines_table tbody tr').each(function () {
+            var row = $(this);
+            var amount = Number(row.find('.payment-line-amount').val() || 0);
+
+            if (amount <= 0) {
+                return;
+            }
+
+            lines.push({
+                method_type: row.find('.payment-line-method').val(),
+                bank_account_id: row.find('.payment-line-bank-account').val(),
+                reference_no: row.find('.payment-line-reference').val(),
+                amount: amount.toFixed(2)
+            });
+        });
+
+        return lines;
+    }
+
+    function refreshPaymentSummary() {
+        var moneyInput = document.getElementById('money');
+        if (!moneyInput) {
+            return;
+        }
+
+        var cashValue = Number($('#cash').val() || 0);
+        var paymentLines = collectPaymentLines();
+        var nonCashTotal = paymentLines.reduce(function (sum, line) {
+            return sum + Number(line.amount || 0);
+        }, 0);
+        var total = Number(moneyInput.value || 0);
+        var remaining = (total - (cashValue + nonCashTotal)).toFixed(2);
+        var cardTotal = paymentLines
+            .filter(function (line) { return line.method_type === 'credit_card'; })
+            .reduce(function (sum, line) { return sum + Number(line.amount || 0); }, 0)
+            .toFixed(2);
+
+        $('#payment_lines_total').text(nonCashTotal.toFixed(2));
+        $('#payment_remaining').val(remaining);
+        $('#visa').val(cardTotal);
+    }
+
+    $(document).on('click', '#add_payment_line_btn', function () {
+        appendPaymentLineRow();
+    });
+
+    $(document).on('click', '.remove-payment-line', function () {
+        $(this).closest('tr').remove();
+        refreshPaymentSummary();
+    });
+
+    $(document).on('change', '.payment-line-method', function () {
+        var row = $(this).closest('tr');
+        row.find('.payment-line-bank-account').html(buildBankAccountOptions($(this).val(), ''));
+        refreshPaymentSummary();
+    });
+
+    $(document).on('keyup change', '#cash, .payment-line-amount, .payment-line-bank-account, .payment-line-reference', function () {
+        refreshPaymentSummary();
+    });
+		
     function openDialog() {
         let href = $(this).attr('data-attr');
         $.ajax({
@@ -910,6 +1222,3 @@ function calcTotals(updateLineNetTotal = true){
 </script> 
 @endsection 
  
-
-
-

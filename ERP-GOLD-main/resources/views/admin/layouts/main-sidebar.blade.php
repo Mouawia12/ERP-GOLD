@@ -14,9 +14,12 @@
 	    .side-menu__label{color:#666;font-size:13px;font-weight:600;padding-top:5%;}
         .main-header {height: 50px !important;}
         .main-profile-menu.show .dropdown-menu {top: 50px !important;}
-        .app-sidebar__user .user-pro-body img{
-            width:100px !important;
+        .app-sidebar__brand-logo{
+            width: 140px !important;
             height:auto !important;
+            max-width: 100%;
+            object-fit: contain;
+            filter: drop-shadow(0 6px 18px rgba(229, 184, 11, 0.18));
         }
     </style>
     
@@ -25,8 +28,8 @@
             <div class="dropdown user-pro-body">
                 <a href="{{route('admin.home')}}">
                     <div class="">
-                        <img alt="user-img" class="avatar avatar-xl brround ht-200"
-                             src="{{URL::asset('assets/img/logo.png')}}">  
+                        <img alt="user-img" class="app-sidebar__brand-logo"
+                             src="{{ $brandLogoUrl }}">  
                     </div> 
                     <br>
                     <h5 class="text-center">GOLD-MS</h5>
@@ -344,6 +347,11 @@
                         {{__('main.payments')}}
                         </a>
                     </li>                             
+                    <li>
+                        <a class="slide-item" href="{{ route('admin.shifts.index') }}">
+                        {{ __('الشفتات') }}
+                        </a>
+                    </li>
                 </ul>
             </li>  
             @canany(['employee.accounts.add','employee.accounts.show','employee.accounts.edit','employee.accounts.delete'])                 
@@ -434,6 +442,11 @@
                             {{__('main.purchase_total_report')}}
                             </a>
                         </li> 
+                        <li>
+                            <a class="slide-item" href="{{route('reports.daily_carat_report.search')}}">
+                            التقرير اليومي حسب العيار
+                            </a>
+                        </li>
                         <li>
                             <a class="slide-item" href="{{route('reports.gold_stock.search')}}">
                             {{__('main.gold_stock_report')}}
@@ -552,6 +565,33 @@
                             <li>
                                 <a class="slide-item" href="{{ route('admin.users.index') }}">
                                     قائمة المستخدمين
+                                </a>
+                            </li>
+                        @endcan
+                        @can('employee.system_settings.show')
+                            <li>
+                                <a class="slide-item" href="{{ route('admin.system-settings.login-mode.edit') }}">
+                                    إعدادات تسجيل الدخول
+                                </a>
+                            </li>
+                            <li>
+                                <a class="slide-item" href="{{ route('admin.system-settings.invoice-terms.edit') }}">
+                                    شروط الفاتورة
+                                </a>
+                            </li>
+                            <li>
+                                <a class="slide-item" href="{{ route('admin.system-settings.invoice-print.edit') }}">
+                                    إعدادات طباعة الفواتير
+                                </a>
+                            </li>
+                            <li>
+                                <a class="slide-item" href="{{ route('admin.system-settings.branding.edit') }}">
+                                    الشعار الرئيسي
+                                </a>
+                            </li>
+                            <li>
+                                <a class="slide-item" href="{{ route('admin.system-settings.bank-accounts.index') }}">
+                                    الحسابات البنكية
                                 </a>
                             </li>
                         @endcan

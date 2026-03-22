@@ -4,15 +4,22 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Models\Branch;
 use App\Models\Customer;
+use App\Models\FinancialVoucher;
+use App\Models\GoldCarat;
+use App\Models\Invoice;
+use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class CustomerController extends Controller
 {
+    private const ALLOWED_TYPES = ['customer', 'supplier'];
+    private const REPORTABLE_INVOICE_TYPES = ['sale', 'sale_return', 'purchase', 'purchase_return'];
+    private const REPORTABLE_VOUCHER_TYPES = ['receipt', 'payment'];
+
     /**
      * Display a listing of the resource.
      *
@@ -20,12 +27,27 @@ class CustomerController extends Controller
      */
     public function index($type)
     {
-        $customers = Customer::where('type', $type)->get();
+        $type = $this->normalizeType($type);
+        $this->authorizeTypePermission($type, 'show');
+
+        $cashOnly = request()->boolean('cash_only');
+        $identityNumber = $this->normalizeOptionalFilter(request('identity_number'));
+
+        $customers = Customer::where('type', $type)
+            ->when($cashOnly, function ($query) {
+                return $query->where('is_cash_party', true);
+            })
+            ->when($identityNumber, function ($query, $value) {
+                return $query->where('identity_number', 'like', '%' . $value . '%');
+            })
+            ->orderByDesc('is_cash_party')
+            ->orderBy('name')
+            ->get();
 
         $accounts = Account::all();
 
         return view('admin.customers.index', ['type' => $type, 'customers' =>
-            $customers, 'accounts' => $accounts]);
+            $customers, 'accounts' => $accounts, 'cashOnly' => $cashOnly, 'identityNumber' => $identityNumber]);
     }
 
     public function clientAccount($id)
@@ -58,11 +80,17 @@ class CustomerController extends Controller
      * @param  \App\Http\Requests\StoreCompanyRequest  $request
      * @return \Illuminate\Http\Response
      */
-    public function store(Request $request)
+    public function store(Request $request, $type)
     {
+        $type = $this->normalizeType($type);
+        $this->authorizeTypePermission($type, $request->filled('id') ? 'edit' : 'add');
+        $request->merge(['type' => $type]);
+
         $validator = Validator::make($request->all(), [
             'name' => 'required',
             'phone' => 'nullable',
+            'is_cash_party' => 'nullable|boolean',
+            'identity_number' => 'nullable|string|max:100',
             'email' => 'nullable|',
             'vat_no' => 'nullable',
             'region' => 'required_with:vat_no',
@@ -97,6 +125,8 @@ class CustomerController extends Controller
             ], [
                 'name' => $request->name,
                 'phone' => $request->phone,
+                'is_cash_party' => $request->boolean('is_cash_party'),
+                'identity_number' => $request->identity_number,
                 'email' => $request->email,
                 'tax_number' => $request->vat_no,
                 'region' => $request->region,
@@ -121,6 +151,250 @@ class CustomerController extends Controller
         }
     }
 
+    public function quickStore(Request $request, $type)
+    {
+        $type = $this->normalizeType($type);
+        $this->authorizeTypePermission($type, 'add');
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'phone' => 'nullable|string|max:50',
+            'is_cash_party' => 'nullable|boolean',
+            'identity_number' => 'nullable|string|max:100',
+        ], [
+            'name.required' => __('validations.customer_name_required', [
+                'type' => $type === 'customer' ? __('main.customer') : __('main.supplier'),
+            ]),
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'errors' => $validator->errors()->all(),
+            ], 422);
+        }
+
+        $name = trim((string) $request->input('name'));
+        $phone = trim((string) $request->input('phone'));
+        $isCashParty = $request->boolean('is_cash_party');
+        $identityNumber = trim((string) $request->input('identity_number'));
+
+        $customer = Customer::query()
+            ->where('type', $type)
+            ->when($phone !== '', function ($query) use ($phone) {
+                return $query->where('phone', $phone);
+            })
+            ->first();
+
+        if (! $customer && $identityNumber !== '') {
+            $customer = Customer::query()
+                ->where('type', $type)
+                ->where('identity_number', $identityNumber)
+                ->first();
+        }
+
+        if (! $customer) {
+            $customer = Customer::query()
+                ->where('type', $type)
+                ->where('name', $name)
+                ->first();
+        }
+
+        $created = false;
+
+        if (! $customer) {
+            $customer = Customer::create([
+                'name' => $name,
+                'phone' => $phone !== '' ? $phone : null,
+                'type' => $type,
+                'is_cash_party' => $isCashParty,
+                'identity_number' => $identityNumber !== '' ? $identityNumber : null,
+            ]);
+            $created = true;
+        } else {
+            $updates = [];
+
+            if (empty($customer->phone) && $phone !== '') {
+                $updates['phone'] = $phone;
+            }
+
+            if ($isCashParty && ! $customer->is_cash_party) {
+                $updates['is_cash_party'] = true;
+            }
+
+            if (empty($customer->identity_number) && $identityNumber !== '') {
+                $updates['identity_number'] = $identityNumber;
+            }
+
+            if ($updates !== []) {
+                $customer->update($updates);
+            }
+        }
+
+        return response()->json([
+            'status' => true,
+            'created' => $created,
+            'message' => $created
+                ? sprintf('تم حفظ %s بنجاح وإتاحته للاستخدام.', $this->partyLabel($type))
+                : sprintf('تم استخدام %s المحفوظ مسبقًا.', $this->partyLabel($type)),
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'phone' => $customer->phone,
+            'identity_number' => $customer->identity_number,
+            'type' => $customer->type,
+            'is_cash_party' => (bool) $customer->is_cash_party,
+        ]);
+    }
+
+    public function report(Request $request, $id)
+    {
+        $customer = Customer::findOrFail($id);
+        $this->authorizeTypePermission($customer->type, 'show');
+
+        $filters = Validator::make($request->all(), [
+            'from_date' => 'nullable|date',
+            'to_date' => 'nullable|date',
+            'from_time' => 'nullable|string|max:8',
+            'to_time' => 'nullable|string|max:8',
+            'branch_id' => 'nullable|exists:branches,id',
+            'user_id' => 'nullable|exists:users,id',
+            'carat_id' => 'nullable|exists:gold_carats,id',
+            'invoice_number' => 'nullable|string|max:191',
+            'operation_type' => 'nullable|in:' . implode(',', array_merge(self::REPORTABLE_INVOICE_TYPES, self::REPORTABLE_VOUCHER_TYPES)),
+        ])->validate();
+
+        $filters['invoice_number'] = $this->normalizeOptionalFilter(
+            $filters['invoice_number'] ?? $request->input('billNumber')
+        );
+        $filters['from_time'] = $this->normalizeTime($filters['from_time'] ?? null);
+        $filters['to_time'] = $this->normalizeTime($filters['to_time'] ?? null);
+
+        $selectedCaratId = isset($filters['carat_id']) ? (int) $filters['carat_id'] : null;
+
+        $shouldQueryInvoices = ! ($filters['operation_type'] ?? null)
+            || in_array($filters['operation_type'], self::REPORTABLE_INVOICE_TYPES, true);
+        $shouldQueryVouchers = ! ($filters['operation_type'] ?? null)
+            || in_array($filters['operation_type'], self::REPORTABLE_VOUCHER_TYPES, true);
+
+        $invoiceTransactions = collect();
+        if ($shouldQueryInvoices) {
+            $invoiceTransactions = Invoice::query()
+                ->with(['branch', 'user', 'details.carat'])
+                ->where('customer_id', $customer->id)
+                ->whereIn('type', self::REPORTABLE_INVOICE_TYPES)
+                ->when($filters['from_date'] ?? null, function ($query, $value) {
+                    return $query->whereDate('date', '>=', $value);
+                })
+                ->when($filters['to_date'] ?? null, function ($query, $value) {
+                    return $query->whereDate('date', '<=', $value);
+                })
+                ->when($filters['from_time'] ?? null, function ($query, $value) {
+                    return $query->where('time', '>=', $value);
+                })
+                ->when($filters['to_time'] ?? null, function ($query, $value) {
+                    return $query->where('time', '<=', $value);
+                })
+                ->when($filters['branch_id'] ?? null, function ($query, $value) {
+                    return $query->where('branch_id', $value);
+                })
+                ->when($filters['user_id'] ?? null, function ($query, $value) {
+                    return $query->where('user_id', $value);
+                })
+                ->when($filters['invoice_number'] ?? null, function ($query, $value) {
+                    return $query->where('bill_number', $value);
+                })
+                ->when($filters['operation_type'] ?? null, function ($query, $value) {
+                    return $query->where('type', $value);
+                })
+                ->when($selectedCaratId, function ($query, $value) {
+                    return $query->whereHas('details', function ($detailsQuery) use ($value) {
+                        $detailsQuery->where('gold_carat_id', $value);
+                    });
+                })
+                ->orderByDesc('date')
+                ->orderByDesc('time')
+                ->orderByDesc('id')
+                ->get()
+                ->map(function (Invoice $invoice) use ($selectedCaratId) {
+                    return $this->mapCustomerReportTransaction($invoice, $selectedCaratId);
+                })
+                ->filter(function (array $transaction) {
+                    return $transaction['details_count'] > 0;
+                })
+                ->values();
+        }
+
+        $voucherTransactions = collect();
+        if ($shouldQueryVouchers && $customer->account_id && ! $selectedCaratId) {
+            $voucherTransactions = FinancialVoucher::query()
+                ->with(['branch', 'shift.user', 'fromAccount', 'toAccount'])
+                ->where(function ($query) use ($customer) {
+                    $query->where('from_account_id', $customer->account_id)
+                        ->orWhere('to_account_id', $customer->account_id);
+                })
+                ->when($filters['from_date'] ?? null, function ($query, $value) {
+                    return $query->whereDate('date', '>=', $value);
+                })
+                ->when($filters['to_date'] ?? null, function ($query, $value) {
+                    return $query->whereDate('date', '<=', $value);
+                })
+                ->when($filters['from_time'] ?? null, function ($query, $value) {
+                    return $query->whereTime('created_at', '>=', $value);
+                })
+                ->when($filters['to_time'] ?? null, function ($query, $value) {
+                    return $query->whereTime('created_at', '<=', $value);
+                })
+                ->when($filters['branch_id'] ?? null, function ($query, $value) {
+                    return $query->where('branch_id', $value);
+                })
+                ->when($filters['user_id'] ?? null, function ($query, $value) {
+                    return $query->whereHas('shift', function ($shiftQuery) use ($value) {
+                        $shiftQuery->where('user_id', $value);
+                    });
+                })
+                ->when($filters['invoice_number'] ?? null, function ($query, $value) {
+                    return $query->where('bill_number', $value);
+                })
+                ->when($filters['operation_type'] ?? null, function ($query, $value) {
+                    return $query->where('type', $value);
+                })
+                ->orderByDesc('date')
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->get()
+                ->map(function (FinancialVoucher $voucher) {
+                    return $this->mapCustomerReportVoucher($voucher);
+                })
+                ->values();
+        }
+
+        $transactions = $invoiceTransactions
+            ->concat($voucherTransactions)
+            ->sortByDesc(function (array $transaction) {
+                return sprintf(
+                    '%s %s %010d',
+                    $transaction['date'],
+                    $transaction['time_sort'] ?? $transaction['time'],
+                    $transaction['sort_id'] ?? $transaction['id'],
+                );
+            })
+            ->values();
+
+        $operationSummary = $this->buildOperationSummary($transactions);
+        $caratSummary = $this->buildCaratSummary($transactions);
+
+        return view('admin.customers.report', [
+            'customer' => $customer,
+            'transactions' => $transactions,
+            'operationSummary' => $operationSummary,
+            'caratSummary' => $caratSummary,
+            'branches' => Branch::query()->orderBy('name')->get(),
+            'users' => User::query()->orderBy('name')->get(),
+            'carats' => GoldCarat::query()->orderBy('id')->get(),
+            'filters' => $filters,
+        ]);
+    }
+
     /**
      * Display the specified resource.
      *
@@ -141,6 +415,9 @@ class CustomerController extends Controller
     public function edit($id)
     {
         $customer = Customer::find($id);
+        abort_if(! $customer, 404);
+        $this->authorizeTypePermission($customer->type, 'edit');
+
         return response()->json($customer);
     }
 
@@ -154,11 +431,248 @@ class CustomerController extends Controller
     {
         $customer = Customer::find($id);
         if ($customer) {
+            $this->authorizeTypePermission($customer->type, 'delete');
             $customer->delete();
             return response()->json([
                 'status' => true,
                 'message' => __('main.deleted')
             ]);
         }
+    }
+
+    private function normalizeType(?string $type): string
+    {
+        abort_unless(in_array($type, self::ALLOWED_TYPES, true), 404);
+
+        return $type;
+    }
+
+    private function authorizeTypePermission(string $type, string $ability): void
+    {
+        abort_unless(auth()->user()?->can($this->permissionName($type, $ability)), 403);
+    }
+
+    private function permissionName(string $type, string $ability): string
+    {
+        $resource = $type === 'customer' ? 'customers' : 'suppliers';
+
+        return sprintf('employee.%s.%s', $resource, $ability);
+    }
+
+    private function partyLabel(string $type): string
+    {
+        return $type === 'customer' ? 'العميل' : 'المورد';
+    }
+
+    private function operationLabel(string $type): string
+    {
+        return match ($type) {
+            'sale' => 'بيع',
+            'sale_return' => 'مرتجع بيع',
+            'purchase' => 'شراء',
+            'purchase_return' => 'مرتجع شراء',
+            'receipt' => 'سند قبض',
+            'payment' => 'سند صرف',
+            default => $type,
+        };
+    }
+
+    private function paymentTypeLabel(?string $paymentType): string
+    {
+        return match ($paymentType) {
+            'cash' => 'نقدي',
+            'credit_card' => 'شبكة / بطاقة',
+            'bank_transfer' => 'تحويل بنكي',
+            default => $paymentType ?? '-',
+        };
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function mapCustomerReportTransaction(Invoice $invoice, ?int $selectedCaratId): array
+    {
+        $details = $invoice->details
+            ->when($selectedCaratId, function ($collection) use ($selectedCaratId) {
+                return $collection->where('gold_carat_id', $selectedCaratId);
+            })
+            ->values();
+
+        $caratSummary = $details
+            ->groupBy(function ($detail) {
+                return $detail->gold_carat_id ?: 'none';
+            })
+            ->map(function ($group) {
+                $firstDetail = $group->first();
+
+                return [
+                    'carat_id' => $firstDetail?->gold_carat_id,
+                    'carat_title' => $firstDetail?->carat?->title ?? 'بدون عيار',
+                    'line_count' => $group->count(),
+                    'in_weight' => round((float) $group->sum('in_weight'), 3),
+                    'out_weight' => round((float) $group->sum('out_weight'), 3),
+                    'line_total' => round((float) $group->sum('line_total'), 2),
+                    'tax_total' => round((float) $group->sum('line_tax'), 2),
+                    'net_total' => round((float) $group->sum('net_total'), 2),
+                ];
+            })
+            ->values();
+
+        return [
+            'id' => $invoice->id,
+            'sort_id' => $invoice->id,
+            'bill_number' => $invoice->bill_number,
+            'type' => $invoice->type,
+            'operation_label' => $this->operationLabel($invoice->type),
+            'date' => $invoice->date,
+            'time' => $invoice->time,
+            'time_sort' => $invoice->time,
+            'branch_name' => $invoice->branch?->name ?? '-',
+            'user_name' => $invoice->user?->name ?? '-',
+            'payment_type' => $invoice->payment_type,
+            'payment_type_label' => $invoice->payment_type_label,
+            'line_total' => round((float) $details->sum('line_total'), 2),
+            'tax_total' => round((float) $details->sum('line_tax'), 2),
+            'net_total' => round((float) $details->sum('net_total'), 2),
+            'in_weight' => round((float) $details->sum('in_weight'), 3),
+            'out_weight' => round((float) $details->sum('out_weight'), 3),
+            'details_count' => $details->count(),
+            'carat_summary' => $caratSummary,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function mapCustomerReportVoucher(FinancialVoucher $voucher): array
+    {
+        $time = optional($voucher->created_at)->format('H:i:s') ?? '00:00:00';
+
+        return [
+            'id' => $voucher->id,
+            'sort_id' => $voucher->id,
+            'bill_number' => $voucher->bill_number,
+            'type' => $voucher->type,
+            'operation_label' => $this->operationLabel($voucher->type),
+            'date' => $voucher->date,
+            'time' => $time,
+            'time_sort' => $time,
+            'branch_name' => $voucher->branch?->name ?? '-',
+            'user_name' => $voucher->shift?->user?->name ?? '-',
+            'payment_type' => null,
+            'payment_type_label' => sprintf(
+                'من %s إلى %s',
+                $voucher->fromAccount?->name ?? '-',
+                $voucher->toAccount?->name ?? '-',
+            ),
+            'line_total' => round((float) $voucher->total_amount, 2),
+            'tax_total' => 0.0,
+            'net_total' => round((float) $voucher->total_amount, 2),
+            'in_weight' => 0.0,
+            'out_weight' => 0.0,
+            'details_count' => 1,
+            'carat_summary' => [],
+        ];
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, array<string, mixed>>  $transactions
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    private function buildOperationSummary($transactions)
+    {
+        return collect(array_merge(self::REPORTABLE_INVOICE_TYPES, self::REPORTABLE_VOUCHER_TYPES))
+            ->map(function ($type) use ($transactions) {
+                $group = $transactions->where('type', $type)->values();
+
+                if ($group->isEmpty()) {
+                    return null;
+                }
+
+                return [
+                    'type' => $type,
+                    'label' => $this->operationLabel($type),
+                    'count' => $group->count(),
+                    'line_total' => round((float) $group->sum('line_total'), 2),
+                    'tax_total' => round((float) $group->sum('tax_total'), 2),
+                    'net_total' => round((float) $group->sum('net_total'), 2),
+                    'in_weight' => round((float) $group->sum('in_weight'), 3),
+                    'out_weight' => round((float) $group->sum('out_weight'), 3),
+                ];
+            })
+            ->filter()
+            ->values();
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, array<string, mixed>>  $transactions
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    private function buildCaratSummary($transactions)
+    {
+        return $transactions
+            ->flatMap(function (array $transaction) {
+                return collect($transaction['carat_summary'])->map(function (array $summary) use ($transaction) {
+                    return [
+                        'type' => $transaction['type'],
+                        'operation_label' => $transaction['operation_label'],
+                        'carat_id' => $summary['carat_id'],
+                        'carat_title' => $summary['carat_title'],
+                        'invoice_count' => 1,
+                        'line_count' => $summary['line_count'],
+                        'in_weight' => $summary['in_weight'],
+                        'out_weight' => $summary['out_weight'],
+                        'line_total' => $summary['line_total'],
+                        'tax_total' => $summary['tax_total'],
+                        'net_total' => $summary['net_total'],
+                    ];
+                });
+            })
+            ->groupBy(function (array $row) {
+                return $row['type'] . '|' . ($row['carat_id'] ?? 'none');
+            })
+            ->map(function ($group) {
+                $firstRow = $group->first();
+
+                return [
+                    'type' => $firstRow['type'],
+                    'operation_label' => $firstRow['operation_label'],
+                    'carat_id' => $firstRow['carat_id'],
+                    'carat_title' => $firstRow['carat_title'],
+                    'invoice_count' => $group->count(),
+                    'line_count' => $group->sum('line_count'),
+                    'in_weight' => round((float) $group->sum('in_weight'), 3),
+                    'out_weight' => round((float) $group->sum('out_weight'), 3),
+                    'line_total' => round((float) $group->sum('line_total'), 2),
+                    'tax_total' => round((float) $group->sum('tax_total'), 2),
+                    'net_total' => round((float) $group->sum('net_total'), 2),
+                ];
+            })
+            ->sortBy(function (array $row) {
+                return $row['operation_label'] . '|' . $row['carat_title'];
+            })
+            ->values();
+    }
+
+    private function normalizeOptionalFilter($value): mixed
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_string($value)) {
+            $value = trim($value);
+        }
+
+        return $value === '' ? null : $value;
+    }
+
+    private function normalizeTime(?string $value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        return strlen($value) === 5 ? $value . ':00' : $value;
     }
 }

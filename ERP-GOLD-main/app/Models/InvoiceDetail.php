@@ -47,4 +47,13 @@ class InvoiceDetail extends Model
         $linesTotalAfterDiscount = round($this->line_total, 2);
         return $linesTotalAfterDiscount + $taxesTotal;
     }
+
+    public function getCaratDisplayLabelAttribute(): string
+    {
+        if ($this->carat?->title) {
+            return $this->carat->title;
+        }
+
+        return $this->item?->inventory_classification_label ?? 'غير محدد';
+    }
 }

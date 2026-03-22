@@ -62,6 +62,7 @@
                                                {{__('main.Balance_Sheet')}}
                                             </h4> 
                                             <h5 class="text-center">  {{$periodFrom}} - {{$periodTo}} </h5>
+                                            <h6 class="text-center">{{ $branch?->name ? 'الفرع: ' . $branch->name : 'جميع الفروع' }}</h6>
                                         </div>
                                         <div class="col-4 c">
                                        <span style="text-align: right;">
@@ -161,4 +162,3 @@
  
     
 @endsection 
-

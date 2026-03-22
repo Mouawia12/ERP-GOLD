@@ -42,6 +42,18 @@
             margin-top: -350px;
             width: 100%;
         }
+
+        .brand-login-logo-wrapper {
+            padding: 16px 0 6px;
+        }
+
+        .brand-login-logo {
+            width: 190px;
+            max-width: 58%;
+            height: auto !important;
+            object-fit: contain;
+            filter: drop-shadow(0 12px 24px rgba(229, 184, 11, 0.18));
+        }
     </style>
     <div class="container-fluid">
         <div class="row no-gutter">
@@ -54,10 +66,10 @@
                         <div class="row">
                             <div class="col-md-10 col-lg-10 col-xl-9 mx-auto">
                                 <div class="card-sigin">
-                                    <div class="mb-5 text-center">
+                                    <div class="mb-5 text-center brand-login-logo-wrapper">
                                         <a href="{{route('index')}}"><img draggable="false"
-                                                src="{{URL::asset('assets/img/logo.png')}}"
-                                                class="sign-favicon ht-200" alt="logo">
+                                                src="{{ $brandLogoUrl }}"
+                                                class="sign-favicon ht-200 brand-login-logo" alt="logo">
                                         </a>   
                                     </div>
 
@@ -66,6 +78,11 @@
                                             <h5 class="alert alert-info text-center mb-4">
                                                 تسجيل الدخول
                                             </h5>
+                                            @if (session('error'))
+                                                <div class="alert alert-danger text-center">
+                                                    {{ session('error') }}
+                                                </div>
+                                            @endif
                                             <form method="POST" action="{{ route('admin.login') }}">
                                                 @csrf
                                                 <div class="form-group">

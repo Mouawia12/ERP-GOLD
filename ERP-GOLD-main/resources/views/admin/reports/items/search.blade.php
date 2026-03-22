@@ -29,12 +29,12 @@
                                 <div class="row">
                                     <div class="col-md-4">
                                         <div class="form-group"> 
-                                            <label>{{ __('الفرع') }} <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
+                                            <label>{{ __('الفرع') }}</label>
                                             @if(empty(Auth::user()->branch_id))
                                                 <select required  class="js-example-basic-single w-100" name="branch_id" id="branch_id">
-                                                    <option value="0">جميع الفروع</option>
+                                                    <option value="">جميع الفروع</option>
                                                     @foreach($branches as $branch)
-                                                        <option value="{{$branch->id}}">{{$branch->name}}</option>
+                                                        <option value="{{$branch->id}}" @selected(($defaultFilters['branch_id'] ?? '') == $branch->id)>{{$branch->name}}</option>
                                                     @endforeach
                                                 </select>
                                             @else
@@ -42,29 +42,40 @@
                                                        value="{{Auth::user()->branch->name}}"/>
                                                 <input required class="form-control" type="hidden" id="branch_id"
                                                        name="branch_id"
-                                                       value="{{Auth::user()->branch_id}}"/>
+                                                       value="{{ $defaultFilters['branch_id'] }}"/>
                                             @endif
                     
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="form-group">
-                                            <label>{{ __('main.carats') }} <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
-                                            <select id="karat" name="carat" class="form-control">
-                                                <option value="0"> select...</option>
-                                                @foreach($carats as $carat)
-                                                    <option value="{{$carat -> id}}"> {{$carat -> title}}</option>
+                                            <label>تصنيف الصنف</label>
+                                            <select id="inventory_classification" name="inventory_classification" class="form-control">
+                                                <option value="">الكل</option>
+                                                @foreach($inventoryClassifications as $value => $label)
+                                                    <option value="{{ $value }}" @selected(($defaultFilters['inventory_classification'] ?? '') === $value)>{{ $label }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="form-group">
-                                            <label>{{ __('main.category') }} <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
+                                            <label>{{ __('main.carats') }}</label>
+                                            <select id="karat" name="carat" class="form-control">
+                                                <option value="">الكل</option>
+                                                @foreach($carats as $carat)
+                                                    <option value="{{$carat -> id}}" @selected(($defaultFilters['carat'] ?? '') == $carat->id)> {{$carat -> title}}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label>{{ __('main.category') }}</label>
                                             <select id="category" name="category" class="form-control">
-                                                <option value=""> select...</option>
+                                                <option value="">الكل</option>
                                                 @foreach($categories as $category)
-                                                    <option value="{{$category -> id}}"> {{$category -> title}}</option>
+                                                    <option value="{{$category -> id}}" @selected(($defaultFilters['category'] ?? '') == $category->id)> {{$category -> title}}</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -74,26 +85,36 @@
                                 <div class="row">
                                     <div class="col-md-4">
                                         <div class="form-group">
-                                            <label>{{ __('main.code') }} <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
-                                            <input type="text" id="code" name="code" placeholder="كود الصنف" class="form-control">
+                                            <label>{{ __('main.code') }}</label>
+                                            <input type="text" id="code" name="code" placeholder="كود الصنف" class="form-control" value="{{ $defaultFilters['code'] ?? '' }}">
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="form-group">
-                                            <label>{{ __('main.name') }} <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
-                                            <input type="text" id="name" name="name" placeholder="إسم الصنف عربي" class="form-control">
+                                            <label>{{ __('main.name') }}</label>
+                                            <input type="text" id="name" name="name" placeholder="إسم الصنف عربي" class="form-control" value="{{ $defaultFilters['name'] ?? '' }}">
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="form-group">
-                                            <label>{{ __('main.fcode') }} <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
-                                            <input type="text" id="fcode" name="fcode" placeholder="من كود صنف" class="form-control">
+                                            <label>{{ __('main.fcode') }}</label>
+                                            <input type="text" id="fcode" name="fcode" placeholder="من كود صنف" class="form-control" value="{{ $defaultFilters['fcode'] ?? '' }}">
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="form-group">
-                                            <label>{{ __('main.tcode') }} <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
-                                            <input type="text" id="tcode" name="tcode" placeholder="إلي كود صنف " class="form-control">
+                                            <label>{{ __('main.tcode') }}</label>
+                                            <input type="text" id="tcode" name="tcode" placeholder="إلي كود صنف " class="form-control" value="{{ $defaultFilters['tcode'] ?? '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label>الحالة</label>
+                                            <select id="status" name="status" class="form-control">
+                                                <option value="">الكل</option>
+                                                <option value="1" @selected(($defaultFilters['status'] ?? '') === '1')>{{ __('main.state1') }}</option>
+                                                <option value="0" @selected(($defaultFilters['status'] ?? '') === '0')>{{ __('main.state2') }}</option>
+                                            </select>
                                         </div>
                                     </div>
                                 </div>

@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Models\BankAccount;
 use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\FinancialYear;
@@ -11,16 +12,32 @@ use App\Models\GoldCaratType;
 use App\Models\Invoice;
 use App\Models\ItemUnit;
 use App\Models\Tax;
+use App\Services\Invoices\InvoicePartySnapshotService;
+use App\Services\Invoices\InvoiceTermsService;
 use App\Services\JournalEntriesService;
+use App\Services\Payments\InvoicePaymentService;
+use App\Services\Shifts\ShiftService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use DataTables;
 
 class PurchasesController extends Controller
 {
+    private const NON_GOLD_CARAT_TYPE = 'non_gold';
+
+    public function __construct(
+        private readonly InvoiceTermsService $invoiceTermsService,
+        private readonly InvoicePartySnapshotService $invoicePartySnapshotService,
+        private readonly InvoicePaymentService $invoicePaymentService,
+        private readonly ShiftService $shiftService,
+    ) {
+    }
+
     public function index(Request $request)
     {
         $data = Invoice::where('type', 'purchase')
@@ -71,7 +88,27 @@ class PurchasesController extends Controller
         $branches = Branch::all();
         $caratTypes = GoldCaratType::all();
 
-        return view('admin.purchases.create', compact('customers', 'branches', 'caratTypes'));
+        return view('admin.purchases.create', [
+            'customers' => $customers,
+            'branches' => $branches,
+            'caratTypes' => $caratTypes,
+            'defaultInvoiceTerms' => $this->invoiceTermsService->defaultTerms(),
+        ]);
+    }
+
+    public function purchase_payment_show(Request $request)
+    {
+        $money = $request->net_after_discount;
+        $type = $request->document_type;
+        $branchId = (int) $request->branch_id;
+        $bankAccounts = BankAccount::query()
+            ->active()
+            ->where('branch_id', $branchId)
+            ->orderByDesc('is_default')
+            ->orderBy('account_name')
+            ->get();
+
+        return view('admin.purchases.payment', compact('money', 'type', 'bankAccounts', 'branchId'))->render();
     }
 
     public function store(Request $request)
@@ -81,10 +118,16 @@ class PurchasesController extends Controller
             $validator = Validator::make($request->all(), [
                 'bill_date' => 'required',
                 'branch_id' => 'required',
-                'carat_type' => 'required|exists:gold_carat_types,key',
+                'carat_type' => ['required', Rule::in(array_merge(
+                    GoldCaratType::query()->pluck('key')->all(),
+                    [self::NON_GOLD_CARAT_TYPE]
+                ))],
                 'purchase_type' => 'required|in:' . implode(',', config('settings.purchase_types')),
                 'supplier_id' => 'required|exists:customers,id,type,supplier',
-                'weight' => 'required|array'
+                'weight' => 'required|array',
+                'bill_client_name' => 'nullable|string|max:255',
+                'bill_client_phone' => 'nullable|string|max:50',
+                'bill_client_identity_number' => 'nullable|string|max:100',
             ], [
                 'bill_date.required' => __('validations.bill_date_required'),
                 'branch_id.required' => __('validations.branch_id_required'),
@@ -102,8 +145,17 @@ class PurchasesController extends Controller
             }
             $purchaseType = $request->purchase_type;
             $financialYear = FinancialYear::where('is_active', 1)->first();
+            $supplier = Customer::find($request->supplier_id);
+            $isNonGoldFlow = $request->carat_type === self::NON_GOLD_CARAT_TYPE;
 
-            if ($purchaseType != 'normal') {
+            if ($isNonGoldFlow && $purchaseType !== 'normal') {
+                return response()->json([
+                    'status' => false,
+                    'errors' => ['الأصناف غير الذهبية تدعم الشراء العادي فقط في هذه المرحلة.'],
+                ], 422);
+            }
+
+            if (! $isNonGoldFlow && $purchaseType != 'normal') {
                 $goldCaratType = ($purchaseType == 'discount_from_scrap') ? GoldCaratType::where('key', 'scrap')->first() : GoldCaratType::where('key', 'pure')->first();
                 $totalWeight = collect($request->weight)
                     ->map(function ($weight, $index) use ($request) {
@@ -130,6 +182,7 @@ class PurchasesController extends Controller
             $lines = array();
             $stockLines = array();
             if (count($request->unit_id)) {
+                $activeShift = $this->shiftService->requireActiveShift(Auth::user(), (int) $request->branch_id);
                 // store header
                 $branch = Branch::find($request->branch_id);
                 $warehouse = $branch->warehouses->first();
@@ -180,8 +233,8 @@ class PurchasesController extends Controller
                     }
 
                     $item = $unit->item;
-                    $taxTax = ($caratType == 'crafted') ? $item->goldCarat->tax : Tax::where('zatca_code', 'O')->first();
-                    $taxRate = $taxTax->rate;
+                    $taxData = $this->resolvePurchaseTaxData($item, $caratType);
+                    $taxRate = $taxData['rate'];
                     $unitTaxAmount = ($lineTotal * $taxRate / 100) / $request->weight[$key];
 
                     $linesTotal += $lineTotal;
@@ -215,14 +268,14 @@ class PurchasesController extends Controller
                         'unit_price' => $gramPrice,
                         'unit_discount' => 0,
                         'unit_tax' => $unitTaxAmount,
-                        'unit_tax_rate' => $taxTax->rate,
-                        'unit_tax_id' => $taxTax->id,
+                        'unit_tax_rate' => $taxData['rate'],
+                        'unit_tax_id' => $taxData['id'],
                         'line_total' => $lineTotal,
                         'line_discount' => $lineDiscount ?? 0,
                         'line_tax' => $lineTax,
                         'net_total' => $lineNetTotal,
                     ];
-                    if ($purchaseType != 'normal') {
+                    if (! $isNonGoldFlow && $purchaseType != 'normal') {
                         $goldCarat = ($purchaseType == 'discount_from_scrap') ? GoldCarat::where('transform_factor', 1)->first() : GoldCarat::where('is_pure', true)->first();
                         $goldCaratType = ($purchaseType == 'discount_from_scrap') ? GoldCaratType::where('key', 'scrap')->first() : GoldCaratType::where('key', 'pure')->first();
                         $outWeight = $this->convertCarat($lineTotalWeight, $item->goldCarat->transform_factor, $goldCarat->transform_factor);
@@ -242,8 +295,8 @@ class PurchasesController extends Controller
                             'unit_price' => $gramPrice,
                             'unit_discount' => 0,
                             'unit_tax' => $unitTaxAmount,
-                            'unit_tax_rate' => $taxTax->rate,
-                            'unit_tax_id' => $taxTax->id,
+                            'unit_tax_rate' => $taxData['rate'],
+                            'unit_tax_id' => $taxData['id'],
                             'line_total' => $lineTotal,
                             'line_discount' => $lineDiscount ?? 0,
                             'line_tax' => $lineTax,
@@ -260,10 +313,22 @@ class PurchasesController extends Controller
                     $item->defaultUnit()->update(['initial_cost_per_gram' => $unitCost, 'average_cost_per_gram' => $averageCost, 'current_cost_per_gram' => $unitCost]);
 
                     $lines[] = $line;
-                    if ($purchaseType != 'normal') {
+                    if (! $isNonGoldFlow && $purchaseType != 'normal') {
                         $stockLines[] = $stockLine;
                     }
                 }
+
+                $paymentPayload = $request->all();
+                if (! array_key_exists('cash', $paymentPayload) && empty($paymentPayload['payment_lines'] ?? [])) {
+                    $paymentPayload['cash'] = $linesNetTotal;
+                }
+
+                $paymentLines = $this->invoicePaymentService->normalizeSalesLines(
+                    $paymentPayload,
+                    (int) $branch->id,
+                    $linesNetTotal
+                );
+                $paymentType = $this->invoicePaymentService->resolveStoredPaymentType($paymentLines);
 
                 $invoice = Invoice::create([
                     'branch_id' => $request->branch_id,
@@ -272,9 +337,14 @@ class PurchasesController extends Controller
                     'supplier_bill_number' => $request->supplier_bill_number ?? null,
                     'financial_year' => FinancialYear::where('is_active', true)->first()->id,
                     'type' => 'purchase',
+                    'payment_type' => $paymentType,
                     'purchase_type' => $request->purchase_type ?? 'normal',
-                    'purchase_carat_type_id' => GoldCaratType::where('key', $request->carat_type)->first()->id,
+                    'purchase_carat_type_id' => $isNonGoldFlow ? null : GoldCaratType::where('key', $request->carat_type)->first()->id,
                     'notes' => $request->notes ?? '',
+                    'invoice_terms' => $this->invoiceTermsService->resolveSnapshot(
+                        $request->input('invoice_terms'),
+                        array_key_exists('invoice_terms', $request->all())
+                    ),
                     'date' => Carbon::parse($request->bill_date)->format('Y-m-d'),
                     'time' => Carbon::parse($request->bill_date)->format('H:i:s'),
                     'lines_total' => $linesTotal,
@@ -283,9 +353,16 @@ class PurchasesController extends Controller
                     'taxes_total' => $linesTax,
                     'net_total' => $linesNetTotal,
                     'user_id' => Auth::user()->id,
-                ]);
+                    'shift_id' => $activeShift->id,
+                ] + $this->invoicePartySnapshotService->resolve(
+                    $supplier,
+                    $request->input('bill_client_name'),
+                    $request->input('bill_client_phone'),
+                    $request->input('bill_client_identity_number'),
+                ));
+                $this->invoicePaymentService->persist($invoice, $paymentLines);
 
-                if ($purchaseType != 'normal' && count($stockLines) > 0) {
+                if (! $isNonGoldFlow && $purchaseType != 'normal' && count($stockLines) > 0) {
                     $stockMovementInvoice = Invoice::create([
                         'branch_id' => $request->branch_id,
                         'warehouse_id' => $warehouse->id ?? null,
@@ -296,6 +373,10 @@ class PurchasesController extends Controller
                         'purchase_type' => $request->purchase_type ?? 'normal',
                         'purchase_carat_type_id' => GoldCaratType::where('key', $request->carat_type)->first()->id,
                         'notes' => $request->notes ?? '',
+                        'invoice_terms' => $this->invoiceTermsService->resolveSnapshot(
+                            $request->input('invoice_terms'),
+                            array_key_exists('invoice_terms', $request->all())
+                        ),
                         'date' => Carbon::parse($request->bill_date)->format('Y-m-d'),
                         'time' => Carbon::parse($request->bill_date)->format('H:i:s'),
                         'lines_total' => $linesTotal,
@@ -304,7 +385,13 @@ class PurchasesController extends Controller
                         'taxes_total' => $linesTax,
                         'net_total' => $linesNetTotal,
                         'user_id' => Auth::user()->id,
-                    ]);
+                        'shift_id' => $activeShift->id,
+                    ] + $this->invoicePartySnapshotService->resolve(
+                        $supplier,
+                        $request->input('bill_client_name'),
+                        $request->input('bill_client_phone'),
+                        $request->input('bill_client_identity_number'),
+                    ));
                     $stockMovementInvoice->details()->createMany($stockLines);
                 }
 
@@ -321,6 +408,12 @@ class PurchasesController extends Controller
                     'message' => __('main.nodetails')
                 ]);
             }
+        } catch (ValidationException $ex) {
+            DB::rollBack();
+            return response()->json([
+                'status' => false,
+                'errors' => collect($ex->errors())->flatten()->values()->all(),
+            ], 422);
         } catch (Exception $ex) {
             DB::rollBack();
             return response()->json([
@@ -359,6 +452,22 @@ class PurchasesController extends Controller
             'document_date' => $documentDate,
         ];
 
+        $lines[] = [
+            'account_id' => $invoice->customer->account_id,
+            'debit' => $invoice->net_total,
+            'credit' => 0,
+            'document_date' => $documentDate,
+        ];
+
+        $lines = array_merge(
+            $lines,
+            $this->invoicePaymentService->journalCreditLines(
+                $invoice,
+                (int) $accountSetting->safe_account,
+                $accountSetting->bank_account ? (int) $accountSetting->bank_account : null,
+            ),
+        );
+
         if ($laborTotal > 0) {
             // labor cost account
             $lines[] = [
@@ -381,7 +490,7 @@ class PurchasesController extends Controller
 
         if ($totalCost > 0) {
             // stock account
-            $stockAccount = 'stock_account_' . $invoice->purchaseCaratType->key;
+            $stockAccount = 'stock_account_' . ($invoice->purchaseCaratType?->key ?? 'crafted');
             $lines[] = [
                 'account_id' => $accountSetting->{$stockAccount},
                 'debit' => $totalCost,
@@ -409,5 +518,22 @@ class PurchasesController extends Controller
         }
 
         return $lines;
+    }
+
+    private function resolvePurchaseTaxData($item, string $caratType): array
+    {
+        if ($caratType === 'crafted' && $item->goldCarat?->tax) {
+            return [
+                'id' => $item->goldCarat->tax->id,
+                'rate' => (float) $item->goldCarat->tax->rate,
+            ];
+        }
+
+        $fallbackTax = Tax::query()->where('zatca_code', 'O')->first();
+
+        return [
+            'id' => $fallbackTax?->id,
+            'rate' => (float) ($fallbackTax?->rate ?? 0),
+        ];
     }
 }

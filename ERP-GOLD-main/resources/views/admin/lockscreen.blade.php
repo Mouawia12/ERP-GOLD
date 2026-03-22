@@ -5,11 +5,30 @@
           rel="stylesheet">
 @endsection
 @section('content')
+    <style>
+        .brand-lockscreen-hero {
+            width: min(82%, 420px);
+            height: auto;
+            max-height: 420px;
+            object-fit: contain;
+            filter: drop-shadow(0 18px 34px rgba(229, 184, 11, 0.16));
+        }
+
+        .brand-lockscreen-avatar {
+            width: 132px;
+            height: auto;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 18px;
+            object-fit: contain;
+            background: #fff;
+        }
+    </style>
     <div class="container-fluid">
         <div class="row no-gutter">
             <!-- The image half -->
             <div class="col-lg-6 col-sm-12 pull-right align-content-center justify-content-center text-center">
-                <img src="{{asset('assets/img/logo.png')}}" style="width: 70%;height: 450px;">
+                <img src="{{ $brandLogoUrl }}" class="brand-lockscreen-hero">
                 <h1 style="color: black !important;">
                     وزارة الخدمة المدنية والتامينات
                 </h1>
@@ -32,10 +51,9 @@
                                     <div class="p-4 wd-100p">
                                         <div class="main-signin-header">
                                             <div class="mx-auto text-center mb-2">
-                                                <img
-                                                    style="width:100px; height: 100px;padding: 5px ;border:1px solid #ddd;"
-                                                    class="rounded-circle mt-2 mb-2"
-                                                    src="{{asset('assets/img/logo.png')}}"></div>
+                                                    <img
+                                                    class="brand-lockscreen-avatar mt-2 mb-2"
+                                                    src="{{ $brandLogoUrl }}"></div>
                                             <div class="mx-auto text-center mt-4 mg-b-20"> 
                                                 <p class="tx-13 text-muted">ادخل كلمة المرور الخاصة بك للدخول الى
                                                     حسابك</p>

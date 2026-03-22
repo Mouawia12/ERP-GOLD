@@ -9,13 +9,19 @@ use App\Models\GoldCaratType;
 use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\ItemUnit;
+use App\Services\Items\BarcodePrintProfileService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Throwable;
 use DataTables;
 
 class ItemController extends Controller
 {
+    private const NON_GOLD_CARAT_TYPE = 'non_gold';
+
     public function __construct()
     {
         $this->middleware('auth');
@@ -28,18 +34,25 @@ class ItemController extends Controller
      */
     public function index(Request $request)
     {
-        $data = Item::all();
+        $currentUser = $this->currentAdminUser();
+        $data = Item::query()->with(['branch', 'category', 'goldCarat', 'goldCaratType', 'defaultUnit', 'publishedBranches']);
 
-        if (!empty(Auth::user()->branch_id)) {
-            $data = $data->where('branch_id', Auth::user()->branch_id);
+        if (!empty($currentUser?->branch_id)) {
+            $data->publishedToBranch((int) $currentUser->branch_id);
         }
 
         if ($request->ajax()) {
             return Datatables::of($data)
                 ->addIndexColumn()
+                ->editColumn('title', function ($row) {
+                    return $row->getTranslation('title', 'ar');
+                })
                 ->addColumn('status', function ($row) {
                     $row->status ? $span = 'متاح' : $span = 'غير متاح';
                     return $span;
+                })
+                ->addColumn('inventory_classification', function ($row) {
+                    return $row->inventory_classification_label;
                 })
                 ->addColumn('category', function ($row) {
                     return $row->category->title ?? '-';
@@ -52,6 +65,10 @@ class ItemController extends Controller
                 })
                 ->addColumn('weight', function ($row) {
                     return $row->defaultUnit->weight ?? '-';
+                })
+                ->addColumn('published_branches', function ($row) {
+                    $names = $row->publishedBranches->map(fn ($branch) => $branch->name)->filter()->values();
+                    return $names->isNotEmpty() ? $names->implode('، ') : '-';
                 })
                 ->addColumn('action', function ($row) {
                     $btn = '<a href=' . route('items.edit', $row->id) . ' class="btn btn-labeled btn-info 
@@ -75,8 +92,9 @@ class ItemController extends Controller
         $categories = ItemCategory::all();
         $carats = GoldCarat::all();
         $branches = Branch::where('status', 1)->get();
+        $inventoryClassifications = Item::inventoryClassificationOptions();
 
-        return view('admin.items.index', compact('categories', 'carats', 'branches'));
+        return view('admin.items.index', compact('categories', 'carats', 'branches', 'inventoryClassifications'));
     }
 
     /**
@@ -90,17 +108,22 @@ class ItemController extends Controller
         $carats = GoldCarat::all();
         $caratTypes = GoldCaratType::all();
         $branches = Branch::where('status', 1)->get();
+        $inventoryClassifications = Item::inventoryClassificationOptions();
 
-        return view('admin.items.form', compact('categories', 'carats', 'caratTypes', 'branches'));
+        return view('admin.items.form', compact('categories', 'carats', 'caratTypes', 'branches', 'inventoryClassifications'));
     }
 
-    public function barcodes_table($itemId, $returnType = 'json')
+    public function barcodes_table($itemId, $returnType = 'json', ?string $paperProfileKey = null)
     {
-        $item = Item::find($itemId);
+        $item = Item::with(['branch', 'goldCarat', 'units'])->findOrFail($itemId);
+        $barcodePrintProfileService = app(BarcodePrintProfileService::class);
+        $paperProfiles = $barcodePrintProfileService->all();
+        $defaultPaperProfile = $barcodePrintProfileService->resolve($paperProfileKey ?? request('paper_profile'));
+
         if ($returnType == 'json') {
-            return response()->json(view('admin.items.barcodes_table', compact('item'))->render());
+            return response()->json(view('admin.items.barcodes_table', compact('item', 'paperProfiles', 'defaultPaperProfile'))->render());
         }
-        return view('admin.items.barcodes_table', compact('item'))->render();
+        return view('admin.items.barcodes_table', compact('item', 'paperProfiles', 'defaultPaperProfile'))->render();
     }
 
     public function getItemCode()
@@ -123,13 +146,14 @@ class ItemController extends Controller
      */
     public function edit($id)
     {
-        $item = Item::find($id);
+        $item = Item::with('publishedBranches')->find($id);
         $categories = ItemCategory::all();
         $carats = GoldCarat::all();
         $caratTypes = GoldCaratType::all();
         $branches = Branch::where('status', 1)->get();
+        $inventoryClassifications = Item::inventoryClassificationOptions();
 
-        return view('admin.items.form', compact('item', 'categories', 'carats', 'caratTypes', 'branches'));
+        return view('admin.items.form', compact('item', 'categories', 'carats', 'caratTypes', 'branches', 'inventoryClassifications'));
     }
 
     /**
@@ -140,43 +164,92 @@ class ItemController extends Controller
      */
     public function store(Request $request)
     {
+        $currentUser = $this->currentAdminUser();
+        $branchId = !empty($currentUser?->branch_id) && !$currentUser->is_admin
+            ? $currentUser->branch_id
+            : $request->input('branch_id');
+
+        $validator = Validator::make(array_merge($request->all(), [
+            'branch_id' => $branchId,
+        ]), [
+            'branch_id' => ['required', 'exists:branches,id'],
+            'inventory_classification' => ['required', Rule::in(array_keys(Item::inventoryClassificationOptions()))],
+            'item_type' => [
+                Rule::requiredIf(fn () => $request->input('inventory_classification') === Item::CLASSIFICATION_GOLD),
+                'nullable',
+                'exists:gold_carat_types,id',
+            ],
+            'name_ar' => ['required', 'string', 'max:255'],
+            'name_en' => ['nullable', 'string', 'max:255'],
+            'category_id' => ['required', 'exists:item_categories,id'],
+            'carats_id' => [
+                Rule::requiredIf(fn () => $request->input('inventory_classification') === Item::CLASSIFICATION_GOLD),
+                'nullable',
+                'exists:gold_carats,id',
+            ],
+            'weight' => ['nullable', 'numeric', 'min:0'],
+            'no_metal' => ['nullable', 'numeric', 'min:0'],
+            'no_metal_type' => ['nullable', Rule::in(['fixed', 'percent'])],
+            'labor_cost_per_gram' => ['nullable', 'numeric', 'min:0'],
+            'cost_per_gram' => ['nullable', 'numeric', 'min:0'],
+            'profit_margin_per_gram' => ['nullable', 'numeric', 'min:0'],
+            'published_branch_ids' => ['nullable', 'array'],
+            'published_branch_ids.*' => ['integer', 'exists:branches,id'],
+            'branch_sale_prices' => ['nullable', 'array'],
+            'branch_sale_prices.*' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'errors' => $validator->errors()->all(),
+            ], 422);
+        }
+
+        $validated = $validator->validated();
+        $classification = $validated['inventory_classification'];
+
         try {
             DB::beginTransaction();
             $item = Item::updateOrCreate(['id' => $request->id ?? null], [
-                'title' => ['ar' => $request->name_ar, 'en' => $request->name_en],
-                'description' => ['ar' => $request->name_ar, 'en' => $request->name_en],
-                'branch_id' => $request->branch_id,
-                'category_id' => $request->category_id,
-                'gold_carat_id' => $request->carats_id,
-                'gold_carat_type_id' => $request->item_type,
-                'weight' => $request->weight ?? 0,
-                'no_metal' => $request->no_metal ?? 0,
-                'no_metal_type' => $request->no_metal_type ?? 0,
-                'labor_cost_per_gram' => $request->labor_cost_per_gram ?? 0,
-                'profit_margin_per_gram' => $request->profit_margin_per_gram ?? 0,
+                'title' => ['ar' => $validated['name_ar'], 'en' => $validated['name_en'] ?? $validated['name_ar']],
+                'description' => ['ar' => $validated['name_ar'], 'en' => $validated['name_en'] ?? $validated['name_ar']],
+                'branch_id' => $validated['branch_id'],
+                'inventory_classification' => $classification,
+                'category_id' => $validated['category_id'],
+                'gold_carat_id' => $classification === Item::CLASSIFICATION_GOLD ? $validated['carats_id'] : null,
+                'gold_carat_type_id' => $classification === Item::CLASSIFICATION_GOLD ? $validated['item_type'] : null,
+                'no_metal' => $validated['no_metal'] ?? 0,
+                'no_metal_type' => $validated['no_metal_type'] ?? 'fixed',
+                'labor_cost_per_gram' => $validated['labor_cost_per_gram'] ?? 0,
+                'profit_margin_per_gram' => $validated['profit_margin_per_gram'] ?? 0,
             ]);
 
-            if (is_null($item->defaultUnit)) {
-                $item->defaultUnit()->create([
-                    'weight' => $request->weight ?? 0,
-                    'initial_cost_per_gram' => $request->cost_per_gram ?? 0,
-                    'average_cost_per_gram' => $request->cost_per_gram ?? 0,
-                    'current_cost_per_gram' => $request->cost_per_gram ?? 0,
-                    'is_default' => true,
-                ]);
-            }
+            $defaultWeight = $validated['weight'] ?? $item->defaultUnit?->weight ?? 0;
+            $defaultCost = $validated['cost_per_gram'] ?? $item->defaultUnit?->average_cost_per_gram ?? 0;
+
+            $item->defaultUnit()->updateOrCreate([
+                'is_default' => true,
+            ], [
+                'weight' => $defaultWeight,
+                'initial_cost_per_gram' => $item->defaultUnit?->initial_cost_per_gram ?? $defaultCost,
+                'average_cost_per_gram' => $defaultCost,
+                'current_cost_per_gram' => $defaultCost,
+            ]);
+
+            $this->syncPublishedBranches($item, $request, (int) $validated['branch_id'], $currentUser?->id);
 
             DB::commit();
             return response()->json([
                 'status' => true,
                 'message' => __('main.saved'),
             ]);
-        } catch (Exception $ex) {
+        } catch (Throwable $ex) {
             DB::rollBack();
             return response()->json([
                 'status' => false,
-                'message' => $ex->getMessage(),
-            ]);
+                'errors' => [$ex->getMessage()],
+            ], 500);
         }
     }
 
@@ -194,7 +267,7 @@ class ItemController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => __('main.saved'),
-                'content' => $this->barcodes_table($itemId, 'html'),
+                'content' => $this->barcodes_table($itemId, 'html', $request->input('paper_profile')),
             ]);
         } catch (Exception $ex) {
             DB::rollBack();
@@ -205,16 +278,20 @@ class ItemController extends Controller
         }
     }
 
-    public function print_barcodes($itemId)
+    public function print_barcodes(Request $request, $itemId)
     {
-        $item = Item::find($itemId);
-        return view('admin.items.print_barcode', compact('item'));
+        $item = Item::with(['branch', 'goldCarat', 'units'])->findOrFail($itemId);
+        $paperProfile = app(BarcodePrintProfileService::class)->resolve($request->query('paper_profile'));
+
+        return view('admin.items.print_barcode', compact('item', 'paperProfile'));
     }
 
-    public function print_unit_barcode($unitId)
+    public function print_unit_barcode(Request $request, $unitId)
     {
-        $unit = ItemUnit::find($unitId);
-        return view('admin.items.print_barcode', compact('unit'));
+        $unit = ItemUnit::with(['item.branch', 'item.goldCarat', 'item.goldCaratType'])->findOrFail($unitId);
+        $paperProfile = app(BarcodePrintProfileService::class)->resolve($request->query('paper_profile'));
+
+        return view('admin.items.print_barcode', compact('unit', 'paperProfile'));
     }
 
     /**
@@ -243,7 +320,14 @@ class ItemController extends Controller
             ]);
         }
         $branch_id = $request->branch_id;
-        $units = ItemUnit::where(function ($query) use ($code, $branch_id) {
+        $units = ItemUnit::with([
+            'item.goldCarat.tax',
+            'item.goldCaratType',
+            'item.defaultUnit',
+            'item.branchPublications' => function ($query) use ($branch_id) {
+                $query->where('branch_id', $branch_id)->where('is_active', true)->where('is_visible', true);
+            },
+        ])->where(function ($query) use ($code, $branch_id) {
             $query
                 ->where('is_sold', 0)
                 ->where(function ($q) use ($branch_id, $code) {
@@ -252,19 +336,19 @@ class ItemController extends Controller
                             $q2
                                 ->where('barcode', 'like', '%' . $code . '%')
                                 ->whereHas('item', function ($q3) use ($branch_id) {
-                                    $q3->where('branch_id', $branch_id);
+                                    $this->constrainItemToBranchPublication($q3, $branch_id);
                                 });
                         })
                         ->orWhereHas('item', function ($q2) use ($branch_id, $code) {
                             $q2
-                                ->where('branch_id', $branch_id)
                                 ->where('title', 'like', '%' . $code . '%');
+                            $this->constrainItemToBranchPublication($q2, $branch_id);
                         });
                 });
         })->get();
         return response()->json([
             'status' => true,
-            'data' => $this->formatUnits($units),
+            'data' => $this->formatUnits($units, (int) $branch_id),
         ]);
     }
 
@@ -280,7 +364,14 @@ class ItemController extends Controller
             ]);
         }
         $branch_id = $request->branch_id;
-        $units = ItemUnit::where(function ($query) use ($code, $branch_id, $caratType) {
+        $units = ItemUnit::with([
+            'item.goldCarat.tax',
+            'item.goldCaratType',
+            'item.defaultUnit',
+            'item.branchPublications' => function ($query) use ($branch_id) {
+                $query->where('branch_id', $branch_id)->where('is_active', true)->where('is_visible', true);
+            },
+        ])->where(function ($query) use ($code, $branch_id, $caratType) {
             $query
                 ->where(function ($q) use ($branch_id, $code, $caratType) {
                     $q
@@ -288,18 +379,13 @@ class ItemController extends Controller
                             $q2
                                 ->where('barcode', 'like', '%' . $code . '%')
                                 ->whereHas('item', function ($q3) use ($branch_id, $caratType) {
-                                    $q3->where('branch_id', $branch_id)->whereHas('goldCaratType', function ($q4) use ($caratType) {
-                                        $q4->where('key', $caratType);
-                                    });
+                                    $this->constrainPurchaseItemToBranchAndType($q3, $branch_id, $caratType);
                                 });
                         })
                         ->orWhereHas('item', function ($q2) use ($branch_id, $code, $caratType) {
                             $q2
-                                ->where('branch_id', $branch_id)
-                                ->where('title', 'like', '%' . $code . '%')
-                                ->whereHas('goldCaratType', function ($q4) use ($caratType) {
-                                    $q4->where('key', $caratType);
-                                });
+                                ->where('title', 'like', '%' . $code . '%');
+                            $this->constrainPurchaseItemToBranchAndType($q2, $branch_id, $caratType);
                         });
                 });
         })->get();
@@ -320,7 +406,14 @@ class ItemController extends Controller
             ]);
         }
         $branch_id = $request->branch_id;
-        $units = ItemUnit::where(function ($query) use ($code, $branch_id) {
+        $units = ItemUnit::with([
+            'item.goldCarat.tax',
+            'item.goldCaratType',
+            'item.defaultUnit',
+            'item.branchPublications' => function ($query) use ($branch_id) {
+                $query->where('branch_id', $branch_id)->where('is_active', true)->where('is_visible', true);
+            },
+        ])->where(function ($query) use ($code, $branch_id) {
             $query
                 ->where('is_sold', 0)
                 ->where(function ($q) use ($branch_id, $code) {
@@ -329,38 +422,45 @@ class ItemController extends Controller
                             $q2
                                 ->where('barcode', 'like', '%' . $code . '%')
                                 ->whereHas('item', function ($q3) use ($branch_id) {
-                                    $q3->where('branch_id', $branch_id);
+                                    $this->constrainItemToBranchPublication($q3, $branch_id);
                                 });
                         })
                         ->orWhereHas('item', function ($q2) use ($branch_id, $code) {
                             $q2
-                                ->where('branch_id', $branch_id)
                                 ->where('title', 'like', '%' . $code . '%');
+                            $this->constrainItemToBranchPublication($q2, $branch_id);
                         });
                 });
         })->get();
         return response()->json([
             'status' => true,
-            'data' => $this->formatUnitsForPurchases($units),
+            'data' => $this->formatUnitsForPurchases($units, 'crafted', (int) $branch_id),
         ]);
     }
 
-    private function formatUnits($units)
+    private function formatUnits($units, ?int $branchId = null)
     {
-        return $units->map(function ($unit) {
-            $gram_tax_amount = $unit->gram_price * $unit->item->goldCarat->tax->rate / 100;
+        return $units->map(function ($unit) use ($branchId) {
+            $taxRate = (float) ($unit->item->goldCarat?->tax?->rate ?? 0);
+            $publication = $unit->item->publicationForBranch($branchId);
+            $gramPrice = $publication?->sale_price_per_gram ?? $unit->gram_price;
+            $gram_tax_amount = $gramPrice * $taxRate / 100;
+            $caratLabel = $unit->item->goldCarat
+                ? trim($unit->item->goldCarat->title . ' <br> ' . ($unit->item->goldCaratType?->title ?? ''))
+                : $unit->item->inventory_classification_label;
+
             return [
                 'unit_id' => $unit->id,
                 'barcode' => $unit->barcode,
                 'weight' => $unit->weight,
                 'item_name' => $unit->item->title . ' <br> ' . $unit->barcode,
                 'item_name_without_break' => $unit->item->title . ' ' . $unit->barcode,
-                'carat' => $unit->item->goldCarat->title . ' <br> ' . $unit->item->goldCaratType->title,
-                'gram_price' => $unit->gram_price,
-                'gram_tax_percentage' => $unit->item->goldCarat->tax->rate,
+                'carat' => $caratLabel,
+                'gram_price' => $gramPrice,
+                'gram_tax_percentage' => $taxRate,
                 'gram_tax_amount' => $gram_tax_amount,
-                'gram_total_amount' => $gram_tax_amount + $unit->gram_price,
-                'carat_transform_factor' => $unit->item->goldCarat->transform_factor,
+                'gram_total_amount' => $gram_tax_amount + $gramPrice,
+                'carat_transform_factor' => $unit->item->goldCarat?->transform_factor ?? 1,
                 'made_Value' => $unit->item->made_value,
                 'no_metal' => $unit->item->no_metal,
                 'quantity' => 1
@@ -368,11 +468,16 @@ class ItemController extends Controller
         });
     }
 
-    private function formatUnitsForPurchases($units, $caratType = 'crafted')
+    private function formatUnitsForPurchases($units, $caratType = 'crafted', ?int $branchId = null)
     {
-        return $units->map(function ($unit) use ($caratType) {
-            $quantityBalance = $unit->item->goldCaratType->getStock();
-            $taxRate = ($caratType != 'crafted') ? 0 : $unit->item->goldCarat->tax->rate;
+        return $units->map(function ($unit) use ($caratType, $branchId) {
+            $quantityBalance = $unit->item->goldCaratType?->getStock() ?? 0;
+            $taxRate = ($caratType != 'crafted' || !$unit->item->goldCarat) ? 0 : (float) ($unit->item->goldCarat?->tax?->rate ?? 0);
+            $caratLabel = $unit->item->goldCarat
+                ? trim($unit->item->goldCarat->title . ' <br> ' . ($unit->item->goldCaratType?->title ?? ''))
+                : $unit->item->inventory_classification_label;
+            $publication = $unit->item->publicationForBranch($branchId);
+
             return [
                 'unit_id' => $unit->id,
                 'barcode' => $unit->barcode,
@@ -380,12 +485,65 @@ class ItemController extends Controller
                 'quantity_balance' => $quantityBalance,
                 'item_name' => $unit->item->title . ' <br> ' . $unit->barcode,
                 'item_name_without_break' => $unit->item->title . ' ' . $unit->barcode,
-                'carat' => $unit->item->goldCarat->title . ' <br> ' . $unit->item->goldCaratType->title,
-                'carat_id' => $unit->item->goldCarat->id,
+                'carat' => $caratLabel,
+                'carat_id' => $unit->item->goldCarat?->id,
                 'gram_tax_percentage' => $taxRate,
-                'carat_transform_factor' => $unit->item->goldCarat->transform_factor,
+                'carat_transform_factor' => $unit->item->goldCarat?->transform_factor ?? 1,
                 'made_Value' => $unit->item->made_value,
+                'branch_sale_price' => $publication?->sale_price_per_gram,
             ];
         });
+    }
+
+    private function constrainItemToBranchPublication($query, $branchId)
+    {
+        return $query->publishedToBranch((int) $branchId);
+    }
+
+    private function constrainPurchaseItemToBranchAndType($query, $branchId, $caratType)
+    {
+        $this->constrainItemToBranchPublication($query, $branchId);
+
+        if ($caratType === self::NON_GOLD_CARAT_TYPE) {
+            return $query->where('inventory_classification', '!=', Item::CLASSIFICATION_GOLD);
+        }
+
+        return $query->whereHas('goldCaratType', function ($q4) use ($caratType) {
+            $q4->where('key', $caratType);
+        });
+    }
+
+    private function syncPublishedBranches(Item $item, Request $request, int $ownerBranchId, ?int $publisherUserId = null): void
+    {
+        $currentUser = $this->currentAdminUser();
+        $selectedBranchIds = collect($request->input('published_branch_ids', []))
+            ->filter()
+            ->map(fn ($branchId) => (int) $branchId)
+            ->push($ownerBranchId);
+
+        if (! $currentUser?->is_admin && ! empty($currentUser?->branch_id)) {
+            $selectedBranchIds = collect([(int) $currentUser->branch_id]);
+        }
+
+        $selectedBranchIds = $selectedBranchIds->unique()->values();
+
+        $payload = [];
+
+        foreach ($selectedBranchIds as $branchId) {
+            $priceOverride = $request->input("branch_sale_prices.$branchId");
+            $payload[$branchId] = [
+                'is_active' => true,
+                'is_visible' => true,
+                'sale_price_per_gram' => $priceOverride !== null && $priceOverride !== '' ? (float) $priceOverride : null,
+                'published_by_user_id' => $publisherUserId,
+            ];
+        }
+
+        $item->publishedBranches()->sync($payload);
+    }
+
+    private function currentAdminUser()
+    {
+        return auth('admin-web')->user() ?: Auth::user();
     }
 }

@@ -1,6 +1,19 @@
 
 
 <div style="margin-bottom: 20px;">
+    <div class="row mb-3">
+        <div class="col-md-5">
+            <label class="d-block mb-2">مقاس ورق الباركود</label>
+            <select class="form-control" id="barcode_paper_profile">
+                @foreach($paperProfiles as $value => $profile)
+                    <option value="{{ $value }}" @selected($defaultPaperProfile['key'] === $value)>{{ $profile['label'] }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-md-7 d-flex align-items-end">
+            <small class="text-muted">يُستخدم نفس المقاس في الطباعة الجماعية وطباعة الملصق المفرد.</small>
+        </div>
+    </div>
     <button type="button" class="btn btn-success add_barcode_form">{{__('main.add_barcode')}}</button>
     <button type="button" class="btn btn-info print_barcodes">{{__('main.print_barcodes')}}</button>
 </div>
@@ -15,6 +28,7 @@
     </table>
 <form action="{{ route('items.store_barcodes', $item->id) }}" method="POST" id="new_barcodes_form" style="width: 100%;">
     @csrf
+    <input type="hidden" name="paper_profile" id="paper_profile_input" value="{{ $defaultPaperProfile['key'] }}">
 
     <table class="table table-bordered">
         <thead>
@@ -66,8 +80,16 @@
 
 <script>
 $(document).ready(function () {
+    function selectedPaperProfile() {
+        return $('#barcode_paper_profile').val() || "{{ $defaultPaperProfile['key'] }}";
+    }
+
     $(document).on('click', '.add_barcode_form', function () {
         $('#new_barcodes_table').show();
+    });
+
+    $(document).on('change', '#barcode_paper_profile', function () {
+        $('#paper_profile_input').val(selectedPaperProfile());
     });
 
     $(document).off('submit', '#new_barcodes_form').on('submit', '#new_barcodes_form', function (e) {
@@ -90,11 +112,11 @@ $(document).ready(function () {
     });
 
     $(document).on('click', '.print_barcodes', function () {
-        window.open("{{ route('items.print_barcodes', $item->id) }}", '_blank');
+        window.open("{{ route('items.print_barcodes', $item->id) }}?paper_profile=" + selectedPaperProfile(), '_blank');
     });
     $(document).on('click', '.print_barcode', function () {
         let id = $(this).val();
-        window.open("{{ route('items.units.print_barcode',':id') }}".replace(':id', id), '_blank');
+        window.open("{{ route('items.units.print_barcode',':id') }}".replace(':id', id) + "?paper_profile=" + selectedPaperProfile(), '_blank');
     });
     $(document).on('keyup', '#count', function () {
         let count = $(this).val();

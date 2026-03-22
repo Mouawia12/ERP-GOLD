@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\Invoices\InvoiceNumberService;
+use App\Services\Payments\InvoicePaymentService;
 use App\Services\Zatca\QRCodeString;
 use Endroid\QrCode\Color\Color;
 use Endroid\QrCode\Encoding\Encoding;
@@ -25,29 +27,9 @@ class Invoice extends Model
         parent::boot();
 
         static::creating(function ($invoice) {
-            $lastInvoice = Invoice::where('branch_id', $invoice->branch_id)->where('type', $invoice->type)->orderBy('id', 'desc')->first();
-            $branch = $invoice->branch;
-            $invoiceType = $invoice->type;
-            $prefix = '';
-            if ($invoiceType == 'sale') {
-                $prefix = 'S';
-            } elseif ($invoiceType == 'purchase') {
-                $prefix = 'P';
-            } elseif ($invoiceType == 'sale_return') {
-                $prefix = 'SR';
-            } elseif ($invoiceType == 'purchase_return') {
-                $prefix = 'PR';
-            } elseif ($invoiceType == 'initial_quantities') {
-                $prefix = 'INQ';
-            } elseif ($invoiceType == 'stock_settlements') {
-                $prefix = 'SS';
-            } elseif ($invoiceType == 'stock_movement') {
-                $prefix = 'SM';
-            }
-            $invoiceCount = ($lastInvoice?->serial ?? 0) + 1;
-            $newNumer = str_pad($invoiceCount, 5, '0', STR_PAD_LEFT);
-            $invoice->bill_number = $prefix . '-' . $branch->id . '-' . $newNumer;
-            $invoice->serial = $newNumer;
+            $numberData = app(InvoiceNumberService::class)->assign($invoice);
+            $invoice->bill_number = $numberData['bill_number'];
+            $invoice->serial = $numberData['serial'];
         });
     }
 
@@ -74,6 +56,16 @@ class Invoice extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function shift()
+    {
+        return $this->belongsTo(Shift::class);
+    }
+
+    public function paymentLines()
+    {
+        return $this->hasMany(InvoicePaymentLine::class)->with('bankAccount');
     }
 
     public function purchaseCaratType()
@@ -168,11 +160,41 @@ class Invoice extends Model
 
     public function getCustomerNameAttribute()
     {
-        return $this->bill_client_name ?? $this->customer->name;
+        return $this->bill_client_name ?? $this->customer?->name;
     }
 
     public function getCustomerPhoneAttribute()
     {
-        return $this->bill_client_phone ?? $this->customer->phone;
+        return $this->bill_client_phone ?? $this->customer?->phone;
+    }
+
+    public function getCustomerIdentityNumberAttribute()
+    {
+        return $this->bill_client_identity_number ?? $this->customer?->identity_number;
+    }
+
+    public function getCashPaidTotalAttribute(): float
+    {
+        return app(InvoicePaymentService::class)->totalsForInvoice($this)['cash'];
+    }
+
+    public function getCreditCardPaidTotalAttribute(): float
+    {
+        return app(InvoicePaymentService::class)->totalsForInvoice($this)['credit_card'];
+    }
+
+    public function getBankTransferPaidTotalAttribute(): float
+    {
+        return app(InvoicePaymentService::class)->totalsForInvoice($this)['bank_transfer'];
+    }
+
+    public function getPaymentTypeLabelAttribute(): string
+    {
+        return app(InvoicePaymentService::class)->paymentTypeLabelForInvoice($this);
+    }
+
+    public function getPaymentLinesBreakdownAttribute(): array
+    {
+        return app(InvoicePaymentService::class)->paymentBreakdown($this);
     }
 }

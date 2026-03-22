@@ -31,4 +31,10 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'gold_api' => [
+        'key' => env('GOLD_API_KEY'),
+        'base_url' => env('GOLD_API_BASE_URL', 'https://www.goldapi.io'),
+        'symbol' => env('GOLD_API_SYMBOL', 'XAU'),
+    ],
+
 ];

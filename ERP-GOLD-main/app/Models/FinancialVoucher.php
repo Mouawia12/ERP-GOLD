@@ -46,6 +46,12 @@ class FinancialVoucher extends Model
     {
         return $this->belongsTo(Branch::class, 'branch_id');
     }
+
+    public function shift()
+    {
+        return $this->belongsTo(Shift::class);
+    }
+
     public function journalEntry()
     {
         return $this->morphOne(JournalEntry::class, 'journalable');

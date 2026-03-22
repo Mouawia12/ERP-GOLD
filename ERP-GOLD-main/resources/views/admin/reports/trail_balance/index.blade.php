@@ -36,6 +36,7 @@
                                    {{__('main.balance_report')}}
                                 </h4>
                                 <h4 class="text-center"> [ {{$periodFrom}} - {{$periodTo}} ] </h4>
+                                <h6 class="text-center">{{ $branch?->name ? 'الفرع: ' . $branch->name : 'جميع الفروع' }}</h6>
                             </div>
                             <div class="col-3 text-left">  
                                  <img src=""   id="profile-img-tag" width="70px" height="70px" class="profile-img"/>
@@ -78,13 +79,14 @@
 
                             @foreach($accounts as $key => $account)
                             <?php
-                            $account_opening_debit = $account->openingBalance($periodFrom, $periodTo, 'debit');
-                            $account_opening_credit = $account->openingBalance($periodFrom, $periodTo, 'credit');
-                            $account_period_debit = $account->currentTransaction($periodFrom, $periodTo, 'debit');
-                            $account_period_credit = $account->currentTransaction($periodFrom, $periodTo, 'credit');
-                            $account_closing_debit = $account->closingBalance($periodFrom, $periodTo, 'debit');
-                            $account_closing_credit = $account->closingBalance($periodFrom, $periodTo, 'credit');
-                            $account_closing_balance = $account->closingBalance($periodFrom, $periodTo);
+                            $metrics = $accountMetrics[$account->id] ?? [];
+                            $account_opening_debit = $metrics['opening_debit'] ?? 0;
+                            $account_opening_credit = $metrics['opening_credit'] ?? 0;
+                            $account_period_debit = $metrics['period_debit'] ?? 0;
+                            $account_period_credit = $metrics['period_credit'] ?? 0;
+                            $account_closing_debit = $metrics['closing_debit'] ?? 0;
+                            $account_closing_credit = $metrics['closing_credit'] ?? 0;
+                            $account_closing_balance = $metrics['closing_net'] ?? 0;
                             ?>
                                 <tr>
                                     <td>{{ $account->name . ' - ' . $account->code }}</td>
@@ -140,4 +142,3 @@
     }); 
 </script> 
 @endsection 
-

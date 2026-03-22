@@ -27,8 +27,45 @@ class Branch extends Model
         return $this->hasOne(AccountSetting::class, 'branch_id', 'id');
     }
 
+    public function users()
+    {
+        return $this->hasMany(User::class, 'branch_id', 'id');
+    }
+
+    public function bankAccounts()
+    {
+        return $this->hasMany(BankAccount::class, 'branch_id', 'id');
+    }
+
+    public function items()
+    {
+        return $this->hasMany(Item::class, 'branch_id', 'id');
+    }
+
+    public function publishedItems()
+    {
+        return $this->belongsToMany(Item::class, 'branch_items', 'branch_id', 'item_id')
+            ->withPivot(['is_active', 'is_visible', 'sale_price_per_gram', 'published_by_user_id'])
+            ->withTimestamps();
+    }
+
     public function getBranchNameAttribute(): ?string
     {
         return $this->name;
+    }
+
+    public function getFullAddressAttribute(): string
+    {
+        $segments = array_filter([
+            $this->country,
+            $this->region,
+            $this->city,
+            $this->district,
+            $this->street_name,
+            $this->building_number,
+            $this->postal_code,
+        ]);
+
+        return implode(' - ', $segments);
     }
 }

@@ -28,6 +28,14 @@
                     <input type="hidden" id="form_type" name="form_type" value="1">
                     <input type="hidden" id="id" name="id" value="{{isset($item) ? $item->id : null}}">
                     @csrf
+                    @php
+                        $selectedPublishedBranchIds = isset($item)
+                            ? $item->publishedBranches->pluck('id')->map(fn ($id) => (int) $id)->all()
+                            : [];
+                        $branchSalePriceOverrides = isset($item)
+                            ? $item->publishedBranches->mapWithKeys(fn ($branch) => [$branch->id => $branch->pivot->sale_price_per_gram])->all()
+                            : [];
+                    @endphp
 
                     <div class="row">
                         <div class="col-md-2">
@@ -61,18 +69,86 @@
                     
                             </div>
                         </div>
+                        <div class="col-md-8">
+                            <div class="form-group">
+                                <label class="d-block">نشر الصنف على الفروع</label>
+                                @if(Auth::user()->is_admin)
+                                    <div class="border rounded p-2" style="max-height: 220px; overflow-y: auto;">
+                                        @foreach($branches as $publicationBranch)
+                                            @php
+                                                $ownerBranchId = (int) (isset($item) ? $item->branch_id : (old('branch_id', Auth::user()->branch_id ?? 0)));
+                                                $branchId = (int) $publicationBranch->id;
+                                                $isOwnerBranch = $ownerBranchId === $branchId;
+                                                $isPublished = in_array($branchId, $selectedPublishedBranchIds, true) || $isOwnerBranch;
+                                            @endphp
+                                            <div class="row align-items-center publication-row py-1 border-bottom" data-branch-id="{{ $branchId }}">
+                                                <div class="col-md-5">
+                                                    <div class="custom-control custom-checkbox">
+                                                        <input
+                                                            type="checkbox"
+                                                            class="custom-control-input publication-checkbox"
+                                                            id="publish_branch_{{ $branchId }}"
+                                                            data-branch-id="{{ $branchId }}"
+                                                            value="{{ $branchId }}"
+                                                            @checked($isPublished)
+                                                            @disabled($isOwnerBranch)
+                                                        >
+                                                        <label class="custom-control-label" for="publish_branch_{{ $branchId }}">
+                                                            {{ $publicationBranch->name }}
+                                                            <span class="badge badge-primary owner-branch-badge" @if(! $isOwnerBranch) style="display: none;" @endif>الفرع المالك</span>
+                                                        </label>
+                                                    </div>
+                                                    @if($isPublished)
+                                                        <input type="hidden" name="published_branch_ids[]" value="{{ $branchId }}" class="publication-hidden-input">
+                                                    @endif
+                                                </div>
+                                                <div class="col-md-7">
+                                                    <input
+                                                        type="number"
+                                                        step="any"
+                                                        min="0"
+                                                        class="form-control publication-price-input"
+                                                        name="branch_sale_prices[{{ $branchId }}]"
+                                                        placeholder="سعر بيع محلي لهذا الفرع - اختياري"
+                                                        value="{{ old('branch_sale_prices.' . $branchId, $branchSalePriceOverrides[$branchId] ?? '') }}"
+                                                        @disabled(! $isPublished)
+                                                    />
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    <small class="text-muted d-block mt-1">يُنشر الصنف على الفرع المالك تلقائيًا، ويمكن تفعيله على فروع أخرى مع سعر بيع محلي اختياري.</small>
+                                @else
+                                    <input type="hidden" name="published_branch_ids[]" value="{{ Auth::user()->branch_id }}">
+                                    <div class="alert alert-light mb-0">
+                                        سيتم نشر الصنف تلقائيًا على فرعك الحالي فقط.
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>تصنيف الصنف <span style="color:red; ">*</span></label>
+                                <select class="form-control" id="inventory_classification" name="inventory_classification" required>
+                                    @foreach($inventoryClassifications as $value => $label)
+                                        <option value="{{ $value }}" @selected((isset($item) ? $item->inventory_classification : \App\Models\Item::CLASSIFICATION_GOLD) === $value)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
                         <div class="col-md-3">
                             <div class="form-group">
                                 <label>{{ __('main.item_type') }} <span
-                                        style="color:red; ">*</span> </label>
-                                <select class="form-control" id="item_type" name="item_type" required="" >
+                                        style="color:red; " class="classification-gold-only">*</span> </label>
+                                <select class="form-control" id="item_type" name="item_type">
+                                    <option value="">select...</option>
                                     @foreach($caratTypes as $caratType)
                                         <option {{isset($item) ? $item->gold_carat_type_id == $caratType->id ? 'selected' : '' : ''}} value="{{$caratType->id}}">{{$caratType->title}}</option>
                                     @endforeach
                                 </select>
                             </div>
                         </div> 
-                        <div class="col-md-5">
+                        <div class="col-md-4">
                             <div class="form-group">
                                 <label>{{ __('main.name_ar') }} <span
                                         style="color:red; ">*</span> </label>
@@ -102,8 +178,8 @@
                         <div class="col-md-2">
                             <div class="form-group">
                                 <label>{{ __('main.carats') }} <span
-                                        style="color:red; ">*</span> </label>
-                                <select class="form-control" id="carats_id" name="carats_id" required="" >
+                                        style="color:red; " class="classification-gold-only">*</span> </label>
+                                <select class="form-control" id="carats_id" name="carats_id">
                                     <option value=""> select...</option>
                                     @foreach($carats as $carat)
                                         <option {{isset($item) ? $item->gold_carat_id == $carat->id ? 'selected' : '' : ''}}
@@ -141,10 +217,10 @@
                         <div class="col-md-2">
                             <div class="form-group">
                                 <label>{{ __('main.stamp_value') }} <span
-                                        style="color:red; ">*</span> </label>
+                                        style="color:red; " class="classification-gold-only">*</span> </label>
                                 <input type="text" step="any" id="tax" name="tax"
                                        class="form-control"
-                                       value="{{isset($item) ? $item->goldCarat->tax->rate : ''}}"
+                                       value="{{isset($item) ? $item->goldCarat?->tax?->rate : ''}}"
                                        placeholder="0" readonly/>
                             </div>
                         </div>
@@ -224,6 +300,8 @@ id = 0;
 document.title = "{{__('اضافة صنف جديد')}}";
 
 $(document).ready(function () { 
+    const isEditing = Boolean($('#id').val());
+
     $(document).on('submit', '#items_form', function(event) {
             id = 0 ;
             event.preventDefault();
@@ -264,46 +342,129 @@ $(document).ready(function () {
             })
         });
     
+    function fetchTaxForSelectedCarat() {
+        var caratId = $("#carats_id").val();
 
-
-    var route = "{{route('items.get_code')}}";  
-    $.ajax({
-        type: 'get',
-        url: route,
-        dataType: 'json',
-
-        success: function (response) { 
-            $("#code").val(response);
+        if (!caratId) {
+            $("#tax").val('');
+            return;
         }
-    });
 
-    $("#carats_id").change(function (){
-        var route = "{!!route('carats.show',':id')!!}";  
-        var id = this.value;
-        route = route.replace(':id', id);
+        var route = "{!!route('carats.show',':id')!!}";
+        route = route.replace(':id', caratId);
         $.ajax({
             type: 'get',
             url: route,
-            dataType: 'json', 
-            success: function (response) { 
-                $("#tax").val(response.tax_percentage); 
+            dataType: 'json',
+            success: function (response) {
+                $("#tax").val(response.tax_percentage);
             }
         });
+    }
+
+    function toggleGoldOnlyFields() {
+        var classification = $("#inventory_classification").val();
+        var isGold = classification === "{{ \App\Models\Item::CLASSIFICATION_GOLD }}";
+
+        $("#carats_id").prop('required', isGold).prop('disabled', !isGold);
+        $("#item_type").prop('required', isGold).prop('disabled', !isGold);
+        $(".classification-gold-only").toggle(isGold);
+
+        if (!isGold) {
+            $("#carats_id").val('');
+            $("#item_type").val('');
+            $("#tax").val('');
+            $("#made_Value").prop('readonly', false);
+            return;
+        }
+
+        updateMadeValueReadonly();
+        fetchTaxForSelectedCarat();
+    }
+
+    function updateMadeValueReadonly() {
+        var classification = $("#inventory_classification").val();
+        var itemType = $("#item_type").val();
+        var shouldLockMadeValue = classification === "{{ \App\Models\Item::CLASSIFICATION_GOLD }}" && (itemType == 2 || itemType == 3);
+        $("#made_Value").prop('readonly', shouldLockMadeValue);
+    }
+
+    function syncPublicationInputs(checkbox) {
+        var $checkbox = $(checkbox);
+        var row = $checkbox.closest('.publication-row');
+        var branchId = $checkbox.data('branch-id');
+        var hiddenInput = row.find('.publication-hidden-input');
+        var priceInput = row.find('.publication-price-input');
+
+        if ($checkbox.is(':checked')) {
+            if (!hiddenInput.length) {
+                row.find('.custom-control').append('<input type="hidden" name="published_branch_ids[]" value="' + branchId + '" class="publication-hidden-input">');
+            }
+            priceInput.prop('disabled', false);
+            return;
+        }
+
+        hiddenInput.remove();
+        priceInput.prop('disabled', true).val('');
+    }
+
+    function syncOwnerBranchPublication() {
+        var ownerBranchId = parseInt($("#branch_id").val() || 0, 10);
+
+        $(".publication-row").each(function () {
+            var row = $(this);
+            var branchId = parseInt(row.data('branch-id'), 10);
+            var checkbox = row.find('.publication-checkbox');
+            var badge = row.find('.owner-branch-badge');
+
+            if (branchId === ownerBranchId) {
+                checkbox.prop('checked', true).prop('disabled', true);
+                badge.show();
+                syncPublicationInputs(checkbox);
+                return;
+            }
+
+            checkbox.prop('disabled', false);
+            badge.hide();
+            syncPublicationInputs(checkbox);
+        });
+    }
+
+    if (!isEditing) {
+        var route = "{{route('items.get_code')}}";  
+        $.ajax({
+            type: 'get',
+            url: route,
+            dataType: 'json',
+            success: function (response) { 
+                $("#code").val(response);
+            }
+        });
+    }
+
+    $("#carats_id").change(function (){
+        fetchTaxForSelectedCarat();
+    });
+
+    $("#inventory_classification").change(function (){
+        toggleGoldOnlyFields();
     });
 
     $("#item_type").change(function (){ 
-        if(this.value == 2  ){
-            $("#made_Value").prop('readonly', true);
-        } else if(this.value == 3){ 
-            $("#made_Value").prop('readonly', true);
-        }else{
-            $("#made_Value").prop('readonly', false);
-        }
+        updateMadeValueReadonly();
     });
 
-    @if(empty(Auth::user()->branch_id))
-        $("#branch_id").val(1).trigger("change");  
-    @endif
+    $(".publication-checkbox").change(function () {
+        syncPublicationInputs(this);
+    });
+
+    $("#branch_id").change(function () {
+        syncOwnerBranchPublication();
+    });
+
+    syncOwnerBranchPublication();
+
+    toggleGoldOnlyFields();
 });
     
     

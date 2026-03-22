@@ -34,6 +34,12 @@
             <div class="card">
                 <div class="card-header pb-0" id="head-right" >
                     <div class="col-lg-12 margin-tb text-center">
+                        @php
+                            $baseListParams = array_filter([
+                                'type' => $type,
+                                'identity_number' => $identityNumber ?? null,
+                            ], fn ($value) => $value !== null && $value !== '');
+                        @endphp
                         <h4  class="alert alert-primary text-center">
                          [ {{$type == 'customer' ? __('main.customers') : __('main.suppliers')}} ] 
                         </h4>
@@ -43,7 +49,51 @@
                                 <i class="fa fa-plus"></i></span>
                                 {{__('main.add_new')}}
                             </button> 
-                        @endcan 
+                        @endcan
+                        <div class="mt-3">
+                            <a
+                                href="{{ route('customers', $baseListParams) }}"
+                                class="btn {{ empty($cashOnly) ? 'btn-primary' : 'btn-outline-primary' }}"
+                            >
+                                كل {{ $type == 'customer' ? __('main.customers') : __('main.suppliers') }}
+                            </a>
+                            <a
+                                href="{{ route('customers', $baseListParams + ['cash_only' => 1]) }}"
+                                class="btn {{ !empty($cashOnly) ? 'btn-primary' : 'btn-outline-primary' }}"
+                            >
+                                الأطراف النقدية فقط
+                            </a>
+                        </div>
+                        <form method="GET" action="{{ route('customers', ['type' => $type]) }}" class="mt-3">
+                            @if(!empty($cashOnly))
+                                <input type="hidden" name="cash_only" value="1">
+                            @endif
+                            <div class="row justify-content-center">
+                                <div class="col-lg-4 col-md-6">
+                                    <div class="input-group">
+                                        <input
+                                            type="text"
+                                            name="identity_number"
+                                            class="form-control text-right"
+                                            placeholder="بحث برقم الهوية"
+                                            value="{{ $identityNumber ?? '' }}"
+                                        >
+                                        <div class="input-group-append">
+                                            <button type="submit" class="btn btn-outline-primary">بحث</button>
+                                            <a
+                                                href="{{ route('customers', ['type' => $type] + (!empty($cashOnly) ? ['cash_only' => 1] : [])) }}"
+                                                class="btn btn-outline-secondary"
+                                            >
+                                                مسح
+                                            </a>
+                                        </div>
+                                    </div>
+                                    @if(!empty($identityNumber))
+                                        <small class="text-muted d-block mt-2">التصفية الحالية على رقم الهوية: {{ $identityNumber }}</small>
+                                    @endif
+                                </div>
+                            </div>
+                        </form>
                     </div>
                     <div class="clearfix"></div>
                 </div> 
@@ -59,6 +109,8 @@
                                             <th>#</th>
                                             <th>{{__('main.customer_name')}}</th> 
                                             <th>{{__('main.phone')}}</th>
+                                            <th>طرف نقدي</th>
+                                            <th>رقم الهوية</th>
                                             <th>{{__('main.email')}}</th> 
                                             <th>{{__('main.vat_no')}}</th>
                                             <th>{{__('main.actions')}}</th>
@@ -70,9 +122,24 @@
                                                 <td class="text-center">{{$loop -> index +1}}</td>
                                                 <td class="text-center">{{$customer -> name}}</td> 
                                                 <td class="text-center">{{$customer -> phone}}</td>
+                                                <td class="text-center">
+                                                    @if($customer->is_cash_party)
+                                                        <span class="badge badge-success">نقدي</span>
+                                                    @else
+                                                        <span class="badge badge-light">عادي</span>
+                                                    @endif
+                                                </td>
+                                                <td class="text-center">{{$customer -> identity_number}}</td>
                                                 <td class="text-center">{{$customer -> email}}</td> 
                                                 <td class="text-center">{{$customer -> tax_number}}</td>
                                                 <td class="text-center">
+                                                <a
+                                                    href="{{ route('customers.report', $customer->id) }}"
+                                                    class="btn btn-labeled btn-primary"
+                                                    title="كشف الطرف"
+                                                >
+                                                    <i class="fa fa-file-text-o"></i>
+                                                </a>
 
                                                 @canany(['employee.customers.edit','employee.suppliers.edit'])    
                                                 <button type="button" class="btn btn-labeled btn-info editBtn"
@@ -143,6 +210,23 @@
                                 <input type="text"  id="phone" name="phone"
                                        class="form-control"
                                        placeholder="{{ __('main.phone') }}"  />
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="form-group text-right pt-4">
+                                <div class="custom-control custom-switch">
+                                    <input type="checkbox" class="custom-control-input" id="is_cash_party" name="is_cash_party" value="1">
+                                    <label class="custom-control-label" for="is_cash_party">تصنيف كطرف نقدي</label>
+                                </div>
+                                <small class="text-muted d-block mt-2">سيظهر ضمن قائمة العملاء/الموردين النقديين ويمكن تصفيته بسرعة.</small>
+                            </div>
+                        </div>
+                        <div class="col-6 " >
+                            <div class="form-group">
+                                <label>رقم الهوية</label>
+                                <input type="text"  id="identity_number" name="identity_number"
+                                       class="form-control"
+                                       placeholder="رقم الهوية"  />
                             </div>
                         </div>
                         <div class="col-6 " >
@@ -336,6 +420,8 @@
                     $(".modal-body #company").val( "" );
                     $(".modal-body #name").val( "" );
                     $(".modal-body #phone").val( "" );
+                    $(".modal-body #is_cash_party").prop('checked', false);
+                    $(".modal-body #identity_number").val( "" );
                     $(".modal-body #email").val( "" );
                     $(".modal-body #account_id").val( "" ).trigger("change");;
                     $(".modal-body #vat_no").val( "" );
@@ -445,6 +531,8 @@
                         success: function(result) {
                             $(".modal-body #name").val( response.name );
                             $(".modal-body #phone").val( response.phone );
+                            $(".modal-body #is_cash_party").prop('checked', response.is_cash_party == 1 || response.is_cash_party === true);
+                            $(".modal-body #identity_number").val( response.identity_number );
                             $(".modal-body #email").val( response.email );
                             $(".modal-body #id").val( response.id );
                             $(".modal-body #type").val( response.type );

@@ -112,6 +112,7 @@
                                                     @foreach($caratTypes as $caratType)
                                                         <option value="{{$caratType->key}}">{{$caratType->title}}</option>
                                                     @endforeach
+                                                    <option value="non_gold">غير ذهبي</option>
                                            </select>
                                        </div>
                                     </div>
@@ -145,11 +146,97 @@
                                             <select id="supplier_id" name="supplier_id" class="js-example-basic-single w-100" required="">
                                                    <option value="">حدد الاختيار</option>
                                                 @foreach($customers as $customer)
-                                                    <option value="{{$customer -> id}}">{{$customer -> name}}</option>
+                                                    <option
+                                                        value="{{$customer -> id}}"
+                                                        data-name="{{ $customer->name }}"
+                                                        data-phone="{{ $customer->phone }}"
+                                                        data-identity-number="{{ $customer->identity_number }}"
+                                                        data-cash-party="{{ $customer->is_cash_party ? 1 : 0 }}"
+                                                    >
+                                                        {{$customer -> name}}
+                                                    </option>
                                                 @endforeach
                                             </select>
+                                            <div class="custom-control custom-switch text-right mt-2">
+                                                <input type="checkbox" class="custom-control-input" id="cash_supplier_only_toggle">
+                                                <label class="custom-control-label" for="cash_supplier_only_toggle">
+                                                    عرض الموردين النقديين فقط
+                                                </label>
+                                            </div>
                                         </div>
-                                    </div> 
+                                    </div>
+                                    <div class="col-3">
+                                        <div class="form-group">
+                                            <label>اسم المورد في الفاتورة</label>
+                                            <input
+                                                type="text"
+                                                name="bill_client_name"
+                                                class="form-control text-right"
+                                                autocomplete="off"
+                                            >
+                                            @can('employee.suppliers.add')
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-outline-primary btn-block mt-2"
+                                                    id="quick_save_supplier_btn"
+                                                    data-url="{{ route('customers.quick-store', ['type' => 'supplier']) }}"
+                                                >
+                                                    حفظ الاسم الحالي كمورد
+                                                </button>
+                                                <div class="custom-control custom-switch text-right mt-2">
+                                                    <input type="checkbox" class="custom-control-input" id="quick_save_supplier_is_cash_party">
+                                                    <label class="custom-control-label" for="quick_save_supplier_is_cash_party">
+                                                        حفظه كطرف نقدي
+                                                    </label>
+                                                </div>
+                                            @endcan
+                                        </div>
+                                    </div>
+                                    <div class="col-3">
+                                        <div class="form-group">
+                                            <label>رقم هاتف المورد</label>
+                                            <input
+                                                type="text"
+                                                name="bill_client_phone"
+                                                class="form-control text-right"
+                                            >
+                                        </div>
+                                    </div>
+                                    <div class="col-3">
+                                        <div class="form-group">
+                                            <label>رقم هوية المورد</label>
+                                            <input
+                                                type="text"
+                                                name="bill_client_identity_number"
+                                                class="form-control text-right"
+                                                autocomplete="off"
+                                            >
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label>{{ __('main.notes') }}</label>
+                                            <textarea
+                                                name="notes"
+                                                id="notes"
+                                                rows="2"
+                                                class="form-control"
+                                                placeholder="{{ __('main.notes') }}"
+                                            >{{ old('notes') }}</textarea>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label>شروط الفاتورة</label>
+                                            <textarea
+                                                name="invoice_terms"
+                                                id="invoice_terms"
+                                                rows="2"
+                                                class="form-control"
+                                                placeholder="اكتب شروط الفاتورة"
+                                            >{{ old('invoice_terms', $defaultInvoiceTerms) }}</textarea>
+                                        </div>
+                                    </div>
                                 </div>
                                             <div class="row"> 
                                                     <div class="col-md-12 " id="sticker">
@@ -333,6 +420,7 @@
     var suggestionItems = {};
     var sItems = [];
     document.title = "فاتورة شراء";
+    var quickSupplierStoreUrl = $('#quick_save_supplier_btn').data('url');
 
     $(document).ready(function () {  
         var now = new Date();
@@ -341,6 +429,8 @@
         now.setSeconds(null);
 
         document.getElementById('date').value = now.toISOString().slice(0, -1);
+        applyCashSupplierFilter();
+        syncSelectedSupplierSnapshot();
         $(document).on('change', '#carat_type', function () {
             var carat_type = $(this).val();
             if(carat_type == 'crafted'){
@@ -348,7 +438,8 @@
                 $('#labor_cost_th').show();
             }else{
                 $('#purchase_type_section').hide();
-                $('#labor_cost_th').hide();
+                $('#purchase_type').val('normal');
+                $('#labor_cost_th').toggle(carat_type == 'non_gold');
             }
             $('#products_suggestions').empty();
             $('#sTable tbody').empty();
@@ -363,9 +454,87 @@
             sItems = [];
             loadItems();
         });    
+        $(document).on('change', '#supplier_id', function () {
+            syncSelectedSupplierSnapshot();
+        });
+        $(document).on('change', '#cash_supplier_only_toggle', function () {
+            applyCashSupplierFilter();
+            syncSelectedSupplierSnapshot();
+        });
+        $(document).on('click', '#quick_save_supplier_btn', function () {
+            var button = $(this);
+            var name = $.trim($('input[name="bill_client_name"]').val());
+            var phone = $.trim($('input[name="bill_client_phone"]').val());
+            var identityNumber = $.trim($('input[name="bill_client_identity_number"]').val());
+            var isCashParty = $('#quick_save_supplier_is_cash_party').is(':checked') ? 1 : 0;
+
+            if (!name.length) {
+                alert('أدخل اسم المورد أولًا قبل الحفظ السريع.');
+                return;
+            }
+
+            button.prop('disabled', true).text('جاري الحفظ...');
+
+            $.ajax({
+                url: quickSupplierStoreUrl,
+                type: 'post',
+                dataType: 'json',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    name: name,
+                    phone: phone,
+                    identity_number: identityNumber,
+                    is_cash_party: isCashParty
+                },
+                success: function (response) {
+                    upsertSupplierOption(
+                        response.customer_id,
+                        response.customer_name,
+                        response.phone,
+                        response.identity_number,
+                        response.is_cash_party
+                    );
+                    syncSelectedSupplierSnapshot();
+                    alert(response.message);
+                },
+                error: function (xhr) {
+                    alert(extractSupplierErrors(xhr));
+                },
+                complete: function () {
+                    button.prop('disabled', false).text('حفظ الاسم الحالي كمورد');
+                }
+            });
+        });
         $(document).on('click', '#purchase_btn', function () {
-            
+            var rows = $('#sTable tbody tr').length;
+            var supplierId = $('#supplier_id').val();
+            var netTotal = $('#net_total').val();
+
+            if (!supplierId) {
+                alert('حدد المورد أولًا.');
+                return;
+            }
+
+            if (rows <= 0) {
+                alert('{{ __('main.no_bill_details') }}');
+                return;
+            }
+
+            openPurchasePaymentModal(netTotal, $('#branch_id').val());
+        });
+        $(document).on('click', '#purchase_payment_btn', function () {
             var thisme = $('#purchases_form');
+            var total = Number($('#purchase_money').val() || 0);
+            var cash = Number($('#purchase_cash').val() || 0);
+            var nonCash = collectPurchasePaymentLines().reduce(function (sum, line) {
+                return sum + Number(line.amount || 0);
+            }, 0);
+
+            if (Math.abs(total - (cash + nonCash)) >= 0.01) {
+                alert('{{ __('main.paid_must_equal_net') }}');
+                return;
+            }
+
             let href = thisme.attr('action');
             let method = thisme.attr('method');
             $.ajax({
@@ -377,27 +546,29 @@
                     $('#loader').show();
                 },
                 success: function(result) {
-                    var message = "";
-                    message += result.message;
-                    alert(message);
-                  setTimeout(function() {
-                    suggestionItems = {};
-                    thisme[0].reset();
-                    window.location.href = "{{route('purchases.index')}}";
-                  }, 2000);
+                    alert(result.message);
+                    setTimeout(function() {
+                        suggestionItems = {};
+                        thisme[0].reset();
+                        window.location.href = "{{route('purchases.index')}}";
+                    }, 1000);
                 },
                 complete: function() {
                     $('#loader').hide();
                 },
-                error: function(jqXHR, testStatus, error) {
+                error: function(jqXHR) {
                     var errors = "";
-                    jqXHR.responseJSON.errors.forEach(function(error) {
-                        errors += error + "\n";
-                    });
+                    if (jqXHR.responseJSON && Array.isArray(jqXHR.responseJSON.errors)) {
+                        jqXHR.responseJSON.errors.forEach(function(error) {
+                            errors += error + "\n";
+                        });
+                    } else {
+                        errors = 'تعذر حفظ الفاتورة.';
+                    }
                     alert(errors);
                 },
                 timeout: 8000
-            })
+            });
         });
         $('#add_item').focus();
         $('#add_item').on('input', function (e) { 
@@ -431,6 +602,186 @@
 
         });
     });
+
+    function syncSelectedSupplierSnapshot() {
+        var selectedOption = $('#supplier_id option:selected');
+        $('input[name="bill_client_name"]').val(selectedOption.data('name') || '');
+        $('input[name="bill_client_phone"]').val(selectedOption.data('phone') || '');
+        $('input[name="bill_client_identity_number"]').val(selectedOption.data('identity-number') || '');
+        $('#quick_save_supplier_is_cash_party').prop('checked', String(selectedOption.data('cash-party')) === '1');
+    }
+
+    function applyCashSupplierFilter() {
+        var select = $('#supplier_id');
+        var cashOnly = $('#cash_supplier_only_toggle').is(':checked');
+        var firstEnabledValue = null;
+
+        select.find('option').each(function () {
+            var option = $(this);
+            var isPlaceholder = option.val() === '';
+            var isCashParty = String(option.data('cash-party')) === '1';
+            var isEnabled = isPlaceholder || !cashOnly || isCashParty;
+
+            option.prop('disabled', !isEnabled);
+
+            if (!isPlaceholder && isEnabled && firstEnabledValue === null) {
+                firstEnabledValue = option.val();
+            }
+        });
+
+        var selectedOption = select.find('option:selected');
+        if (!selectedOption.length || selectedOption.prop('disabled')) {
+            select.val(firstEnabledValue || '');
+        }
+
+        select.trigger('change.select2');
+    }
+
+    function upsertSupplierOption(id, name, phone, identityNumber, isCashParty) {
+        var select = $('#supplier_id');
+        var option = select.find('option[value="' + id + '"]');
+
+        if (!option.length) {
+            option = $('<option></option>').val(id).appendTo(select);
+        }
+
+        option
+            .text(name)
+            .attr('data-name', name)
+            .attr('data-phone', phone || '')
+            .attr('data-identity-number', identityNumber || '')
+            .attr('data-cash-party', isCashParty ? 1 : 0);
+
+        select.val(String(id)).trigger('change');
+    }
+
+    function extractSupplierErrors(xhr) {
+        if (xhr.responseJSON && Array.isArray(xhr.responseJSON.errors) && xhr.responseJSON.errors.length) {
+            return xhr.responseJSON.errors.join('\n');
+        }
+
+        return 'حدث خطأ أثناء حفظ بيانات المورد.';
+    }
+
+    function openPurchasePaymentModal(net_total, branch_id) {
+        let url = "{{ route('purchases.payments') }}";
+        $.post(url, { document_type: 'purchase', net_after_discount: net_total, branch_id: branch_id }, function(data) {
+            $(".show_modal1").html(data);
+            refreshPurchasePaymentSummary();
+            $('#paymentsModal').modal({backdrop: 'static', keyboard: false}, 'show');
+        });
+    }
+
+    function buildPurchaseBankAccountOptions(methodType, selectedId) {
+        var options = '<option value="">حدد الحساب البنكي</option>';
+        var items = window.currentPurchaseBankAccounts || [];
+
+        items.forEach(function (item) {
+            var supported = methodType === 'credit_card' ? item.supports_credit_card : item.supports_bank_transfer;
+
+            if (!supported) {
+                return;
+            }
+
+            var selected = String(selectedId || '') === String(item.id) ? 'selected' : '';
+            options += '<option value="' + item.id + '" ' + selected + '>' + item.name + '</option>';
+        });
+
+        return options;
+    }
+
+    function refreshPurchasePaymentInputNames() {
+        $('#purchase_payment_lines_table tbody tr').each(function (index) {
+            var row = $(this);
+            row.find('.purchase-payment-line-method').attr('name', 'payment_lines[' + index + '][method_type]');
+            row.find('.purchase-payment-line-bank-account').attr('name', 'payment_lines[' + index + '][bank_account_id]');
+            row.find('.purchase-payment-line-reference').attr('name', 'payment_lines[' + index + '][reference_no]');
+            row.find('.purchase-payment-line-amount').attr('name', 'payment_lines[' + index + '][amount]');
+        });
+    }
+
+    function appendPurchasePaymentLineRow(line) {
+        var methodType = (line && line.method_type) ? line.method_type : 'credit_card';
+        var bankAccountId = line && line.bank_account_id ? line.bank_account_id : '';
+        var referenceNo = line && line.reference_no ? line.reference_no : '';
+        var amount = line && line.amount ? line.amount : '';
+
+        var rowHtml = ''
+            + '<tr class="purchase-payment-line-row">'
+            + '<td><select class="form-control purchase-payment-line-method"><option value="credit_card"' + (methodType === 'credit_card' ? ' selected' : '') + '>شبكة / بطاقة</option><option value="bank_transfer"' + (methodType === 'bank_transfer' ? ' selected' : '') + '>تحويل بنكي</option></select></td>'
+            + '<td><select class="form-control purchase-payment-line-bank-account">' + buildPurchaseBankAccountOptions(methodType, bankAccountId) + '</select></td>'
+            + '<td><input type="text" class="form-control purchase-payment-line-reference" value="' + referenceNo + '" placeholder="رقم المرجع"></td>'
+            + '<td><input type="number" min="0" step="any" class="form-control purchase-payment-line-amount" value="' + amount + '" placeholder="0.00"></td>'
+            + '<td><button type="button" class="btn btn-outline-danger btn-sm remove-purchase-payment-line">حذف</button></td>'
+            + '</tr>';
+
+        $('#purchase_payment_lines_table tbody').append(rowHtml);
+        refreshPurchasePaymentInputNames();
+        refreshPurchasePaymentSummary();
+    }
+
+    function collectPurchasePaymentLines() {
+        var lines = [];
+
+        $('#purchase_payment_lines_table tbody tr').each(function () {
+            var row = $(this);
+            var amount = Number(row.find('.purchase-payment-line-amount').val() || 0);
+
+            if (amount <= 0) {
+                return;
+            }
+
+            lines.push({
+                method_type: row.find('.purchase-payment-line-method').val(),
+                bank_account_id: row.find('.purchase-payment-line-bank-account').val(),
+                reference_no: row.find('.purchase-payment-line-reference').val(),
+                amount: amount.toFixed(2)
+            });
+        });
+
+        return lines;
+    }
+
+    function refreshPurchasePaymentSummary() {
+        var moneyInput = document.getElementById('purchase_money');
+        if (!moneyInput) {
+            return;
+        }
+
+        var cashValue = Number($('#purchase_cash').val() || 0);
+        var paymentLines = collectPurchasePaymentLines();
+        var nonCashTotal = paymentLines.reduce(function (sum, line) {
+            return sum + Number(line.amount || 0);
+        }, 0);
+        var total = Number(moneyInput.value || 0);
+        var remaining = (total - (cashValue + nonCashTotal)).toFixed(2);
+
+        $('#purchase_payment_lines_total').text(nonCashTotal.toFixed(2));
+        $('#purchase_payment_remaining').val(remaining);
+        refreshPurchasePaymentInputNames();
+    }
+
+    $(document).on('click', '#add_purchase_payment_line_btn', function () {
+        appendPurchasePaymentLineRow();
+    });
+
+    $(document).on('click', '.remove-purchase-payment-line', function () {
+        $(this).closest('tr').remove();
+        refreshPurchasePaymentInputNames();
+        refreshPurchasePaymentSummary();
+    });
+
+    $(document).on('change', '.purchase-payment-line-method', function () {
+        var row = $(this).closest('tr');
+        row.find('.purchase-payment-line-bank-account').html(buildPurchaseBankAccountOptions($(this).val(), ''));
+        refreshPurchasePaymentInputNames();
+        refreshPurchasePaymentSummary();
+    });
+
+    $(document).on('keyup change', '#purchase_cash, .purchase-payment-line-amount, .purchase-payment-line-bank-account, .purchase-payment-line-reference', function () {
+        refreshPurchasePaymentSummary();
+    });
+
     function searchProduct(code) {
         var carat_type = document.getElementById('carat_type').value;
         let branch_id = document.getElementById('branch_id').value; 
@@ -598,7 +949,7 @@
             newTr.html(tr_html);
             newTr.appendTo('#sTable');
         });
-        if(carat_type == 'crafted'){
+        if(carat_type == 'crafted' || carat_type == 'non_gold'){
             $('.item_total_labor_cost').parent().show();
         }else{
             $('.item_total_labor_cost').parent().hide();
@@ -645,6 +996,3 @@
 </script> 
 @endsection 
  
-
-
-

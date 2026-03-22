@@ -1,203 +1,147 @@
-@extends('admin.layouts.master') 
-@section('content') 
-@can('employee.gold_prices.show')
+@extends('admin.layouts.master')
+@section('content')
     @if (session('success'))
-        <div class="alert alert-success  fade show">
+        <div class="alert alert-success fade show">
             <button class="close" data-dismiss="alert" aria-label="Close">×</button>
             {{ session('success') }}
         </div>
     @endif
-    <!-- row opened -->
+
+    @if (session('error'))
+        <div class="alert alert-danger fade show">
+            <button class="close" data-dismiss="alert" aria-label="Close">×</button>
+            {{ session('error') }}
+        </div>
+    @endif
+
     <div class="row row-sm">
         <div class="col-xl-12">
-            <div class="card"> 
-                
-                <div class="card-body px-0 pt-0 pb-2"> 
-                    <div class="card shadow mb-4"> 
+            <div class="card">
+                <div class="card-header pb-0">
+                    <div class="col-lg-12 margin-tb">
+                        <h4 class="alert alert-primary text-center mb-0">أسعار بورصة الذهب المحفوظة</h4>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    @can('employee.gold_prices.edit')
+                        <div class="d-flex flex-wrap justify-content-center mb-4" style="gap: 12px;">
+                            <form method="POST" action="{{ route('updatePrices') }}" class="mb-0">
+                                @csrf
+                                <input type="hidden" name="currency" value="USD">
+                                <button type="submit" class="btn btn-sm btn-outline-primary shadow-sm" style="border-radius: 10px;">
+                                    تحديث Snapshot الدولار
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ route('updatePrices') }}" class="mb-0">
+                                @csrf
+                                <input type="hidden" name="currency" value="SAR">
+                                <button type="submit" class="btn btn-sm btn-primary shadow-sm" style="border-radius: 10px;">
+                                    تحديث Snapshot الريال
+                                </button>
+                            </form>
+                        </div>
+                    @endcan
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card shadow-sm mb-4">
+                                <div class="card-body">
+                                    <h5 class="alert alert-info text-center">آخر Snapshot بالدولار</h5>
+
+                                    @if($latestUsdSnapshot)
+                                        <table class="table table-bordered text-center mb-0">
+                                            <thead>
+                                            <tr>
+                                                <th>الأونصة</th>
+                                                <th>عيار 21</th>
+                                                <th>عيار 24</th>
+                                                <th>التوقيت</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            <tr>
+                                                <td>{{ number_format($latestUsdSnapshot->ounce_price, 2) }}</td>
+                                                <td>{{ number_format($latestUsdSnapshot->ounce_21_price, 2) }}</td>
+                                                <td>{{ number_format($latestUsdSnapshot->ounce_24_price, 2) }}</td>
+                                                <td>{{ optional($latestUsdSnapshot->synced_at)->format('Y-m-d H:i:s') }}</td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    @else
+                                        <div class="alert alert-light text-center mb-0">لا يوجد Snapshot بالدولار حتى الآن.</div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="card shadow-sm mb-4">
+                                <div class="card-body">
+                                    <h5 class="alert alert-info text-center">آخر Snapshot بالريال السعودي</h5>
+
+                                    @if($latestSarSnapshot)
+                                        <table class="table table-bordered text-center mb-0">
+                                            <thead>
+                                            <tr>
+                                                <th>الأونصة</th>
+                                                <th>عيار 21</th>
+                                                <th>عيار 24</th>
+                                                <th>التوقيت</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            <tr>
+                                                <td>{{ number_format($latestSarSnapshot->ounce_price, 2) }}</td>
+                                                <td>{{ number_format($latestSarSnapshot->ounce_21_price, 2) }}</td>
+                                                <td>{{ number_format($latestSarSnapshot->ounce_24_price, 2) }}</td>
+                                                <td>{{ optional($latestSarSnapshot->synced_at)->format('Y-m-d H:i:s') }}</td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    @else
+                                        <div class="alert alert-light text-center mb-0">لا يوجد Snapshot بالريال حتى الآن.</div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm">
                         <div class="card-body">
-                            <h4  class="alert alert-primary text-center">
-                                {{__(' اسعار البورصة العالمية(ذهب)')}}
-                            </h4>
-                            <div class="table-responsive hoverable-table">
-                                <table class="display w-100 table-bordered" id="stock_market" 
-                                   style="text-align: center;"> 
-                                    <tbody> 
+                            <h5 class="alert alert-light text-center">سجل مزامنة السوق</h5>
+                            <div class="table-responsive">
+                                <table class="table table-bordered text-center mb-0">
+                                    <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>العملة</th>
+                                        <th>الأونصة</th>
+                                        <th>عيار 21</th>
+                                        <th>التوقيت</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    @forelse($remoteHistory as $historyRow)
                                         <tr>
-                                            <td class="text-center">الطابع الزمني (timestamp)</td>
-                                            <td class="text-center">{{\Carbon\Carbon::parse($stock_market_usd->timestamp) -> format('Y-m-d\Th:i:s')}}</td>
-                                        </tr> 
+                                            <td>{{ $loop->iteration }}</td>
+                                            <td>{{ $historyRow->currency }}</td>
+                                            <td>{{ number_format($historyRow->ounce_price, 2) }}</td>
+                                            <td>{{ number_format($historyRow->ounce_21_price, 2) }}</td>
+                                            <td>{{ optional($historyRow->synced_at)->format('Y-m-d H:i:s') }}</td>
+                                        </tr>
+                                    @empty
                                         <tr>
-                                            <td class="text-center">المعدن (metal)</td>
-                                            <td class="text-center">{{$stock_market_usd->metal}}</td>
-                                        </tr> 
-                                        <tr>
-                                            <td class="text-center">العملة  (currency)</td>
-                                            <td class="text-center">{{$stock_market_usd->currency}}</td>
-                                        </tr> 
-                                        <tr>
-                                            <td class="text-center">سعر الاونصة   (Ounce price)</td>
-                                            <td class="text-center">{{$stock_market_usd->price}}</td>
-                                        </tr> 
-                                        <tr>
-                                            <td class="text-center">اغلاق سابق  (prev close price)</td>
-                                            <td class="text-center">{{$stock_market_usd->prev_close_price}}</td>
-                                        </tr> 
-                                        <tr>
-                                            <td class="text-center">الفتح  (open price)</td>
-                                            <td class="text-center">{{$stock_market_usd->open_price}}</td>
-                                        </tr> 
-                                        <tr>
-                                            <td class="text-center">اقل سعر  (low price)</td>
-                                            <td class="text-center">{{$stock_market_usd->low_price}}</td>
-                                        </tr> 
-                                        <tr>
-                                            <td class="text-center">اعلى سعر  (high price)</td>
-                                            <td class="text-center">{{$stock_market_usd->high_price}}</td>
-                                        </tr> 
-                                        <tr>
-                                            <td class="text-center">طلب  (ask)</td>
-                                            <td class="text-center">{{$stock_market_usd->ask}}</td>
-                                        </tr> 
-                                        <tr>
-                                            <td class="text-center">عرض  (bid)</td>
-                                            <td class="text-center">{{$stock_market_usd->bid}}</td>
-                                        </tr>  
-                                   </tbody>
+                                            <td colspan="5">لا يوجد سجل مزامنة خارجي بعد.</td>
+                                        </tr>
+                                    @endforelse
+                                    </tbody>
                                 </table>
                             </div>
-                        </div> 
-                        <div class="row">
-                            <div class="card-body col-md-6">
-                                <h4  class="alert alert-primary text-center">
-                                   سعر جرام الذهب (دولار) 
-                                </h4>
-                                <div class="table-responsive hoverable-table">
-                                    <table class="display w-100 table-bordered" id="stock_market" 
-                                       style="text-align: center;"> 
-                                       <thead>
-                                           <tr> 
-                                               <th>{{__('نوع العيار')}}</th>
-                                               <th>{{__('السعر')}}</th>
-                                               <th>{{__('التحديث')}} </th> 
-                                           </tr>
-                                       </thead>
-                                       <tbody>
-                                            <tr> 
-                                                <td class="text-center">{{__('عيار 24')}}</td>
-                                                <td class="text-center">{{round($stock_market_usd->price_gram_24k,2)}}</td>
-                                                <td class="text-center">{{\Carbon\Carbon::parse($stock_market_usd->timestamp) -> format('Y-m-d\Th:i:s')}}</td>
-                                            </tr> 
-                                            <tr> 
-                                                <td class="text-center">{{__('عيار 22')}}</td>
-                                                <td class="text-center">{{round($stock_market_usd->price_gram_22k,2)}}</td>
-                                                <td class="text-center">{{\Carbon\Carbon::parse($stock_market_usd->timestamp) -> format('Y-m-d\Th:i:s')}}</td>
-                                            </tr> 
-                                            <tr> 
-                                                <td class="text-center">{{__('عيار 21')}}</td>
-                                                <td class="text-center">{{round($stock_market_usd->price_gram_21k,2)}}</td>
-                                                <td class="text-center">{{\Carbon\Carbon::parse($stock_market_usd->timestamp) -> format('Y-m-d\Th:i:s')}}</td>
-                                            </tr> 
-                                            <tr> 
-                                                <td class="text-center">{{__('عيار 20')}}</td>
-                                                <td class="text-center">{{round($stock_market_usd->price_gram_20k,2)}}</td>
-                                                <td class="text-center">{{\Carbon\Carbon::parse($stock_market_usd->timestamp) -> format('Y-m-d\Th:i:s')}}</td>
-                                            </tr> 
-                                            <tr> 
-                                                <td class="text-center">{{__('عيار 18')}}</td>
-                                                <td class="text-center">{{round($stock_market_usd->price_gram_18k,2)}}</td>
-                                                <td class="text-center">{{\Carbon\Carbon::parse($stock_market_usd->timestamp) -> format('Y-m-d\Th:i:s')}}</td>
-                                            </tr> 
-                                            <tr> 
-                                                <td class="text-center">{{__('عيار 16')}}</td>
-                                                <td class="text-center">{{round($stock_market_usd->price_gram_16k,2)}}</td>
-                                                <td class="text-center">{{\Carbon\Carbon::parse($stock_market_usd->timestamp) -> format('Y-m-d\Th:i:s')}}</td>
-                                            </tr> 
-                                            <tr> 
-                                                <td class="text-center">{{__('عيار 14')}}</td>
-                                                <td class="text-center">{{round($stock_market_usd->price_gram_14k,2)}}</td>
-                                                <td class="text-center">{{\Carbon\Carbon::parse($stock_market_usd->timestamp) -> format('Y-m-d\Th:i:s')}}</td>
-                                            </tr> 
-                                            <tr> 
-                                                <td class="text-center">{{__('عيار 10')}}</td>
-                                                <td class="text-center">{{round($stock_market_usd->price_gram_10k,2)}}</td>
-                                                <td class="text-center">{{\Carbon\Carbon::parse($stock_market_usd->timestamp) -> format('Y-m-d\Th:i:s')}}</td>
-                                            </tr> 
-                                       </tbody>
-                                    </table>
-                                </div>
-                            </div> 
-                            <div class="card-body col-md-6">
-                                <h4  class="alert alert-primary text-center">
-                                سعر جرام الذهب (ريال سعودي)
-                                </h4>
-                                <div class="table-responsive hoverable-table">
-                                    <table class="display w-100 table-bordered" id="stock_market" 
-                                       style="text-align: center;"> 
-                                       <thead>
-                                           <tr> 
-                                               <th>{{__('نوع العيار')}}</th>
-                                               <th>{{__('السعر')}}</th>
-                                               <th>{{__('التحديث')}} </th> 
-                                           </tr>
-                                       </thead>
-                                       <tbody>
-                                            <tr> 
-                                                <td class="text-center">{{__('عيار 24')}}</td>
-                                                <td class="text-center">{{round($stock_market_sar->price_gram_24k,2)}}</td>
-                                                <td class="text-center">{{\Carbon\Carbon::parse($stock_market_sar->timestamp) -> format('Y-m-d\Th:i:s')}}</td>
-                                            </tr> 
-                                            <tr> 
-                                                <td class="text-center">{{__('عيار 22')}}</td>
-                                                <td class="text-center">{{round($stock_market_sar->price_gram_22k,2)}}</td>
-                                                <td class="text-center">{{\Carbon\Carbon::parse($stock_market_sar->timestamp) -> format('Y-m-d\Th:i:s')}}</td>
-                                            </tr> 
-                                            <tr> 
-                                                <td class="text-center">{{__('عيار 21')}}</td>
-                                                <td class="text-center">{{round($stock_market_sar->price_gram_21k,2)}}</td>
-                                                <td class="text-center">{{\Carbon\Carbon::parse($stock_market_sar->timestamp) -> format('Y-m-d\Th:i:s')}}</td>
-                                            </tr> 
-                                            <tr> 
-                                                <td class="text-center">{{__('عيار 20')}}</td>
-                                                <td class="text-center">{{round($stock_market_sar->price_gram_20k,2)}}</td>
-                                                <td class="text-center">{{\Carbon\Carbon::parse($stock_market_sar->timestamp) -> format('Y-m-d\Th:i:s')}}</td>
-                                            </tr> 
-                                            <tr> 
-                                                <td class="text-center">{{__('عيار 18')}}</td>
-                                                <td class="text-center">{{round($stock_market_sar->price_gram_18k,2)}}</td>
-                                                <td class="text-center">{{\Carbon\Carbon::parse($stock_market_sar->timestamp) -> format('Y-m-d\Th:i:s')}}</td>
-                                            </tr> 
-                                            <tr> 
-                                                <td class="text-center">{{__('عيار 16')}}</td>
-                                                <td class="text-center">{{round($stock_market_sar->price_gram_16k,2)}}</td>
-                                                <td class="text-center">{{\Carbon\Carbon::parse($stock_market_sar->timestamp) -> format('Y-m-d\Th:i:s')}}</td>
-                                            </tr> 
-                                            <tr> 
-                                                <td class="text-center">{{__('عيار 14')}}</td>
-                                                <td class="text-center">{{round($stock_market_sar->price_gram_14k,2)}}</td>
-                                                <td class="text-center">{{\Carbon\Carbon::parse($stock_market_sar->timestamp) -> format('Y-m-d\Th:i:s')}}</td>
-                                            </tr> 
-                                            <tr> 
-                                                <td class="text-center">{{__('عيار 10')}}</td>
-                                                <td class="text-center">{{round($stock_market_sar->price_gram_10k,2)}}</td>
-                                                <td class="text-center">{{\Carbon\Carbon::parse($stock_market_sar->timestamp) -> format('Y-m-d\Th:i:s')}}</td>
-                                            </tr> 
-                                       </tbody>
-                                    </table>
-                                </div>
-                            </div> 
-                        </div>  
-                    </div> 
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
- 
- 
-
-@endcan 
-@endsection 
-@section('js') 
-<script type="text/javascript">
-    document.title = "{{__(' اسعار البورصة العالمية(ذهب)')}}";
-</script>
-@endsection 
+@endsection

@@ -59,6 +59,7 @@
                             <th class="border-bottom-0 text-center">اسم الفرع</th>
                             <th class="border-bottom-0 text-center"> رقم جوال الفرع</th>
                             <th class="border-bottom-0 text-center"> عنوان الفرع</th> 
+                            <th class="border-bottom-0 text-center">عدد المستخدمين</th>
                             <th class="border-bottom-0 text-center"> الحالة</th>
                             <th style="width: 10%!important;" class="border-bottom-0 text-center"></th>
                         </tr>
@@ -73,7 +74,10 @@
                                 <td>{{ ++$i }}</td>
                                 <td>{{ $branch->name}}</td>
                                 <td>{{ $branch->phone }}</td>
-                                <td>{{ $branch->region }}</td> 
+                                <td>{{ $branch->short_address ?: $branch->full_address ?: '-' }}</td>
+                                <td>
+                                    <span class="badge badge-info">{{ $branch->users_count }}</span>
+                                </td>
                                 <td> 
                                     <input type="checkbox" name="status[]" 
                                         @if($branch->status)
@@ -175,7 +179,7 @@
         $('#example-table tfoot tr th:nth-child(4)').html('<input class="form-control" type="text" placeholder="عنوان الفرع" />'); 
         $('#example-table').DataTable({
             "columnDefs": [
-                {"orderable": false, "targets": [0,4]}
+                {"orderable": false, "targets": [0,5]}
             ],
             "order": [[1, "desc"]],
             initComplete: function () {

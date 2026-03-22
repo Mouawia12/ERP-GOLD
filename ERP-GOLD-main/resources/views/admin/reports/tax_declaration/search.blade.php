@@ -1,110 +1,87 @@
 @extends('admin.layouts.master')
 @section('content')
-    @if (session('success'))
-        <div class="alert alert-success  fade show">
-            <button class="close" data-dismiss="alert" aria-label="Close">×</button>
-            {{ session('success') }}
-        </div>
-    @endif
-    <!-- row opened -->
-    <div class="row row-sm">
-        <div class="col-xl-12">
-            <div class="card">
-                <div class="card-header pb-0">
-                    <div class="col-lg-12 margin-tb">
-                        <h4  class="alert alert-primary text-center">
-                           الاقرار الضريبي
-                        </h4>
-                    </div>
-                    <div class="clearfix"></div>
-                </div>  
-                <div class="card-body px-0 pt-0 pb-2">
-
-                    <div class="card shadow mb-4"> 
-                        <div class="card-body">
-                            <form   method="POST" action="{{ route('tax.declaration.search') }}"
-                                    enctype="multipart/form-data" >
-                                @csrf
-                                <div class="row">
-                                    <div class="col-6">
-                                        <div class="form-group">
-                                            <label> تاريخ البداية <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
-                                            <input type="checkbox" id="isStartDate" name="isStartDate">
-                                            <input type="date" id="StartDate" name="date_from"  class="form-control">
-                                        </div>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="form-group">
-                                            <label> تاريخ النهاية <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
-                                            <input type="checkbox" id="isEndDate" name="isEndDate">
-                                            <input type="date" id="EndDate" name="date_to"  class="form-control">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="row">
-                                    <div class="col-6" style="display: block; margin: 20px auto; text-align: center;">
-                                        <button type="submit" class="btn btn-labeled btn-primary"  >
-                                            {{__('main.search_btn')}}</button>
-                                    </div>
-                                </div>
-
-
-                            </form>
-
+<div class="row row-sm">
+    <div class="col-xl-12">
+        <div class="card shadow-sm">
+            <div class="card-header pb-0">
+                <div class="col-lg-12 margin-tb">
+                    <h4 class="alert alert-primary text-center mb-0">
+                        الاقرار الضريبي
+                    </h4>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ route('tax.declaration.search') }}">
+                    @csrf
+                    <div class="row">
+                        <div class="col-lg-2 col-md-3">
+                            <div class="form-group">
+                                <label>من تاريخ</label>
+                                <input type="date" name="date_from" class="form-control" value="{{ old('date_from', $defaultFilters['date_from'] ?? '') }}">
+                            </div>
+                        </div>
+                        <div class="col-lg-2 col-md-3">
+                            <div class="form-group">
+                                <label>إلى تاريخ</label>
+                                <input type="date" name="date_to" class="form-control" value="{{ old('date_to', $defaultFilters['date_to'] ?? '') }}">
+                            </div>
+                        </div>
+                        <div class="col-lg-2 col-md-3">
+                            <div class="form-group">
+                                <label>من وقت</label>
+                                <input type="time" name="from_time" class="form-control" value="{{ old('from_time', $defaultFilters['from_time'] ?? '') }}">
+                            </div>
+                        </div>
+                        <div class="col-lg-2 col-md-3">
+                            <div class="form-group">
+                                <label>إلى وقت</label>
+                                <input type="time" name="to_time" class="form-control" value="{{ old('to_time', $defaultFilters['to_time'] ?? '') }}">
+                            </div>
+                        </div>
+                        <div class="col-lg-2 col-md-3">
+                            <div class="form-group">
+                                <label>رقم الفاتورة</label>
+                                <input type="text" name="invoice_number" class="form-control" value="{{ old('invoice_number', $defaultFilters['invoice_number'] ?? '') }}" placeholder="مثال: TX-1001">
+                            </div>
+                        </div>
+                        <div class="col-lg-2 col-md-3">
+                            <div class="form-group">
+                                <label>الفرع</label>
+                                <select name="branch_id" class="form-control">
+                                    <option value="">الكل</option>
+                                    @foreach($branches as $branch)
+                                        <option value="{{ $branch->id }}" @selected(old('branch_id', $defaultFilters['branch_id'] ?? '') == $branch->id)>
+                                            {{ $branch->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-lg-2 col-md-3">
+                            <div class="form-group">
+                                <label>المستخدم</label>
+                                <select name="user_id" class="form-control">
+                                    <option value="">الكل</option>
+                                    @foreach($users as $user)
+                                        <option value="{{ $user->id }}" @selected(old('user_id', $defaultFilters['user_id'] ?? '') == $user->id)>
+                                            {{ $user->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
                     </div>
 
-                </div>
-
-
+                    <div class="text-center mt-3">
+                        <button type="submit" class="btn btn-primary px-5">
+                            {{ __('main.search_btn') }}
+                        </button>
+                    </div>
+                </form>
             </div>
-            <!-- /.container-fluid -->
-
         </div>
-        <!-- End of Main Content --> 
-
     </div>
-    <!-- End of Content Wrapper -->
-
 </div>
-
-<div class="show_modal">
-
-</div>
-<!-- End of Page Wrapper -->
 @endsection
-<script src="{{asset('assets/js/jquery.min.js')}}"></script>
-
-<script>
-    $(document).ready(function (){
-        var now = new Date();
-
-        var day = ("0" + now.getDate()).slice(-2);
-        var month = ("0" + (now.getMonth() + 1)).slice(-2);
-        var today = now.getFullYear()+"-"+(month)+"-"+(day) ;
-        $('#isStartDate').prop('checked', false);
-        $('#isEndDate').prop('checked', false);
-        $('#StartDate').prop('disabled', true);
-        $('#EndDate').prop('disabled', true);
-        $('#StartDate').val(today);
-        $('#EndDate').val(today);
-
-        $('#isStartDate').change(function (){
-            if(this.checked){
-                $('#StartDate').prop('disabled', false);
-            } else {
-                $('#StartDate').prop('disabled', true);
-            }
-        });
-
-        $('#isEndDate').change(function (){
-            if(this.checked){
-                $('#EndDate').prop('disabled', false);
-            } else {
-                $('#EndDate').prop('disabled', true);
-            }
-        });
-    });
-</script>
  

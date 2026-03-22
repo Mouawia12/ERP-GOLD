@@ -12,9 +12,22 @@ class Item extends Model
     use HasFactory;
     use HasTranslations;
 
+    public const CLASSIFICATION_GOLD = 'gold';
+    public const CLASSIFICATION_COLLECTIBLE = 'collectible';
+    public const CLASSIFICATION_SILVER = 'silver';
+
     public $translatable = ['title', 'description'];
 
     protected $guarded = ['id'];
+
+    public static function inventoryClassificationOptions(): array
+    {
+        return [
+            self::CLASSIFICATION_GOLD => 'ذهب',
+            self::CLASSIFICATION_COLLECTIBLE => 'مقتنيات',
+            self::CLASSIFICATION_SILVER => 'فضة',
+        ];
+    }
 
     public static function boot()
     {
@@ -67,9 +80,50 @@ class Item extends Model
         return $this->belongsTo(Branch::class);
     }
 
+    public function branchPublications()
+    {
+        return $this->hasMany(BranchItem::class, 'item_id');
+    }
+
+    public function publishedBranches()
+    {
+        return $this->belongsToMany(Branch::class, 'branch_items', 'item_id', 'branch_id')
+            ->withPivot(['is_active', 'is_visible', 'sale_price_per_gram', 'published_by_user_id'])
+            ->withTimestamps();
+    }
+
     public function details()
     {
         return $this->hasMany(InvoiceDetail::class);
+    }
+
+    public function getInventoryClassificationLabelAttribute(): string
+    {
+        return static::inventoryClassificationOptions()[$this->inventory_classification] ?? 'غير محدد';
+    }
+
+    public function scopePublishedToBranch($query, int $branchId, bool $visibleOnly = true)
+    {
+        return $query->whereHas('branchPublications', function ($publicationQuery) use ($branchId, $visibleOnly) {
+            $publicationQuery->where('branch_id', $branchId)->where('is_active', true);
+
+            if ($visibleOnly) {
+                $publicationQuery->where('is_visible', true);
+            }
+        });
+    }
+
+    public function publicationForBranch(?int $branchId): ?BranchItem
+    {
+        if (empty($branchId)) {
+            return null;
+        }
+
+        if ($this->relationLoaded('branchPublications')) {
+            return $this->branchPublications->firstWhere('branch_id', $branchId);
+        }
+
+        return $this->branchPublications()->where('branch_id', $branchId)->first();
     }
 
     public function getActualBalanceAttribute()

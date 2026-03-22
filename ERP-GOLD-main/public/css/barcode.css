@@ -8,41 +8,81 @@ body,html{
     -moz-print-color-adjust: exact;
     print-color-adjust: exact;
     -o-print-color-adjust: exact;
-    padding: 0px 2px;
+    padding: 0;
     margin: 0;
     color: #000!important;
     height: 100%;
+}
+.barcode-sheet{
+    padding: 2mm;
+    box-sizing: border-box;
+}
+.barcode-sheet-header{
+    font-family: 'Montserrat-Arabic-Regular';
+    font-size: 10px;
+    margin-bottom: 2mm;
+    text-align: center;
+}
+.barcode-grid{
+    display: grid;
+    align-items: start;
+    justify-content: start;
 }
 .company_name,.item_name,.barcode-number,.item_prices{
     font-family: 'Montserrat-Arabic-Regular';
     font-size: 11px;
 }
-@page{margin:0;size:auto}
 div.barcode {
     display: flex;
     align-items: center;
     justify-content: center;
     flex-direction: column;
-    height: 100%;
+    box-sizing: border-box;
+    padding: 2mm 1.5mm;
     border: 1px solid #000;
     text-align: center;
     font-size: 14px;
-    page-break-before: always;
-    page-break-after: always;
     page-break-inside: avoid;
+    break-inside: avoid;
 }
 
 .barcode-img {
     text-align: center;
     margin-top: 5px;
-
+    width: 100%;
+}
+.barcode-img img{
+    max-width: 100%;
+    display: block;
+    margin: 0 auto;
+}
+.company_name{
+    font-weight: 700;
+}
+.item_name{
+    margin-top: 2px;
 }
 
 div.barcode div.barcode-number {
-    margin-top: 0px;
+    margin-top: 2px;
+    letter-spacing: 0.4mm;
+}
+
+.item_prices{
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 2px;
 }
 @media print {
+    .barcode-sheet{
+        padding: 0;
+    }
+    .barcode-sheet-header{
+        display: none;
+    }
     div.barcode{
-        border:none !important;
+        border: 0.25mm solid #000 !important;
     }
 }

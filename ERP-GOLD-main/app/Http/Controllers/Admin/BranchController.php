@@ -15,7 +15,7 @@ class BranchController extends Controller
 {
     function __construct()
     {
-        $this->middleware('permission:employee.branches.show', ['only' => ['index']]);
+        $this->middleware('permission:employee.branches.show', ['only' => ['index', 'show']]);
         $this->middleware('permission:employee.branches.add', ['only' => ['create', 'store']]);
         $this->middleware('permission:employee.branches.edit', ['only' => ['edit', 'update']]);
         $this->middleware('permission:employee.branches.delete', ['only' => ['destroy']]);
@@ -23,7 +23,10 @@ class BranchController extends Controller
 
     public function index(Request $request)
     {
-        $data = Branch::all();
+        $data = Branch::withCount('users')
+            ->latest()
+            ->get();
+
         return view('admin.branches.index', compact('data'));
     }
 
@@ -100,7 +103,8 @@ class BranchController extends Controller
 
     public function show($id)
     {
-        $branch = Branch::findorfail($id);
+        $branch = Branch::with(['users.roles'])->withCount('users')->findOrFail($id);
+
         return view('admin.branches.show', compact('branch'));
     }
 

@@ -69,7 +69,7 @@
     <tbody>
     <tr>
         <td class="text-center">
-            <img style="width: 100px!important; height: 100px!important;" src="{{asset('assets/img/logo.png')}}" alt="">
+            <img style="width: 100px!important; height: 100px!important;" src="{{ $brandLogoUrl }}" alt="">
             <h1 style="color: black !important;">
                 @php
                     echo env('APP_NAME');

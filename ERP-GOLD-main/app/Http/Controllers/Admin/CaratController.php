@@ -89,7 +89,6 @@ class CaratController extends Controller
      */
     public function show($id)
     {
-        $price = GoldPrice::all()->first();
         $carat = GoldCarat::FindOrFail($id);
 
         return response()->json([

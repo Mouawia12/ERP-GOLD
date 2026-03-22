@@ -110,7 +110,8 @@
                                                                             <td class="text-center"><input
                                                                                     class="form-control checkDetail"
                                                                                     name="checkDetail[]" type="checkbox"
-                                                                                    value="{{$detail -> id}}"></td>
+                                                                                    value="{{$detail -> id}}"
+                                                                                    data-net-total="{{ round((float) $detail->net_total, 2) }}"></td>
                                                                         </tr>
                                                                     @endforeach
                                                                     </tbody>
@@ -141,6 +142,15 @@
                                                 <div class="col-6">
                                                     <input type="text" readonly class="form-control" id="items_count"
                                                            value="{{count($invoice -> details) }}">
+                                                </div>
+                                            </div>
+                                            <div class="row" style="align-items: center; margin-bottom: 10px;">
+                                                <div class="col-6">
+                                                    <label style="text-align: right;float: right;">العناصر المحددة</label>
+                                                </div>
+                                                <div class="col-6">
+                                                    <input type="text" readonly class="form-control" id="selected_items_count"
+                                                           value="0">
                                                 </div>
                                             </div>
                                             <div class="row" style="align-items: center; margin-bottom: 10px;">
@@ -191,14 +201,69 @@
                                                            value="{{$invoice -> net_total}}">
                                                 </div>
                                             </div>
+                                            <div class="row" style="align-items: center; margin-bottom: 10px;">
+                                                <div class="col-6">
+                                                    <label style="text-align: right;float: right;">صافي المرتجع المحدد</label>
+                                                </div>
+                                                <div class="col-6">
+                                                    <input type="text" readonly class="form-control" id="selected_return_net_total"
+                                                           value="0.00">
+                                                </div>
+                                            </div>
                                             <hr class="sidebar-divider d-none d-md-block">
 
+                                            <div class="alert alert-info py-2 px-3" style="font-size: 13px;">
+                                                أدخل طريقة رد المبلغ بحيث يساوي إجماليها صافي المرتجع المحدد فقط.
+                                            </div>
 
-                                            <hr class="sidebar-divider d-none d-md-block">
+                                            <div class="row" style="align-items: center; margin-bottom: 10px;">
+                                                <div class="col-6">
+                                                    <label style="text-align: right;float: right;">رد نقدي</label>
+                                                </div>
+                                                <div class="col-6">
+                                                    <input type="number" min="0" step="any" class="form-control" id="cash"
+                                                           name="cash" value="0">
+                                                </div>
+                                            </div>
+                                            <div class="row" style="align-items: center; margin-bottom: 10px;">
+                                                <div class="col-6">
+                                                    <label style="text-align: right;float: right;">المتبقي</label>
+                                                </div>
+                                                <div class="col-6">
+                                                    <input type="text" readonly class="form-control" id="payment_remaining"
+                                                           value="0.00">
+                                                </div>
+                                            </div>
 
+                                            @if ($bankAccounts->isEmpty())
+                                                <div class="alert alert-warning py-2 px-3">
+                                                    لا توجد حسابات بنكية نشطة على هذا الفرع. يمكن رد المرتجع نقديًا فقط حاليًا.
+                                                </div>
+                                            @endif
 
-                                            <div class="show_modal1">
+                                            <div class="d-flex justify-content-between align-items-center mb-2 mt-3">
+                                                <h6 class="mb-0">أسطر الرد غير النقدي</h6>
+                                                <button type="button" class="btn btn-outline-primary btn-sm" id="add_refund_line_btn" {{ $bankAccounts->isEmpty() ? 'disabled' : '' }}>
+                                                    إضافة
+                                                </button>
+                                            </div>
 
+                                            <div class="table-responsive mb-2">
+                                                <table class="table table-bordered text-center mb-0" id="refund_payment_lines_table">
+                                                    <thead class="thead-light">
+                                                        <tr>
+                                                            <th>الطريقة</th>
+                                                            <th>الحساب البنكي</th>
+                                                            <th>المرجع</th>
+                                                            <th>المبلغ</th>
+                                                            <th>حذف</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody></tbody>
+                                                </table>
+                                            </div>
+                                            <div class="text-muted mb-3">
+                                                إجمالي غير نقدي: <strong id="refund_payment_lines_total">0.00</strong>
                                             </div>
 
                                             <div class="row">
@@ -248,34 +313,185 @@
 
 <script type="text/javascript">
     $(document).ready(function () {
+        window.currentSalesReturnBankAccounts = @json($bankAccounts->map(function ($bankAccount) {
+            return [
+                'id' => $bankAccount->id,
+                'name' => $bankAccount->display_name,
+                'supports_credit_card' => (bool) $bankAccount->supports_credit_card,
+                'supports_bank_transfer' => (bool) $bankAccount->supports_bank_transfer,
+            ];
+        })->values());
+
+        var cashWasEditedManually = false;
+
         $('#checkAll').change(function () {
             $("input:checkbox.checkDetail").prop('checked', this.checked);
+            syncSelectedRefundTotals();
+        });
 
+        $(document).on('change', '.checkDetail', function () {
+            syncSelectedRefundTotals();
+        });
+
+        $(document).on('input', '#cash', function () {
+            cashWasEditedManually = true;
+            refreshRefundPaymentSummary();
+        });
+
+        $(document).on('click', '#add_refund_line_btn', function () {
+            appendRefundPaymentLineRow();
+        });
+
+        $(document).on('change', '.refund-method-type', function () {
+            syncRefundBankAccountOptions($(this).closest('tr'));
+        });
+
+        $(document).on('input', '.refund-line-amount, .refund-line-reference', function () {
+            refreshRefundPaymentSummary();
+        });
+
+        $(document).on('click', '.remove-refund-line-btn', function () {
+            $(this).closest('tr').remove();
+            refreshRefundPaymentInputNames();
+            refreshRefundPaymentSummary();
         });
 
         $(document).on('click', '#return_btn', function () {
-            var checkList = [];
-            console.log('clicked');
-            $('#tbody tr').each(function (index) {
-                var row = $(this).closest('tr');
-                var cell = row[0].cells[7].firstChild.checked;
-                if (cell) {
-                    checkList.push(row[0].cells[7].firstChild.value);
-                }
+            var selectedRefundTotal = selectedRefundNetTotal();
+            var paymentTotal = totalRefundPayments();
 
-            });
-
-            if (checkList.length > 0) {
-                document.getElementById('pos_sales_form').submit();
-            } else {
-                alert('select at least one item to return');
-
+            if (selectedRefundTotal <= 0) {
+                alert('يجب اختيار صنف واحد على الأقل قبل حفظ المرتجع');
+                return;
             }
 
+            if (Math.abs(paymentTotal - selectedRefundTotal) > 0.01) {
+                alert('إجمالي رد المبلغ يجب أن يساوي صافي المرتجع المحدد بالكامل');
+                return;
+            }
 
+            document.getElementById('pos_sales_form').submit();
         });
 
-
+        syncSelectedRefundTotals();
+        refreshRefundPaymentSummary();
     });
+
+    function selectedRefundNetTotal() {
+        var total = 0;
+        $('.checkDetail:checked').each(function () {
+            total += parseFloat($(this).data('net-total') || 0);
+        });
+
+        return roundRefundValue(total);
+    }
+
+    function selectedRefundItemsCount() {
+        return $('.checkDetail:checked').length;
+    }
+
+    function refundLinesTotal() {
+        var total = 0;
+
+        $('.refund-line-amount').each(function () {
+            total += parseFloat($(this).val() || 0);
+        });
+
+        return roundRefundValue(total);
+    }
+
+    function totalRefundPayments() {
+        return roundRefundValue(parseFloat($('#cash').val() || 0) + refundLinesTotal());
+    }
+
+    function roundRefundValue(value) {
+        return Math.round((parseFloat(value || 0) + Number.EPSILON) * 100) / 100;
+    }
+
+    function formatRefundValue(value) {
+        return roundRefundValue(value).toFixed(2);
+    }
+
+    function syncSelectedRefundTotals() {
+        var selectedTotal = selectedRefundNetTotal();
+        var selectedItems = selectedRefundItemsCount();
+
+        $('#selected_items_count').val(selectedItems);
+        $('#selected_return_net_total').val(formatRefundValue(selectedTotal));
+
+        if (!cashWasEditedManually && $('#refund_payment_lines_table tbody tr').length === 0) {
+            $('#cash').val(formatRefundValue(selectedTotal));
+        }
+
+        refreshRefundPaymentSummary();
+    }
+
+    function buildRefundBankAccountOptions(methodType, selectedBankAccountId) {
+        var options = '<option value="">اختر الحساب البنكي</option>';
+        var filteredAccounts = (window.currentSalesReturnBankAccounts || []).filter(function (bankAccount) {
+            if (methodType === 'credit_card') {
+                return bankAccount.supports_credit_card;
+            }
+
+            return bankAccount.supports_bank_transfer;
+        });
+
+        filteredAccounts.forEach(function (bankAccount) {
+            var isSelected = String(selectedBankAccountId || '') === String(bankAccount.id) ? 'selected' : '';
+            options += '<option value="' + bankAccount.id + '" ' + isSelected + '>' + bankAccount.name + '</option>';
+        });
+
+        return options;
+    }
+
+    function syncRefundBankAccountOptions(row) {
+        var methodType = row.find('.refund-method-type').val() || 'credit_card';
+        var bankAccountSelect = row.find('.refund-bank-account');
+        var currentValue = bankAccountSelect.val();
+
+        bankAccountSelect.html(buildRefundBankAccountOptions(methodType, currentValue));
+
+        if (!bankAccountSelect.val()) {
+            bankAccountSelect.prop('selectedIndex', bankAccountSelect.find('option').length > 1 ? 1 : 0);
+        }
+    }
+
+    function refreshRefundPaymentInputNames() {
+        $('#refund_payment_lines_table tbody tr').each(function (index) {
+            $(this).find('.refund-method-type').attr('name', 'payment_lines[' + index + '][method_type]');
+            $(this).find('.refund-bank-account').attr('name', 'payment_lines[' + index + '][bank_account_id]');
+            $(this).find('.refund-line-reference').attr('name', 'payment_lines[' + index + '][reference_no]');
+            $(this).find('.refund-line-amount').attr('name', 'payment_lines[' + index + '][amount]');
+        });
+    }
+
+    function appendRefundPaymentLineRow() {
+        var row = $('<tr>' +
+            '<td><select class="form-control refund-method-type">' +
+                '<option value="credit_card">شبكة / بطاقة</option>' +
+                '<option value="bank_transfer">تحويل بنكي</option>' +
+            '</select></td>' +
+            '<td><select class="form-control refund-bank-account"></select></td>' +
+            '<td><input type="text" class="form-control refund-line-reference" placeholder="مرجع العملية"></td>' +
+            '<td><input type="number" min="0" step="any" class="form-control refund-line-amount" value="0"></td>' +
+            '<td><button type="button" class="btn btn-danger btn-sm remove-refund-line-btn">حذف</button></td>' +
+        '</tr>');
+
+        $('#refund_payment_lines_table tbody').append(row);
+        syncRefundBankAccountOptions(row);
+        refreshRefundPaymentInputNames();
+        refreshRefundPaymentSummary();
+    }
+
+    function refreshRefundPaymentSummary() {
+        var selectedRefundTotal = selectedRefundNetTotal();
+        var nonCashTotal = refundLinesTotal();
+        var totalPayments = totalRefundPayments();
+        var remaining = roundRefundValue(selectedRefundTotal - totalPayments);
+
+        $('#refund_payment_lines_total').text(formatRefundValue(nonCashTotal));
+        $('#payment_remaining').val(formatRefundValue(remaining));
+    }
+
 </script>
  

@@ -25,6 +25,16 @@ class User extends Authenticatable implements JWTSubject
         return $this->belongsTo(Branch::class, 'branch_id', 'id');
     }
 
+    public function auditLogs()
+    {
+        return $this->hasMany(UserAuditLog::class, 'target_user_id');
+    }
+
+    public function performedAuditLogs()
+    {
+        return $this->hasMany(UserAuditLog::class, 'actor_user_id');
+    }
+
     public function getRoleNameAttribute(): ?string
     {
         return $this->getRoleNames()->first();

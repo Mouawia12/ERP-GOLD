@@ -28,20 +28,20 @@
                                 <div class="row">
                                     <div class="col-6">
                                         <div class="form-group"> 
-                                            <label>{{ __('main.branch') }} <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
+                                            <label>{{ __('main.branch') }}</label>
                                             @if(Auth::user()->is_admin)
-                                                <select required  class="js-example-basic-single w-100" name="branch_id" id="branch_id">
-                                                    <option value="0">{{__('main.all_branches')}}</option>
+                                                <select class="js-example-basic-single w-100" name="branch_id" id="branch_id">
+                                                    <option value="">{{__('main.all_branches')}}</option>
                                                     @foreach($branches as $branch)
-                                                        <option value="{{$branch->id}}">{{$branch->name}}</option>
+                                                        <option value="{{$branch->id}}" @selected(($defaultFilters['branch_id'] ?? '') == $branch->id)>{{$branch->name}}</option>
                                                     @endforeach
                                                 </select>
                                             @else
                                                 <input class="form-control" type="text" readonly
                                                        value="{{Auth::user()->branch->name}}"/>
-                                                <input required class="form-control" type="hidden" id="branch_id"
+                                                <input class="form-control" type="hidden" id="branch_id"
                                                        name="branch_id"
-                                                       value="{{Auth::user()->branch_id}}"/>
+                                                       value="{{ $defaultFilters['branch_id'] }}"/>
                                             @endif
                     
                                         </div>
@@ -50,14 +50,14 @@
                                         <div class="form-group">
                                             <label> تاريخ البداية <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
                                             <input type="checkbox" id="isStartDate" name="isStartDate">
-                                            <input type="date" id="date_from" name="date_from"  class="form-control">
+                                            <input type="date" id="StartDate" name="date_from"  class="form-control" value="{{ $defaultFilters['date_from'] ?? '' }}">
                                         </div>
                                     </div>
                                     <div class="col-3">
                                         <div class="form-group">
                                             <label> تاريخ النهاية <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
                                             <input type="checkbox" id="isEndDate" name="isEndDate">
-                                            <input type="date" id="date_to" name="date_to"  class="form-control">
+                                            <input type="date" id="EndDate" name="date_to"  class="form-control" value="{{ $defaultFilters['date_to'] ?? '' }}">
                                         </div>
                                     </div>
                                 </div>
@@ -107,16 +107,13 @@
         $('#isEndDate').prop('checked', false);
         $('#StartDate').prop('disabled', true);
         $('#EndDate').prop('disabled', true);
-        $('#StartDate').val(today);
-        $('#EndDate').val(today);
-
         $('#isStartDate').change(function (){
             if(this.checked){
                 $('#StartDate').prop('disabled', false);
             } else {
                 $('#StartDate').prop('disabled', true);
             }
-        });
+        }).trigger('change');
 
         $('#isEndDate').change(function (){
             if(this.checked){
@@ -124,7 +121,7 @@
             } else {
                 $('#EndDate').prop('disabled', true);
             }
-        });
+        }).trigger('change');
     });
 </script>
  

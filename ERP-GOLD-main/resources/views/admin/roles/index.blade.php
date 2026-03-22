@@ -36,6 +36,7 @@
                             <tr>
                                 <th class="text-center">#</th>
                                 <th class="text-center">اسم المجموعة</th>
+                                <th class="text-center">عدد الصلاحيات</th>
                                 <th class="text-center">تحكم</th>
                             </tr>
                             </thead>
@@ -44,6 +45,7 @@
                                 <tr class="text-center">
                                     <td>{{ $loop->iteration }}</td>
                                     <td>{{ $role->name }}</td>
+                                    <td>{{ $role->permissions_count }}</td>
                                     <td>
                                         @can('employee.user_permissions.edit')
                                             <a class="btn btn-info btn-md"
@@ -110,7 +112,7 @@
         });
         $('#example-table').DataTable({
             "columnDefs": [
-                {"orderable": false, "targets": [2]}
+                {"orderable": false, "targets": [3]}
             ],
             "order": [[0, "asc"]],
         });

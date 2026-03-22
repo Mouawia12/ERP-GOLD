@@ -2,11 +2,17 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\BankAccount;
 use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\FinancialYear;
 use App\Models\Invoice;
 use App\Models\ItemUnit;
+use App\Models\Tax;
+use App\Services\Invoices\InvoiceTermsService;
+use App\Services\Invoices\InvoicePartySnapshotService;
+use App\Services\Payments\InvoicePaymentService;
+use App\Services\Shifts\ShiftService;
 use App\Services\Zatca\SendZatcaInvoice;
 use App\Services\JournalEntriesService;
 use Carbon\Carbon;
@@ -14,10 +20,19 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use DataTables;
 
 class SalesController extends Controller
 {
+    public function __construct(
+        private readonly InvoiceTermsService $invoiceTermsService,
+        private readonly InvoicePartySnapshotService $invoicePartySnapshotService,
+        private readonly InvoicePaymentService $invoicePaymentService,
+        private readonly ShiftService $shiftService,
+    ) {
+    }
+
     public function index(Request $request)
     {
         $type = $request->type;
@@ -74,7 +89,12 @@ class SalesController extends Controller
         })->where('type', '=', 'customer')->get();
         $branches = Branch::all();
 
-        return view('admin.sales.create', compact('type', 'customers', 'branches'));
+        return view('admin.sales.create', [
+            'type' => $type,
+            'customers' => $customers,
+            'branches' => $branches,
+            'defaultInvoiceTerms' => $this->invoiceTermsService->defaultTerms(),
+        ]);
     }
 
     public function store(Request $request)
@@ -86,7 +106,14 @@ class SalesController extends Controller
     {
         $money = $request->net_after_discount;
         $type = $request->document_type;
-        $html = view('admin.sales.payment', compact('money', 'type'))->render();
+        $branchId = (int) $request->branch_id;
+        $bankAccounts = BankAccount::query()
+            ->active()
+            ->where('branch_id', $branchId)
+            ->orderByDesc('is_default')
+            ->orderBy('account_name')
+            ->get();
+        $html = view('admin.sales.payment', compact('money', 'type', 'bankAccounts', 'branchId'))->render();
         return $html;
     }
 
@@ -98,6 +125,9 @@ class SalesController extends Controller
                 'bill_date' => 'required',
                 'customer_id' => 'required|exists:customers,id,type,customer',
                 'branch_id' => 'required',
+                'bill_client_name' => 'nullable|string|max:255',
+                'bill_client_phone' => 'nullable|string|max:50',
+                'bill_client_identity_number' => 'nullable|string|max:100',
             ],
                 [
                     'bill_date.required' => __('validations.bill_date_required'),
@@ -116,6 +146,8 @@ class SalesController extends Controller
             if (count($request->unit_id)) {
                 // store header
                 $branch = Branch::find($request->branch_id);
+                $activeShift = $this->shiftService->requireActiveShift(Auth::user(), (int) $request->branch_id);
+                $customer = Customer::find($request->customer_id);
                 $warehouse = $branch->warehouses->first();
 
                 $linesTotal = 0;
@@ -128,7 +160,6 @@ class SalesController extends Controller
                 $scrapCostTotal = 0;
                 $pureCostTotal = 0;
 
-                $paymentType = (floatval($request->cash) > 0) ? 'cash' : 'credit_card';
                 foreach ($request->unit_id as $key => $unit_id) {
                     $unit = ItemUnit::find($request->unit_id[$key]);
                     if (!$unit->is_default) {
@@ -138,10 +169,10 @@ class SalesController extends Controller
                     }
 
                     $item = $unit->item;
-                    $taxTax = $item->goldCarat->tax;
+                    $taxData = $this->resolveItemTaxData($item);
                     $lineWeight = floatval($request->weight[$key]);
                     $unitPrice = floatval($request->gram_price[$key]);
-                    $unitTaxAmount = $unitPrice * floatval($taxTax->rate) / 100;
+                    $unitTaxAmount = $unitPrice * $taxData['rate'] / 100;
 
                     $lineTotal = $unitPrice * $lineWeight;
                     $linesTotal += $lineTotal;
@@ -178,8 +209,8 @@ class SalesController extends Controller
                         'unit_price' => $unitPrice,
                         'unit_discount' => 0,
                         'unit_tax' => $unitTaxAmount,
-                        'unit_tax_rate' => $taxTax->rate,
-                        'unit_tax_id' => $taxTax->id,
+                        'unit_tax_rate' => $taxData['rate'],
+                        'unit_tax_id' => $taxData['id'],
                         'line_total' => $lineTotal,
                         'line_discount' => $lineDiscount ?? 0,
                         'line_tax' => $lineTax,
@@ -188,9 +219,16 @@ class SalesController extends Controller
 
                     $lines[] = $line;
 
-                    $caratTypeTotalVariable = $item->goldCaratType->key . 'CostTotal';
+                    $caratTypeTotalVariable = $this->resolveInventoryCostBucketForItem($item) . 'CostTotal';
                     ${$caratTypeTotalVariable} += $unitCost * $request->weight[$key];
                 }
+
+                $paymentLines = $this->invoicePaymentService->normalizeSalesLines(
+                    $request->all(),
+                    (int) $branch->id,
+                    $linesNetTotal
+                );
+                $paymentType = $this->invoicePaymentService->resolveStoredPaymentType($paymentLines);
 
                 $invoiceData = [
                     'branch_id' => $request->branch_id,
@@ -201,6 +239,10 @@ class SalesController extends Controller
                     'payment_type' => $paymentType,
                     'sale_type' => $request->type,
                     'notes' => $request->notes ?? '',
+                    'invoice_terms' => $this->invoiceTermsService->resolveSnapshot(
+                        $request->input('invoice_terms'),
+                        array_key_exists('invoice_terms', $request->all())
+                    ),
                     'date' => Carbon::parse($request->bill_date)->format('Y-m-d'),
                     'time' => Carbon::parse($request->bill_date)->format('H:i:s'),
                     'lines_total' => $linesTotal,
@@ -209,14 +251,19 @@ class SalesController extends Controller
                     'taxes_total' => $linesTax,
                     'net_total' => $linesNetTotal,
                     'user_id' => Auth::user()->id,
+                    'shift_id' => $activeShift->id,
                 ];
-                if ($request->bill_client_phone) {
-                    $invoiceData['bill_client_phone'] = $request->bill_client_phone;
-                }
-                if ($request->bill_client_name) {
-                    $invoiceData['bill_client_name'] = $request->bill_client_name;
-                }
+                $invoiceData = array_merge(
+                    $invoiceData,
+                    $this->invoicePartySnapshotService->resolve(
+                        $customer,
+                        $request->input('bill_client_name'),
+                        $request->input('bill_client_phone'),
+                        $request->input('bill_client_identity_number'),
+                    ),
+                );
                 $invoice = Invoice::create($invoiceData);
+                $this->invoicePaymentService->persist($invoice, $paymentLines);
 
                 JournalEntriesService::invoiceGenerateJournalEntries($invoice, $this->sales_prepare_journal_entry_details($invoice, $craftedCostTotal, $scrapCostTotal, $pureCostTotal));
                 $invoice->details()->createMany($lines);
@@ -235,6 +282,12 @@ class SalesController extends Controller
                     'message' => __('main.nodetails'),
                 ]);
             }
+        } catch (ValidationException $ex) {
+            DB::rollBack();
+            return response()->json([
+                'status' => false,
+                'errors' => collect($ex->errors())->flatten()->values()->all(),
+            ], 422);
         } catch (Exception $ex) {
             DB::rollBack();
             return response()->json([
@@ -308,7 +361,14 @@ class SalesController extends Controller
     public function sales_return_create($type, $id)
     {
         $invoice = Invoice::find($id);
-        return view('admin.sales_return.create', compact('type', 'invoice'));
+        $bankAccounts = BankAccount::query()
+            ->active()
+            ->where('branch_id', $invoice->branch_id)
+            ->orderByDesc('is_default')
+            ->orderBy('account_name')
+            ->get();
+
+        return view('admin.sales_return.create', compact('type', 'invoice', 'bankAccounts'));
     }
 
     public function sales_return_store(Request $request, $type, $id)
@@ -317,13 +377,37 @@ class SalesController extends Controller
 
         try {
             DB::beginTransaction();
-            $returnedDetails = $invoice->details()->whereIn('id', $request->checkDetail)->get();
+            $activeShift = $this->shiftService->requireActiveShift(Auth::user(), (int) $invoice->branch_id);
+            $selectedDetailIds = collect($request->input('checkDetail', []))
+                ->filter()
+                ->map(fn ($detailId) => (int) $detailId)
+                ->unique()
+                ->values()
+                ->all();
+
+            if (count($selectedDetailIds) === 0) {
+                throw ValidationException::withMessages([
+                    'checkDetail' => ['يجب اختيار صنف واحد على الأقل قبل حفظ المرتجع.'],
+                ]);
+            }
+
+            $returnedDetails = $invoice->details()
+                ->whereIn('id', $selectedDetailIds)
+                ->whereNotIn('id', $invoice->returnInvoicesDetailsIds)
+                ->get();
+
+            if ($returnedDetails->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'checkDetail' => ['العناصر المحددة غير صالحة أو تم إرجاعها سابقًا.'],
+                ]);
+            }
 
             $linesTotal = 0;
             $linesDiscount = 0;
             $linesTotalAfterDiscount = 0;
             $linesTax = 0;
             $linesNetTotal = 0;
+            $lines = [];
 
             $craftedCostTotal = 0;
             $scrapCostTotal = 0;
@@ -332,8 +416,6 @@ class SalesController extends Controller
             foreach ($returnedDetails as $detail) {
                 $unit = ItemUnit::find($detail->unit_id);
                 $item = $unit->item;
-                $goldCaratType = $item->goldCaratType;
-
                 $unitTaxAmount = $detail->unit_tax;
 
                 $lineTotal = $detail->line_total;
@@ -353,6 +435,7 @@ class SalesController extends Controller
                 $linesNetTotal += $lineNetTotal;
 
                 $line = [
+                    'parent_id' => $detail->id,
                     'warehouse_id' => $invoice->warehouse_id ?? null,
                     'item_id' => $detail->item_id,
                     'unit_id' => $unit->id,
@@ -377,9 +460,20 @@ class SalesController extends Controller
 
                 $lines[] = $line;
 
-                $caratTypeTotalVariable = $item->goldCaratType->key . 'CostTotal';
+                $caratTypeTotalVariable = $this->resolveInventoryCostBucketForItem($item) . 'CostTotal';
                 ${$caratTypeTotalVariable} += $detail->unit_cost * $detail->out_weight;
             }
+
+            $paymentPayload = $request->all();
+            $paymentPayload['cash'] = $request->filled('cash')
+                ? $request->input('cash')
+                : $linesNetTotal;
+
+            $paymentLines = $this->invoicePaymentService->normalizeSalesLines(
+                $paymentPayload,
+                (int) $invoice->branch_id,
+                (float) $linesNetTotal,
+            );
 
             $returnInvoice = $invoice->returnInvoices()->create([
                 'branch_id' => $invoice->branch_id,
@@ -389,6 +483,7 @@ class SalesController extends Controller
                 'type' => 'sale_return',
                 'sale_type' => $type,
                 'notes' => $request->notes ?? '',
+                'invoice_terms' => $invoice->invoice_terms,
                 'date' => Carbon::now()->format('Y-m-d'),
                 'time' => Carbon::now()->format('H:i:s'),
                 'lines_total' => $linesTotal,
@@ -396,15 +491,25 @@ class SalesController extends Controller
                 'lines_total_after_discount' => $linesTotalAfterDiscount,
                 'taxes_total' => $linesTax,
                 'net_total' => $linesNetTotal,
+                'payment_type' => $this->invoicePaymentService->resolveStoredPaymentType($paymentLines),
                 'user_id' => Auth::user()->id,
-            ]);
-            JournalEntriesService::invoiceGenerateJournalEntries($invoice, $this->sales_return_prepare_journal_entry_details($invoice, $craftedCostTotal, $scrapCostTotal, $pureCostTotal));
+                'shift_id' => $activeShift->id,
+            ] + $this->invoicePartySnapshotService->fromInvoice($invoice));
+
             $returnInvoice->details()->createMany($lines);
+            $this->invoicePaymentService->persist($returnInvoice, $paymentLines);
+            JournalEntriesService::invoiceGenerateJournalEntries($returnInvoice, $this->sales_return_prepare_journal_entry_details($returnInvoice, $craftedCostTotal, $scrapCostTotal, $pureCostTotal));
             $sendInvoice = new SendZatcaInvoice($returnInvoice);
             $sendInvoice->send();
 
             DB::commit();
             return redirect()->route('sales_return.index', ['type' => $type])->with('success', __('main.created'));
+        } catch (ValidationException $ex) {
+            DB::rollBack();
+            return redirect()
+                ->back()
+                ->withErrors($ex->errors())
+                ->withInput();
         } catch (Exception $ex) {
             DB::rollBack();
             return redirect()->route('sales_return.create', ['type' => $type, 'id' => $id])->with('error', $ex->getMessage());
@@ -424,23 +529,14 @@ class SalesController extends Controller
         $documentDate = $invoice->date;
         $lines = [];
 
-        if ($invoice->payment_type == 'cash') {
-            // safe account
-            $lines[] = [
-                'account_id' => $accountSetting->safe_account,
-                'debit' => $invoice->net_total,
-                'credit' => 0,
-                'document_date' => $documentDate,
-            ];
-        } else {
-            // bank account
-            $lines[] = [
-                'account_id' => $accountSetting->bank_account,
-                'debit' => $invoice->net_total,
-                'credit' => 0,
-                'document_date' => $documentDate,
-            ];
-        }
+        $lines = array_merge(
+            $lines,
+            $this->invoicePaymentService->journalDebitLines(
+                $invoice,
+                (int) $accountSetting->safe_account,
+                $accountSetting->bank_account ? (int) $accountSetting->bank_account : null,
+            ),
+        );
 
         // customer account
         $lines[] = [
@@ -531,23 +627,14 @@ class SalesController extends Controller
         $documentDate = $invoice->date;
         $lines = [];
 
-        if ($invoice->payment_type == 'cash') {
-            // safe account
-            $lines[] = [
-                'account_id' => $accountSetting->safe_account,
-                'debit' => 0,
-                'credit' => $invoice->net_total,
-                'document_date' => $documentDate,
-            ];
-        } else {
-            // bank account
-            $lines[] = [
-                'account_id' => $accountSetting->bank_account,
-                'debit' => 0,
-                'credit' => $invoice->net_total,
-                'document_date' => $documentDate,
-            ];
-        }
+        $lines = array_merge(
+            $lines,
+            $this->invoicePaymentService->journalCreditLines(
+                $invoice,
+                (int) $accountSetting->safe_account,
+                $accountSetting->bank_account ? (int) $accountSetting->bank_account : null,
+            ),
+        );
 
         // customer account
         $lines[] = [
@@ -630,5 +717,31 @@ class SalesController extends Controller
         }
 
         return $lines;
+    }
+
+    private function resolveItemTaxData($item): array
+    {
+        $tax = $item->goldCarat?->tax;
+
+        if ($tax) {
+            return [
+                'id' => $tax->id,
+                'rate' => (float) $tax->rate,
+            ];
+        }
+
+        $fallbackTax = Tax::query()->where('zatca_code', 'O')->first();
+
+        return [
+            'id' => $fallbackTax?->id,
+            'rate' => (float) ($fallbackTax?->rate ?? 0),
+        ];
+    }
+
+    private function resolveInventoryCostBucketForItem($item): string
+    {
+        $bucket = $item->goldCaratType?->key;
+
+        return in_array($bucket, ['crafted', 'scrap', 'pure'], true) ? $bucket : 'crafted';
     }
 }

@@ -23,7 +23,7 @@
 
                     <div class="card shadow mb-4"> 
                         <div class="card-body">
-                            <form   method="POST" action="{{ route('balance_sheet.index') }}"
+                            <form   method="POST" action="{{ route('balance_sheet.search') }}"
                                     enctype="multipart/form-data" >
                                 @csrf
                                 <div class="row">
@@ -31,14 +31,31 @@
                                         <div class="form-group">
                                             <label> تاريخ البداية <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
                                             <input type="checkbox" id="isStartDate" name="isStartDate">
-                                            <input type="date" id="StartDate" name="date_from"  class="form-control">
+                                            <input type="date" id="StartDate" name="date_from"  class="form-control" value="{{ $defaultFilters['date_from'] ?? '' }}">
                                         </div>
                                     </div>
                                     <div class="col-6">
                                         <div class="form-group">
                                             <label> تاريخ النهاية <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
                                             <input type="checkbox" id="isEndDate" name="isEndDate">
-                                            <input type="date" id="EndDate" name="date_to"  class="form-control">
+                                            <input type="date" id="EndDate" name="date_to"  class="form-control" value="{{ $defaultFilters['date_to'] ?? '' }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="form-group">
+                                            <label>الفرع</label>
+                                            @if(empty(Auth::user()->branch_id) || Auth::user()->is_admin)
+                                                <select class="form-control" name="branch_id" id="branch_id">
+                                                    <option value="">جميع الفروع</option>
+                                                    @foreach($branches as $branch)
+                                                        <option value="{{ $branch->id }}" @selected(($defaultFilters['branch_id'] ?? '') == $branch->id)>{{ $branch->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                            @else
+                                                <input class="form-control" type="text" readonly value="{{ Auth::user()->branch->name }}"/>
+                                                <input type="hidden" name="branch_id" value="{{ $defaultFilters['branch_id'] }}">
+                                            @endif
+                                            <small class="text-muted d-block mt-2">عند فلترة الميزانية على فرع معيّن يتم احتساب حركاته فقط، بينما تبقى الأرصدة الافتتاحية العامة غير موزعة على الفروع في النسخة الحالية.</small>
                                         </div>
                                     </div>
                                 </div>
@@ -82,16 +99,13 @@
         $('#isEndDate').prop('checked', false);
         $('#StartDate').prop('disabled', true);
         $('#EndDate').prop('disabled', true);
-        $('#StartDate').val(today);
-        $('#EndDate').val(today);
-
         $('#isStartDate').change(function (){
             if(this.checked){
                 $('#StartDate').prop('disabled', false);
             } else {
                 $('#StartDate').prop('disabled', true);
             }
-        });
+        }).trigger('change');
 
         $('#isEndDate').change(function (){
             if(this.checked){
@@ -99,7 +113,7 @@
             } else {
                 $('#EndDate').prop('disabled', true);
             }
-        });
+        }).trigger('change');
     });
 </script>
  

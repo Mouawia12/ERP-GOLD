@@ -52,11 +52,16 @@
           
                     <div class="card-body">  
                         <div class="table-responsive hoverable-table" style="direction: rtl;"> 
-                            <table class="display w-100  text-nowrap table-bordered" id="example1" 
+                                <table class="display w-100  text-nowrap table-bordered" id="example1" 
                                 tyle="text-align: center;direction: rtl;">
                                 <thead> 
                                     <th class="text-center">#</th>
                                         <th class="text-center">{{__('main.date')}}</th> 
+                                        <th class="text-center">الوقت</th>
+                                        <th class="text-center">الفرع</th>
+                                        <th class="text-center">المستخدم</th>
+                                        <th class="text-center">نوع المصدر</th>
+                                        <th class="text-center">المرجع</th>
                                         <th class="text-center">{{__('main.document_type')}}</th>
                                         <th class="text-center">{{__('main.Debit')}}</th>
                                         <th class="text-center">{{__('main.Credit')}}</th>
@@ -65,32 +70,42 @@
                                 </thead>
                                 <tbody>
                                     @php
-                                        $openingBalance = $account->openingBalance($periodFrom,$periodTo);
+                                        $runningBalance = $openingBalance['net'];
                                     @endphp
-                                    @if($openingBalance != 0)
+                                    @if($openingBalance['net'] != 0 || $openingBalance['debit'] != 0 || $openingBalance['credit'] != 0)
                                         <tr>
                                             <td class="text-center">1</td>
                                             <td class="text-center">--</td> 
+                                            <td class="text-center">--</td>
+                                            <td class="text-center">--</td>
+                                            <td class="text-center">--</td>
+                                            <td class="text-center">--</td>
+                                            <td class="text-center">--</td>
                                             <td class="text-center">رصيد اول المده</td> 
-                                            <td class="text-center">{{number_format($account->openingBalance($periodFrom,$periodTo,'debit'),2)}}</td>
-                                            <td class="text-center">{{number_format($account->openingBalance($periodFrom,$periodTo,'credit'),2)}}</td>
-                                            <td class="text-center">{{number_format(abs($openingBalance),2)}} {{ $openingBalance != 0 ? ' / ' . ($openingBalance > 0 ? __('main.debit') : __('main.credit')) : '' }}</td>
+                                            <td class="text-center">{{number_format($openingBalance['debit'],2)}}</td>
+                                            <td class="text-center">{{number_format($openingBalance['credit'],2)}}</td>
+                                            <td class="text-center">{{number_format(abs($runningBalance),2)}} {{ $runningBalance != 0 ? ' / ' . ($runningBalance > 0 ? __('main.debit') : __('main.credit')) : '' }}</td>
                                         </tr> 
                                     @endif
                 
                                     @foreach($documents??[] as $document)
 
                                     @php
-                                        $currentBalance = $document->debit - $document->credit;
-                                        $balance = $openingBalance + $currentBalance;
-                                        $openingBalance = $balance;
+                                        $currentBalance = $document['debit'] - $document['credit'];
+                                        $balance = $runningBalance + $currentBalance;
+                                        $runningBalance = $balance;
                                     @endphp
                                         <tr>
                                             <td class="text-center">{{$loop -> iteration}}</td>
-                                            <td class="text-center"> {{\Carbon\Carbon::parse($document->document_date) -> format('d-m-Y')}}</td>  
-                                            <td class="text-center"> {{$document->journal_entry->custom_notes??''}}</td> 
-                                            <td class="text-center">{{number_format($document->debit,2)}}</td>
-                                            <td class="text-center">{{number_format($document->credit,2)}}</td>  
+                                            <td class="text-center"> {{\Carbon\Carbon::parse($document['date']) -> format('d-m-Y')}}</td>  
+                                            <td class="text-center">{{ $document['time'] ?? '-' }}</td>
+                                            <td class="text-center">{{ $document['branch_name'] }}</td>
+                                            <td class="text-center">{{ $document['user_name'] }}</td>
+                                            <td class="text-center">{{ $document['source_type_label'] }}</td>
+                                            <td class="text-center">{{ $document['reference_number'] }}</td>
+                                            <td class="text-center"> {{$document['document_label']}}</td> 
+                                            <td class="text-center">{{number_format($document['debit'],2)}}</td>
+                                            <td class="text-center">{{number_format($document['credit'],2)}}</td>  
                                             <td class="text-center">{{number_format(abs($balance),2) }} {{ $balance != 0 ? ' / ' . ($balance > 0 ? __('main.debit') : __('main.credit')) : '' }}</td> 
                                         </tr>
                  
@@ -98,10 +113,10 @@
                                 </tbody>
                                 <tfoot>
                                     @php
-                                        $totalBalance = $openingBalance;
+                                        $totalBalance = $runningBalance;
                                     @endphp
                                     <tr style="background: #c3e6cb">
-                                       <td class="text-center" colspan="2"></td>
+                                       <td class="text-center" colspan="7"></td>
                                         <td class="text-center">{{__('main.total_balance')}}</td>
                                         <td class="text-center" colspan="2"></td>
                                         <td class="text-center" >{{number_format(abs($totalBalance),2)}} {{ $totalBalance != 0 ? ' / ' . ($totalBalance > 0 ? __('main.debit') : __('main.credit')) : '' }}</td>
@@ -158,4 +173,3 @@
 </script> 
 @endsection 
  
-

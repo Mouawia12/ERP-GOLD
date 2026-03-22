@@ -8,13 +8,17 @@ use App\Models\Branch;
 use App\Models\FinancialVoucher;
 use App\Models\FinancialYear;
 use App\Services\JournalEntriesService;
+use App\Services\Shifts\ShiftService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class FinancialVoucherController extends Controller
 {
-    function __construct()
+    public function __construct(
+        private readonly ShiftService $shiftService,
+    )
     {
         // $this->middleware('permission:employee.branches.show', ['only' => ['index']]);
         // $this->middleware('permission:employee.branches.add', ['only' => ['create', 'store']]);
@@ -54,6 +58,7 @@ class FinancialVoucherController extends Controller
             ], 422);
         }
         try {
+            $activeShift = $this->shiftService->requireActiveShift($request->user('admin-web'), (int) $request->branch_id);
             DB::beginTransaction();
             $voucher = FinancialVoucher::create([
                 'type' => $type,
@@ -64,6 +69,7 @@ class FinancialVoucherController extends Controller
                 'to_account_id' => $request->to_account_id,
                 'total_amount' => $request->total_amount,
                 'description' => $request->description,
+                'shift_id' => $activeShift->id,
             ]);
             JournalEntriesService::invoiceGenerateJournalEntries($voucher, $this->financial_voucher_prepare_journal_entry_details($voucher));
             DB::commit();
@@ -72,6 +78,11 @@ class FinancialVoucherController extends Controller
                 'status' => true,
                 'message' => 'تم اضافة حركة مالية بنجاح',
             ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'status' => false,
+                'errors' => collect($e->errors())->flatten()->values()->all(),
+            ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([

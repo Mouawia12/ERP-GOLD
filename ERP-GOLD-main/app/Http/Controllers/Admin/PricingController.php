@@ -4,93 +4,107 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\GoldPrice;
-use Carbon\Carbon;
+use App\Services\Pricing\GoldPriceSyncService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class PricingController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
+    public function __construct(
+        private readonly GoldPriceSyncService $goldPriceSyncService
+    ) {
+        $this->middleware('auth:admin-web');
+        $this->middleware('permission:employee.gold_prices.show', ['only' => ['index', 'get_gold_stock_market_prices', 'Gold_Price_Api', 'pricing']]);
+        $this->middleware('permission:employee.gold_prices.edit', ['only' => ['sync', 'update']]);
+    }
+
     public function index()
     {
-        $pricings = GoldPrice::all();
-        $stock_market = $this->Gold_Price_Api('USD');
-        $goldPrices = GoldPrice::all();
-        $this->updatePricng();
-        return view('admin.pricing.index', compact('pricings', 'stock_market', 'goldPrices'));
+        $currentGoldPrice = $this->goldPriceSyncService->current();
+        $latestMarketSnapshot = $this->goldPriceSyncService->latestRemoteSnapshot('SAR')
+            ?? $this->goldPriceSyncService->latestRemoteSnapshot();
+        $priceHistory = $this->goldPriceSyncService->history();
+
+        return view('admin.pricing.index', compact('currentGoldPrice', 'latestMarketSnapshot', 'priceHistory'));
     }
 
     public function get_gold_stock_market_prices()
     {
-        $pricings = GoldPrice::all();
-        $stock_market_usd = $this->Gold_Price_Api('USD');
-        $stock_market_sar = $this->Gold_Price_Api('SAR');
+        $latestUsdSnapshot = $this->goldPriceSyncService->latestRemoteSnapshot('USD');
+        $latestSarSnapshot = $this->goldPriceSyncService->latestRemoteSnapshot('SAR');
+        $remoteHistory = $this->goldPriceSyncService->history()
+            ->where('source', 'remote')
+            ->take(10)
+            ->values();
 
-        return view('admin.pricing.stock_market', compact('pricings', 'stock_market_usd', 'stock_market_sar'));
+        return view('admin.pricing.stock_market', compact('latestUsdSnapshot', 'latestSarSnapshot', 'remoteHistory'));
     }
 
     public function pricing()
     {
-        $pricings = GoldPrice::all();
-        if (count($pricings) == 0) {
-            return $this->updatePricng();
-        }
-        $pricings = $pricings->first();
+        $pricings = GoldPrice::query()->orderByDesc('last_update')->limit(1)->get();
+
         return view('admin.welcome', compact('pricings'));
     }
 
+    /**
+     * Legacy wrapper kept for old internal calls.
+     */
     public function updatePricng()
     {
-        $stock_market = $this->Gold_Price_Api('SAR');
-
-        GoldPrice::updateOrCreate(['id' => 1], [
-            'ounce_price' => $stock_market->price,
-            'ounce_14_price' => $stock_market->price_gram_14k,
-            'ounce_18_price' => $stock_market->price_gram_18k,
-            'ounce_21_price' => $stock_market->price_gram_21k,
-            'ounce_22_price' => $stock_market->price_gram_22k,
-            'ounce_24_price' => $stock_market->price_gram_24k,
-            'currency' => $stock_market->currency,
-            'last_update' => Carbon::now(),
-        ]);
+        return $this->goldPriceSyncService->syncCurrentSaudiPrice(auth('admin-web')->id());
     }
 
-    public function Gold_Price_Api($curr = 'SAR')
+    public function sync(Request $request): RedirectResponse
     {
-        $apiKey = 'goldapi-3qf9kslxkzs02r-io';
-        $symbol = 'XAU';
-        $date = '';
+        $validated = $request->validate([
+            'currency' => ['nullable', 'in:SAR,USD'],
+        ]);
 
-        $myHeaders = array(
-            'x-access-token: ' . $apiKey,
-            'Content-Type: application/json'
-        );
+        try {
+            $this->goldPriceSyncService->syncFromRemote($validated['currency'] ?? 'SAR', auth('admin-web')->id());
 
-        $curl = curl_init();
+            return redirect()
+                ->route('prices')
+                ->with('success', 'تم تحديث أسعار الذهب من الخدمة الخارجية بنجاح.');
+        } catch (RuntimeException $exception) {
+            return redirect()
+                ->route('prices')
+                ->with('error', $exception->getMessage());
+        }
+    }
 
-        $url = "https://www.goldapi.io/api/{$symbol}/{$curr}/{$date}";
+    public function update(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'currency' => ['required', 'string', 'max:10'],
+            'price14' => ['required', 'numeric', 'min:0'],
+            'price18' => ['required', 'numeric', 'min:0'],
+            'price21' => ['required', 'numeric', 'min:0'],
+            'price22' => ['required', 'numeric', 'min:0'],
+            'price24' => ['required', 'numeric', 'min:0'],
+        ]);
 
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => $url,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTPHEADER => $myHeaders
-        ));
+        $this->goldPriceSyncService->updateManually($validated, auth('admin-web')->id());
 
-        $response = curl_exec($curl);
-        $error = curl_error($curl);
+        return redirect()
+            ->route('prices')
+            ->with('success', 'تم تحديث أسعار الذهب يدويًا وحفظها في السجل.');
+    }
 
-        curl_close($curl);
-
-        if ($error) {
-            echo 'Error: ' . $error;
-        } else {
-            return json_decode($response);
+    public function Gold_Price_Api(string $curr = 'SAR'): JsonResponse
+    {
+        try {
+            return response()->json(
+                $this->goldPriceSyncService->fetchRemoteSnapshot($curr)
+            );
+        } catch (RuntimeException|ValidationException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
         }
     }
 }

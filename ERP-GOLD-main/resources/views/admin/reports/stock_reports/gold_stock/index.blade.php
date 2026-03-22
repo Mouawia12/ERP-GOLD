@@ -104,8 +104,9 @@
                                         <tr>
                                             @foreach($caratsTypes as $caratType)
                                                 @foreach($carats->where('is_pure', ($caratType->key == 'pure' ? true : false))??[] as $carat)
-                                                    <td class="text-center" style="color: green">{{number_format($carat->getStock($periodFrom, $periodTo, $caratType->id,'in'), 3)}}</td>
-                                                    <td class="text-center" style="color: red">{{number_format($carat->getStock($periodFrom, $periodTo, $caratType->id, 'out'), 3)}}</td> 
+                                                    @php $stockMetrics = $stockByCarat[$caratType->id][$carat->id] ?? ['in' => 0, 'out' => 0, 'balance' => 0]; @endphp
+                                                    <td class="text-center" style="color: green">{{number_format($stockMetrics['in'], 3)}}</td>
+                                                    <td class="text-center" style="color: red">{{number_format($stockMetrics['out'], 3)}}</td> 
                                                 @endforeach
                                             @endforeach
                                         </tr>
@@ -113,7 +114,7 @@
                                             @foreach($caratsTypes as $caratType)
                                                 @foreach($carats->where('is_pure', ($caratType->key == 'pure' ? true : false))??[] as $carat)
                                                     @php
-                                                        $stockBalance = $carat->getStock($periodFrom, $periodTo, $caratType->id);
+                                                        $stockBalance = $stockByCarat[$caratType->id][$carat->id]['balance'] ?? 0;
                                                         $stockType = $stockBalance < 0 ? __('main.exit') : __('main.enter');
                                                         $stockClass = $stockBalance < 0 ? 'text-danger' : 'text-success';
                                                     @endphp
@@ -153,18 +154,14 @@
                                     <tbody>
                                         <tr>
                                             @foreach($caratsTypes as $caratType)
-                                            <td class="text-center" style="color: green">{{number_format($baseCarat->getStockDependent($periodFrom, $periodTo, $caratType->id,'in'), 3)}}</td>
-                                            <td class="text-center" style="color: red">{{number_format($baseCarat->getStockDependent($periodFrom, $periodTo, $caratType->id, 'out'), 3)}}</td> 
+                                            <td class="text-center" style="color: green">{{number_format($stockByBaseCarat[$caratType->id]['in'] ?? 0, 3)}}</td>
+                                            <td class="text-center" style="color: red">{{number_format($stockByBaseCarat[$caratType->id]['out'] ?? 0, 3)}}</td> 
                                             @endforeach
                                         </tr>
-                                        @php
-                                            $total = 0;
-                                        @endphp
                                         <tr style="background: antiquewhite;">
                                             @foreach($caratsTypes as $caratType)
                                                 @php
-                                                    $stockBalance = $baseCarat->getStockDependent($periodFrom, $periodTo, $caratType->id,null);
-                                                    $total += $stockBalance;
+                                                    $stockBalance = $stockByBaseCarat[$caratType->id]['balance'] ?? 0;
                                                     $stockType = $stockBalance < 0 ? __('main.exit') : __('main.enter');
                                                     $stockClass = $stockBalance < 0 ? 'text-danger' : 'text-success';
                                                 @endphp
@@ -174,7 +171,7 @@
                                         <tr>
                                             <td colspan="6" style="font-size: 20px;text-align: center">
                                                 <h2>الإجمالي</h2>
-                                                <h2>{{number_format($total, 3)}}</h2>
+                                                <h2>{{number_format($totalDependentStock ?? 0, 3)}}</h2>
                                             </td>
                                         </tr>
                                     </tbody>

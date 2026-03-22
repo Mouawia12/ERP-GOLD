@@ -301,9 +301,15 @@ class StockSettlementController extends Controller
 
     public function store_by_default(Request $request)
     {
-        $updatePricing = new PricingController();
-        $updatePricing->updatePricng();
-        $defaultCaratPrice = GoldPrice::first()->ounce_21_price;
+        $defaultCaratPrice = GoldPrice::latestSnapshot()?->ounce_21_price;
+
+        if ($defaultCaratPrice === null) {
+            return response()->json([
+                'status' => false,
+                'message' => 'يجب تحديث أسعار الذهب داخل النظام قبل تنفيذ الجرد الافتراضي.',
+            ], 422);
+        }
+
         $validator = Validator::make($request->all(), [
             'bill_date' => 'required',
             'branch_id' => 'required',

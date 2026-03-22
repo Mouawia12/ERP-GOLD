@@ -39,9 +39,25 @@
                                 @else
                                 <h5 class="text-center"> [ جميع الفروع ] </h5>
                                 @endif
+                                @php
+                                    $activeFilters = collect([
+                                        !empty($filters['carat'] ?? null) ? 'عيار محدد' : null,
+                                        !empty($filters['inventory_classification'] ?? null) ? ($inventoryClassifications[$filters['inventory_classification']] ?? 'تصنيف محدد') : null,
+                                        !empty($filters['category'] ?? null) ? 'تصنيف محدد' : null,
+                                        !empty($filters['status'] ?? null) ? (($filters['status'] ?? null) === '1' ? 'نشط' : 'غير نشط') : null,
+                                        !empty($filters['code'] ?? null) ? 'كود: ' . $filters['code'] : null,
+                                        !empty($filters['name'] ?? null) ? 'اسم: ' . $filters['name'] : null,
+                                        !empty($filters['from_code'] ?? null) || !empty($filters['to_code'] ?? null)
+                                            ? 'نطاق الأكواد: ' . ($filters['from_code'] ?? '...') . ' - ' . ($filters['to_code'] ?? '...')
+                                            : null,
+                                    ])->filter()->values();
+                                @endphp
+                                @if($activeFilters->isNotEmpty())
+                                    <h6 class="text-center text-muted">{{ $activeFilters->implode(' | ') }}</h6>
+                                @endif
                             </div>
                             <div class="col-3 text-left"> 
-                                <img src="{{URL::asset('assets/img/logo.png')}}"   id="profile-img-tag" width="70px" height="70px" class="profile-img"/>
+                                <img src="{{ $brandLogoUrl }}"   id="profile-img-tag" width="70px" height="70px" class="profile-img"/>
                             </div>   
                           </div>
                         </div>
@@ -57,11 +73,13 @@
                                         <th class="">{{__('main.code')}}</th>
                                         <th >{{__('main.name_ar')}}</th>
                                         <th > {{__('main.category')}} </th>
+                                        <th>التصنيف</th>
                                         <th > {{__('main.carats')}} </th>
                                         <th > {{__('main.gram_made_value')}} </th>
                                         <th > {{__('main.no_metal')}} </th>
                                         <th > {{__('main.actual_balance')}} </th>
                                         <th > {{__('main.state')}} </th>
+                                        <th>الفروع المنشورة</th>
 
                                     </tr>
                                     </thead>
@@ -72,11 +90,15 @@
                                             <td class="text-center">{{$item -> code}}</td>
                                             <td class="text-center">{{$item -> title}}</td>
                                             <td class="text-center">{{$item -> category -> title}}</td>
+                                            <td class="text-center">{{ $item->inventory_classification_label }}</td>
                                             <td class="text-center">{{$item -> goldCarat -> title}}</td>
                                             <td class="text-center">{{$item -> labor_cost_per_gram}}</td>
                                             <td class="text-center">{{$item -> no_metal}}</td>
                                             <td class="text-center">{{$item -> actual_balance}}</td>
                                             <td class="text-center">{{$item -> status ? __('main.state1')  : __('main.state2')}}</td>
+                                            <td class="text-center">
+                                                {{ $item->publishedBranches->isNotEmpty() ? $item->publishedBranches->map(fn($branch) => $branch->name)->implode('، ') : ($item->branch?->name ?? 'عام') }}
+                                            </td>
 
                                         </tr>
                                     @endforeach
@@ -111,6 +133,3 @@
     });
 </script>
  
-
-
-
