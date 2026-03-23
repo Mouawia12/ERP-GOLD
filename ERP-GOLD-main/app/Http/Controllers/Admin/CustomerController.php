@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Validator;
 class CustomerController extends Controller
 {
     private const ALLOWED_TYPES = ['customer', 'supplier'];
-    private const REPORTABLE_INVOICE_TYPES = ['sale', 'sale_return', 'purchase', 'purchase_return'];
+    private const REPORTABLE_INVOICE_TYPES = ['sale', 'sale_return', 'purchase', 'purchase_return', 'manufacturing_order', 'manufacturing_receipt', 'manufacturing_return', 'manufacturing_loss_settlement'];
     private const REPORTABLE_VOUCHER_TYPES = ['receipt', 'payment'];
 
     /**
@@ -25,13 +25,23 @@ class CustomerController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index($type)
+    public function index(Request $request, $type)
+    {
+        return $this->renderIndex($request, $type, false);
+    }
+
+    public function cashDirectory(Request $request, $type)
+    {
+        return $this->renderIndex($request, $type, true);
+    }
+
+    private function renderIndex(Request $request, $type, bool $cashDirectory)
     {
         $type = $this->normalizeType($type);
         $this->authorizeTypePermission($type, 'show');
 
-        $cashOnly = request()->boolean('cash_only');
-        $identityNumber = $this->normalizeOptionalFilter(request('identity_number'));
+        $cashOnly = $cashDirectory || $request->boolean('cash_only');
+        $identityNumber = $this->normalizeOptionalFilter($request->input('identity_number'));
 
         $customers = Customer::where('type', $type)
             ->when($cashOnly, function ($query) {
@@ -47,7 +57,12 @@ class CustomerController extends Controller
         $accounts = Account::all();
 
         return view('admin.customers.index', ['type' => $type, 'customers' =>
-            $customers, 'accounts' => $accounts, 'cashOnly' => $cashOnly, 'identityNumber' => $identityNumber]);
+            $customers,
+            'accounts' => $accounts,
+            'cashOnly' => $cashOnly,
+            'cashDirectory' => $cashDirectory,
+            'identityNumber' => $identityNumber,
+        ]);
     }
 
     public function clientAccount($id)
@@ -279,7 +294,7 @@ class CustomerController extends Controller
         $invoiceTransactions = collect();
         if ($shouldQueryInvoices) {
             $invoiceTransactions = Invoice::query()
-                ->with(['branch', 'user', 'details.carat'])
+                ->with(['branch', 'user', 'customer', 'account', 'details.carat', 'manufacturingLossSettlementLines.carat'])
                 ->where('customer_id', $customer->id)
                 ->whereIn('type', self::REPORTABLE_INVOICE_TYPES)
                 ->when($filters['from_date'] ?? null, function ($query, $value) {
@@ -327,7 +342,7 @@ class CustomerController extends Controller
         $voucherTransactions = collect();
         if ($shouldQueryVouchers && $customer->account_id && ! $selectedCaratId) {
             $voucherTransactions = FinancialVoucher::query()
-                ->with(['branch', 'shift.user', 'fromAccount', 'toAccount'])
+                ->with(['branch', 'shift.user', 'fromAccount', 'toAccount', 'bankAccount'])
                 ->where(function ($query) use ($customer) {
                     $query->where('from_account_id', $customer->account_id)
                         ->orWhere('to_account_id', $customer->account_id);
@@ -471,6 +486,10 @@ class CustomerController extends Controller
             'sale_return' => 'مرتجع بيع',
             'purchase' => 'شراء',
             'purchase_return' => 'مرتجع شراء',
+            'manufacturing_order' => 'إرسال للتصنيع',
+            'manufacturing_receipt' => 'استلام من التصنيع',
+            'manufacturing_return' => 'إرجاع تصنيع',
+            'manufacturing_loss_settlement' => 'تسوية فاقد تصنيع',
             'receipt' => 'سند قبض',
             'payment' => 'سند صرف',
             default => $type,
@@ -498,6 +517,58 @@ class CustomerController extends Controller
             })
             ->values();
 
+        $settlementLines = $invoice->manufacturingLossSettlementLines
+            ->when($selectedCaratId, function ($collection) use ($selectedCaratId) {
+                return $collection->where('gold_carat_id', $selectedCaratId);
+            })
+            ->values();
+
+        if ($invoice->type === 'manufacturing_loss_settlement') {
+            $caratSummary = $settlementLines
+                ->groupBy(function ($line) {
+                    return $line->gold_carat_id ?: 'none';
+                })
+                ->map(function ($group) {
+                    $firstLine = $group->first();
+
+                    return [
+                        'carat_id' => $firstLine?->gold_carat_id,
+                        'carat_title' => $firstLine?->carat?->title ?? 'بدون عيار',
+                        'line_count' => $group->count(),
+                        'in_weight' => 0.0,
+                        'out_weight' => round((float) $group->sum('settled_weight'), 3),
+                        'line_total' => round((float) $group->sum('line_total'), 2),
+                        'tax_total' => 0.0,
+                        'net_total' => round((float) $group->sum('line_total'), 2),
+                    ];
+                })
+                ->values();
+
+            return [
+                'id' => $invoice->id,
+                'sort_id' => $invoice->id,
+                'bill_number' => $invoice->bill_number,
+                'type' => $invoice->type,
+                'operation_label' => $this->operationLabel($invoice->type),
+                'date' => $invoice->date,
+                'time' => $invoice->time,
+                'time_sort' => $invoice->time,
+                'party_name' => $invoice->customer_name ?? '-',
+                'party_phone' => $invoice->customer_phone ?? '-',
+                'branch_name' => $invoice->branch?->name ?? '-',
+                'user_name' => $invoice->user?->name ?? '-',
+                'payment_type' => null,
+                'payment_type_label' => $invoice->account?->name ?? '-',
+                'line_total' => round((float) $settlementLines->sum('line_total'), 2),
+                'tax_total' => 0.0,
+                'net_total' => round((float) $settlementLines->sum('line_total'), 2),
+                'in_weight' => 0.0,
+                'out_weight' => round((float) $settlementLines->sum('settled_weight'), 3),
+                'details_count' => $settlementLines->count(),
+                'carat_summary' => $caratSummary,
+            ];
+        }
+
         $caratSummary = $details
             ->groupBy(function ($detail) {
                 return $detail->gold_carat_id ?: 'none';
@@ -518,6 +589,34 @@ class CustomerController extends Controller
             })
             ->values();
 
+        if ($invoice->type === 'manufacturing_return') {
+            $isFromManufacturer = $invoice->manufacturing_return_direction === 'from_manufacturer';
+
+            return [
+                'id' => $invoice->id,
+                'sort_id' => $invoice->id,
+                'bill_number' => $invoice->bill_number,
+                'type' => $invoice->type,
+                'operation_label' => $invoice->manufacturing_return_direction_label,
+                'date' => $invoice->date,
+                'time' => $invoice->time,
+                'time_sort' => $invoice->time,
+                'party_name' => $invoice->customer_name ?? '-',
+                'party_phone' => $invoice->customer_phone ?? '-',
+                'branch_name' => $invoice->branch?->name ?? '-',
+                'user_name' => $invoice->user?->name ?? '-',
+                'payment_type' => null,
+                'payment_type_label' => $invoice->manufacturing_return_direction_label,
+                'line_total' => round((float) $details->sum('line_total'), 2),
+                'tax_total' => round((float) $details->sum('line_tax'), 2),
+                'net_total' => round((float) $details->sum('net_total'), 2),
+                'in_weight' => round((float) ($isFromManufacturer ? $details->sum('in_weight') : 0), 3),
+                'out_weight' => round((float) ($isFromManufacturer ? 0 : $details->sum('out_weight')), 3),
+                'details_count' => $details->count(),
+                'carat_summary' => $caratSummary,
+            ];
+        }
+
         return [
             'id' => $invoice->id,
             'sort_id' => $invoice->id,
@@ -527,6 +626,8 @@ class CustomerController extends Controller
             'date' => $invoice->date,
             'time' => $invoice->time,
             'time_sort' => $invoice->time,
+            'party_name' => $invoice->customer_name ?? '-',
+            'party_phone' => $invoice->customer_phone ?? '-',
             'branch_name' => $invoice->branch?->name ?? '-',
             'user_name' => $invoice->user?->name ?? '-',
             'payment_type' => $invoice->payment_type,
@@ -557,6 +658,8 @@ class CustomerController extends Controller
             'date' => $voucher->date,
             'time' => $time,
             'time_sort' => $time,
+            'party_name' => '-',
+            'party_phone' => '-',
             'branch_name' => $voucher->branch?->name ?? '-',
             'user_name' => $voucher->shift?->user?->name ?? '-',
             'payment_type' => null,
@@ -564,7 +667,7 @@ class CustomerController extends Controller
                 'من %s إلى %s',
                 $voucher->fromAccount?->name ?? '-',
                 $voucher->toAccount?->name ?? '-',
-            ),
+            ) . (($voucher->payment_method ?? 'cash') !== 'cash' ? ' | ' . $voucher->payment_channel_label : ''),
             'line_total' => round((float) $voucher->total_amount, 2),
             'tax_total' => 0.0,
             'net_total' => round((float) $voucher->total_amount, 2),

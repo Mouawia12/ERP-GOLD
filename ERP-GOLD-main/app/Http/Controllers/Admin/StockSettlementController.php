@@ -21,10 +21,25 @@ use DataTables;
 
 class StockSettlementController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('permission:employee.stock_settlements.show,admin-web')->only(['index', 'show']);
+        $this->middleware('permission:employee.stock_settlements.add,admin-web')->only([
+            'create',
+            'create_by_default',
+            'get_carat_type_stock',
+            'search',
+            'show_uncounted_items',
+            'store',
+            'store_by_default',
+        ]);
+    }
+
     public function index(Request $request)
     {
         $type = $request->type;
         $data = Invoice::where('type', 'stock_settlements')
+            ->with(['branch', 'user', 'details'])
             ->orderBy('id', 'DESC')
             ->get();
 
@@ -33,16 +48,25 @@ class StockSettlementController extends Controller
         if ($request->ajax()) {
             return Datatables::of($data)
                 ->addIndexColumn()
-                ->addColumn('action', function ($row) use ($type) {
-                    return '';
+                ->addColumn('action', function ($row) {
+                    return '<a href="' . route('stock_settlements.show', $row->id) . '" class="btn btn-sm btn-success"><i class="fa fa-eye"></i></a>';
                 })
-                ->addColumn('bill_number', function ($row) use ($type) {
+                ->addColumn('bill_number', function ($row) {
                     return $row->bill_number;
                 })
-                ->addColumn('total_quantity', function ($row) use ($type) {
+                ->addColumn('branch_name', function ($row) {
+                    return $row->branch?->name ?? '-';
+                })
+                ->addColumn('user_name', function ($row) {
+                    return $row->user?->name ?? '-';
+                })
+                ->addColumn('total_quantity', function ($row) {
                     return round($row->total_quantity, 3);
                 })
-                ->addColumn('net_total', function ($row) use ($type) {
+                ->addColumn('difference_weight', function ($row) {
+                    return round($row->details->sum(fn ($detail) => $detail->settlementDiffWeightValue), 3);
+                })
+                ->addColumn('net_total', function ($row) {
                     return round($row->net_total, 3);
                 })
                 ->rawColumns(['action'])
@@ -250,6 +274,9 @@ class StockSettlementController extends Controller
                         'line_discount' => 0,
                         'line_tax' => 0,
                         'net_total' => $lineTotal,
+                        'stock_actual_weight' => floatval($request->actual_balance[$key] ?? 0),
+                        'stock_counted_weight' => floatval($request->weight[$key] ?? 0),
+                        'stock_diff_weight' => $diffWeight,
                     ];
                     $lines[] = $line;
                 }
@@ -290,7 +317,7 @@ class StockSettlementController extends Controller
                     'message' => __('main.nodetails')
                 ]);
             }
-        } catch (Exception $ex) {
+        } catch (\Throwable $ex) {
             DB::rollBack();
             return response()->json([
                 'status' => false,
@@ -386,6 +413,9 @@ class StockSettlementController extends Controller
                     'line_discount' => 0,
                     'line_tax' => 0,
                     'net_total' => $lineTotal,
+                    'stock_actual_weight' => floatval($request->actual_balance ?? 0),
+                    'stock_counted_weight' => floatval($request->weight ?? 0),
+                    'stock_diff_weight' => $diffWeight,
                 ];
                 $lines[] = $line;
                 $invoice = Invoice::create([
@@ -419,7 +449,7 @@ class StockSettlementController extends Controller
                     'message' => __('main.nodetails')
                 ]);
             }
-        } catch (Exception $ex) {
+        } catch (\Throwable $ex) {
             DB::rollBack();
             return response()->json([
                 'status' => false,
@@ -430,11 +460,23 @@ class StockSettlementController extends Controller
 
     public function show($id)
     {
-        $invoice = Invoice::find($id);
-        if (!in_array($invoice->type, ['sale', 'sale_return'])) {
-            return redirect()->route('sales.index')->with('error', __('main.not_found'));
+        $invoice = Invoice::query()
+            ->with(['branch', 'user', 'account', 'details.item', 'details.carat', 'details.goldCaratType'])
+            ->findOrFail($id);
+
+        if ($invoice->type !== 'stock_settlements') {
+            return redirect()->route('stock_settlements.index')->with('error', __('main.not_found'));
         }
-        return view('admin.sales_and_sales_return.print', compact('invoice'));
+
+        $summary = [
+            'lines_count' => $invoice->details->count(),
+            'total_actual_weight' => round($invoice->details->sum(fn ($detail) => $detail->settlementActualWeightValue), 3),
+            'total_counted_weight' => round($invoice->details->sum(fn ($detail) => $detail->settlementCountedWeightValue), 3),
+            'net_diff_weight' => round($invoice->details->sum(fn ($detail) => $detail->settlementDiffWeightValue), 3),
+            'absolute_diff_weight' => round($invoice->details->sum(fn ($detail) => abs($detail->settlementDiffWeightValue)), 3),
+        ];
+
+        return view('admin.stock_settlements.show', compact('invoice', 'summary'));
     }
 
     public function settlements_prepare_journal_entry_details($invoice, $craftedTotal, $scrapTotal, $pureTotal)

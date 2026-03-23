@@ -162,7 +162,7 @@
                             </a>
                         </li>  
                         <li>
-                            <a class="slide-item" href="{{route('purchases.index')}}">
+                            <a class="slide-item" href="{{route('purchase_return.index')}}">
                              {{__('main.purchases_return')}}
                             </a>
                         </li>  
@@ -208,6 +208,33 @@
                     </ul>
                 </li> 
             @endcan  
+            @canany(['employee.manufacturing_orders.show', 'employee.manufacturing_orders.add'])
+                <li class="slide">
+                    <a class="side-menu__item" data-toggle="slide" href="#">
+                        <i class="fas fa-tools side-menu__icon"></i>
+                        <span class="side-menu__label">
+                        {{ __('main.manufacturing_orders') }}
+                        </span>
+                        <i class="angle fe fe-chevron-down"></i>
+                    </a>
+                    <ul class="slide-menu">
+                        @can('employee.manufacturing_orders.add')
+                        <li>
+                            <a class="slide-item" href="{{ route('manufacturing_orders.create') }}">
+                            {{ __('main.manufacturing_orders_add') }}
+                            </a>
+                        </li>
+                        @endcan
+                        @can('employee.manufacturing_orders.show')
+                        <li>
+                            <a class="slide-item" href="{{ route('manufacturing_orders.index') }}">
+                            {{ __('main.manufacturing_orders') }}
+                            </a>
+                        </li>
+                        @endcan
+                    </ul>
+                </li>
+            @endcanany
             @can('employee.stock.show')
                 <li class="slide">
                     <a class="side-menu__item" data-toggle="slide" href="#">
@@ -285,7 +312,12 @@
                             <a class="slide-item" href="{{route('customers' , 'supplier')}}">
                             {{__('main.suppliers')}}
                             </a>
-                        </li>  
+                        </li>
+                        <li>
+                            <a class="slide-item" href="{{ route('customers.cash', 'supplier') }}">
+                            {{__('الموردون النقديون')}}
+                            </a>
+                        </li>
                     </ul>
                 </li>
             @endcan  
@@ -302,7 +334,12 @@
                             <a class="slide-item" href="{{route('customers' , 'customer')}}">
                             {{__('main.customers')}}
                             </a>
-                        </li>  
+                        </li>
+                        <li>
+                            <a class="slide-item" href="{{ route('customers.cash', 'customer') }}">
+                            {{__('العملاء النقديون')}}
+                            </a>
+                        </li>
                     </ul>
                 </li>  
             @endcan  

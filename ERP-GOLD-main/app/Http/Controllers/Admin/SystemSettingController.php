@@ -48,6 +48,8 @@ class SystemSettingController extends Controller
     {
         return view('admin.settings.invoice_terms', [
             'invoiceTerms' => $this->invoiceTermsService->defaultTerms(),
+            'invoiceTermTemplates' => $this->invoiceTermsService->templates(),
+            'defaultInvoiceTermsTemplateKey' => $this->invoiceTermsService->defaultTemplateKey(),
         ]);
     }
 
@@ -55,9 +57,41 @@ class SystemSettingController extends Controller
     {
         $validated = $request->validate([
             'invoice_terms' => 'nullable|string|max:5000',
+            'default_template_key' => 'nullable|string|max:100',
+            'templates' => 'nullable|array',
+            'templates.*.key' => 'nullable|string|max:100',
+            'templates.*.title' => 'nullable|string|max:255',
+            'templates.*.content' => 'nullable|string|max:5000',
         ]);
 
-        $this->invoiceTermsService->setDefaultTerms($validated['invoice_terms'] ?? '');
+        $templates = collect($validated['templates'] ?? [])
+            ->map(fn ($template) => [
+                'key' => $template['key'] ?? null,
+                'title' => $template['title'] ?? null,
+                'content' => $template['content'] ?? null,
+            ])
+            ->all();
+
+        if (! blank($validated['invoice_terms'] ?? null) && ! blank($validated['default_template_key'] ?? null)) {
+            $templates = collect($templates)
+                ->map(function (array $template) use ($validated) {
+                    if (($template['key'] ?? null) === $validated['default_template_key']) {
+                        $template['content'] = $validated['invoice_terms'];
+                    }
+
+                    return $template;
+                })
+                ->all();
+        }
+
+        $this->invoiceTermsService->setTemplates(
+            $templates,
+            $validated['default_template_key'] ?? null,
+        );
+
+        if (! blank($validated['invoice_terms'] ?? null) && blank($validated['default_template_key'] ?? null)) {
+            $this->invoiceTermsService->setDefaultTerms($validated['invoice_terms']);
+        }
 
         return redirect()
             ->route('admin.system-settings.invoice-terms.edit')
@@ -69,6 +103,7 @@ class SystemSettingController extends Controller
         return view('admin.settings.invoice_print', [
             'printSettings' => $this->invoicePrintSettingsService->currentSettings(),
             'availableFormats' => $this->invoicePrintSettingsService->availableFormats(),
+            'availableTemplates' => $this->invoicePrintSettingsService->availableTemplates(),
         ]);
     }
 
@@ -76,12 +111,14 @@ class SystemSettingController extends Controller
     {
         $validated = $request->validate([
             'format' => 'required|in:' . implode(',', $this->invoicePrintSettingsService->availableFormats()),
+            'template' => 'required|in:' . implode(',', array_keys($this->invoicePrintSettingsService->availableTemplates())),
         ]);
 
         $this->invoicePrintSettingsService->setSettings(
             $validated['format'],
             $request->boolean('show_header'),
             $request->boolean('show_footer'),
+            $validated['template'],
         );
 
         return redirect()

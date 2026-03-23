@@ -56,6 +56,10 @@
                 <div>عدد السندات: <strong>{{ $summary['voucher_totals']['voucher_count'] }}</strong></div>
                 <div>سندات القبض: <strong>{{ number_format((float) $summary['voucher_totals']['receipt_total'], 2) }}</strong></div>
                 <div>سندات الصرف: <strong>{{ number_format((float) $summary['voucher_totals']['payment_total'], 2) }}</strong></div>
+                <div>قبض نقدي: <strong>{{ number_format((float) $summary['voucher_totals']['receipt_cash_total'], 2) }}</strong></div>
+                <div>قبض غير نقدي: <strong>{{ number_format((float) $summary['voucher_totals']['receipt_non_cash_total'], 2) }}</strong></div>
+                <div>صرف نقدي: <strong>{{ number_format((float) $summary['voucher_totals']['payment_cash_total'], 2) }}</strong></div>
+                <div>صرف غير نقدي: <strong>{{ number_format((float) $summary['voucher_totals']['payment_non_cash_total'], 2) }}</strong></div>
             </div>
         </div>
         <div class="col-md-6 col-xl-3 mb-3">
@@ -66,6 +70,9 @@
                 <div>مرتجع بيع نقدي: <strong>{{ number_format((float) $summary['invoice_totals']['sale_return_cash_total'], 2) }}</strong></div>
                 <div>مرتجع بيع غير نقدي: <strong>{{ number_format((float) $summary['invoice_totals']['sale_return_non_cash_total'], 2) }}</strong></div>
                 <div>مشتريات نقدية: <strong>{{ number_format((float) $summary['invoice_totals']['purchase_cash_total'], 2) }}</strong></div>
+                <div>مشتريات غير نقدية: <strong>{{ number_format((float) $summary['invoice_totals']['purchase_non_cash_total'], 2) }}</strong></div>
+                <div>مردود شراء نقدي: <strong>{{ number_format((float) $summary['invoice_totals']['purchase_return_cash_total'], 2) }}</strong></div>
+                <div>مردود شراء غير نقدي: <strong>{{ number_format((float) $summary['invoice_totals']['purchase_return_non_cash_total'], 2) }}</strong></div>
                 <div>ملاحظات الفتح:</div>
                 <div class="text-muted">{{ $shift->opening_notes ?: '-' }}</div>
                 <div class="mt-2">ملاحظات الإغلاق:</div>
@@ -139,6 +146,7 @@
                         <th>رقم السند</th>
                         <th>النوع</th>
                         <th>التاريخ</th>
+                        <th>القناة</th>
                         <th>المبلغ</th>
                         <th>الوصف</th>
                     </tr>
@@ -150,12 +158,13 @@
                             <td>{{ $voucher->bill_number }}</td>
                             <td>{{ $voucher->type === 'receipt' ? 'قبض' : 'صرف' }}</td>
                             <td>{{ $voucher->date }}</td>
+                            <td>{{ $voucher->payment_channel_label }}</td>
                             <td>{{ number_format((float) $voucher->total_amount, 2) }}</td>
                             <td>{{ $voucher->description ?: '-' }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="text-center text-muted">لا توجد سندات مالية مرتبطة بهذا الشفت.</td>
+                            <td colspan="7" class="text-center text-muted">لا توجد سندات مالية مرتبطة بهذا الشفت.</td>
                         </tr>
                     @endforelse
                 </tbody>

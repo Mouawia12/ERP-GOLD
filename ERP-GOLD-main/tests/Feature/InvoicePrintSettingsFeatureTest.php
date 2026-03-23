@@ -38,6 +38,7 @@ class InvoicePrintSettingsFeatureTest extends TestCase
 
         DB::table('system_settings')->insert([
             ['key' => 'invoice_print_format', 'value' => 'a5'],
+            ['key' => 'invoice_print_template', 'value' => 'compact'],
             ['key' => 'invoice_print_show_header', 'value' => '0'],
             ['key' => 'invoice_print_show_footer', 'value' => '0'],
         ]);
@@ -48,6 +49,7 @@ class InvoicePrintSettingsFeatureTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('data-print-format="a5"', false);
+        $response->assertSee('data-print-template="compact"', false);
         $response->assertSee('data-show-header="0"', false);
         $response->assertSee('data-show-footer="0"', false);
         $response->assertDontSee('<header class="print-header-section"', false);
@@ -72,6 +74,7 @@ class InvoicePrintSettingsFeatureTest extends TestCase
 
         DB::table('system_settings')->insert([
             ['key' => 'invoice_print_format', 'value' => 'a4'],
+            ['key' => 'invoice_print_template', 'value' => 'modern'],
             ['key' => 'invoice_print_show_header', 'value' => '1'],
             ['key' => 'invoice_print_show_footer', 'value' => '1'],
         ]);
@@ -82,6 +85,7 @@ class InvoicePrintSettingsFeatureTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('data-print-format="a4"', false);
+        $response->assertSee('data-print-template="modern"', false);
         $response->assertSee('data-show-header="1"', false);
         $response->assertSee('data-show-footer="1"', false);
         $response->assertSee('<header class="print-header-section"', false);

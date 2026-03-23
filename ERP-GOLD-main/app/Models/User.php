@@ -16,6 +16,37 @@ class User extends Authenticatable implements JWTSubject
 
     protected $guarded = ['id'];
 
+    protected static function booted(): void
+    {
+        static::saved(function (self $user) {
+            if (blank($user->branch_id)) {
+                return;
+            }
+
+            $branchId = (int) $user->branch_id;
+
+            $user->branches()->syncWithoutDetaching([
+                $branchId => [
+                    'is_default' => true,
+                    'is_active' => true,
+                ],
+            ]);
+
+            $user->branches()
+                ->newPivotStatement()
+                ->where('user_id', $user->id)
+                ->where('branch_id', '!=', $branchId)
+                ->update([
+                    'is_default' => false,
+                ]);
+
+            $user->branches()->updateExistingPivot($branchId, [
+                'is_default' => true,
+                'is_active' => true,
+            ]);
+        });
+    }
+
     protected $hidden = [
         'password', 'remember_token'
     ];
@@ -23,6 +54,13 @@ class User extends Authenticatable implements JWTSubject
     public function branch()
     {
         return $this->belongsTo(Branch::class, 'branch_id', 'id');
+    }
+
+    public function branches()
+    {
+        return $this->belongsToMany(Branch::class, 'branch_user', 'user_id', 'branch_id')
+            ->withPivot(['is_default', 'is_active'])
+            ->withTimestamps();
     }
 
     public function auditLogs()

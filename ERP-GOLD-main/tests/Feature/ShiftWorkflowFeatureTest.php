@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\BankAccount;
 use App\Models\Branch;
 use App\Models\FinancialVoucher;
 use App\Models\FinancialYear;
@@ -187,6 +188,139 @@ class ShiftWorkflowFeatureTest extends TestCase
         $response->assertJsonFragment([
             'يجب فتح شفت نشط على هذا الفرع قبل تسجيل العملية.',
         ]);
+        $this->assertDatabaseCount('financial_vouchers', 0);
+    }
+
+    public function test_non_cash_financial_voucher_uses_real_bank_account_and_does_not_change_expected_shift_cash(): void
+    {
+        $branch = $this->createBranch('فرع السند البنكي');
+        $user = $this->createUser($branch, 'bank-voucher-user@example.com');
+        $this->createFinancialYear();
+        $customerAccount = $this->createAccount('ذمم تحصيل بنكي', '3000');
+        $bankLedgerAccount = $this->createAccount('حساب بنك تشغيلي', '3001');
+
+        $bankAccount = BankAccount::create([
+            'branch_id' => $branch->id,
+            'ledger_account_id' => $bankLedgerAccount->id,
+            'account_name' => 'حساب الأهلي التشغيلي',
+            'bank_name' => 'البنك الأهلي',
+            'supports_credit_card' => false,
+            'supports_bank_transfer' => true,
+            'is_default' => true,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($user, 'admin-web')
+            ->post(route('admin.shifts.store', [], false), [
+                'branch_id' => $branch->id,
+                'opening_cash' => 100,
+            ])
+            ->assertRedirect(route('admin.shifts.index', [], false))
+            ->assertSessionHasNoErrors();
+
+        $shift = Shift::query()->firstOrFail();
+
+        $response = $this->actingAs($user, 'admin-web')
+            ->postJson(route('financial_vouchers.store', ['type' => 'receipt'], false), [
+                'date' => '2026-03-22',
+                'branch_id' => $branch->id,
+                'from_account_id' => $customerAccount->id,
+                'to_account_id' => $bankLedgerAccount->id,
+                'payment_method' => 'bank_transfer',
+                'bank_account_id' => $bankAccount->id,
+                'reference_no' => 'BNK-REF-1',
+                'total_amount' => 60,
+                'description' => 'سند قبض بنكي',
+            ]);
+
+        $response->assertOk()->assertJson([
+            'status' => true,
+        ]);
+
+        $voucher = FinancialVoucher::query()->with(['bankAccount', 'journalEntry.documents'])->firstOrFail();
+
+        $this->assertSame($shift->id, $voucher->shift_id);
+        $this->assertSame('bank_transfer', $voucher->payment_method);
+        $this->assertSame($bankAccount->id, $voucher->bank_account_id);
+        $this->assertSame('BNK-REF-1', $voucher->reference_no);
+
+        $this->assertDatabaseHas('journal_entry_documents', [
+            'journal_id' => $voucher->journalEntry?->id,
+            'account_id' => $customerAccount->id,
+            'credit' => 60,
+            'debit' => 0,
+        ]);
+        $this->assertDatabaseHas('journal_entry_documents', [
+            'journal_id' => $voucher->journalEntry?->id,
+            'account_id' => $bankLedgerAccount->id,
+            'debit' => 60,
+            'credit' => 0,
+        ]);
+
+        $this->actingAs($user, 'admin-web')
+            ->patch(route('admin.shifts.close', $shift, false), [
+                'closing_cash' => 100,
+            ])
+            ->assertRedirect(route('admin.shifts.show', $shift, false))
+            ->assertSessionHasNoErrors();
+
+        $shift->refresh();
+        $this->assertEquals(100.0, (float) $shift->expected_cash);
+        $this->assertEquals(0.0, (float) $shift->cash_difference);
+
+        $reportResponse = $this->actingAs($user, 'admin-web')
+            ->get(route('admin.shifts.show', $shift, false));
+
+        $reportResponse->assertOk();
+        $reportResponse->assertSee('قبض غير نقدي');
+        $reportResponse->assertSee('60.00');
+        $reportResponse->assertSee('حساب الأهلي التشغيلي');
+        $reportResponse->assertSee('BNK-REF-1');
+    }
+
+    public function test_non_cash_financial_voucher_requires_bank_account_matching_one_side_of_journal_entry(): void
+    {
+        $branch = $this->createBranch('فرع تحقق الحساب البنكي');
+        $user = $this->createUser($branch, 'voucher-bank-mismatch@example.com');
+        $this->createFinancialYear();
+        $fromAccount = $this->createAccount('طرف أول', '3100');
+        $toAccount = $this->createAccount('طرف ثان', '3101');
+        $bankLedgerAccount = $this->createAccount('بنك غير مستخدم في القيد', '3102');
+
+        $bankAccount = BankAccount::create([
+            'branch_id' => $branch->id,
+            'ledger_account_id' => $bankLedgerAccount->id,
+            'account_name' => 'حساب بنكي غير مطابق',
+            'bank_name' => 'بنك الاختبار',
+            'supports_credit_card' => false,
+            'supports_bank_transfer' => true,
+            'is_default' => true,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($user, 'admin-web')
+            ->post(route('admin.shifts.store', [], false), [
+                'branch_id' => $branch->id,
+                'opening_cash' => 0,
+            ]);
+
+        $response = $this->actingAs($user, 'admin-web')
+            ->postJson(route('financial_vouchers.store', ['type' => 'receipt'], false), [
+                'date' => '2026-03-22',
+                'branch_id' => $branch->id,
+                'from_account_id' => $fromAccount->id,
+                'to_account_id' => $toAccount->id,
+                'payment_method' => 'bank_transfer',
+                'bank_account_id' => $bankAccount->id,
+                'reference_no' => 'BAD-REF-1',
+                'total_amount' => 75,
+            ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonFragment([
+            'status' => false,
+        ]);
+        $response->assertJsonPath('errors.0', 'الحساب البنكي المحدد يجب أن يكون أحد طرفي السند المحاسبي.');
         $this->assertDatabaseCount('financial_vouchers', 0);
     }
 

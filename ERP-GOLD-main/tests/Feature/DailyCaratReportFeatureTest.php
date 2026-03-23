@@ -168,6 +168,73 @@ class DailyCaratReportFeatureTest extends TestCase
         $response->assertDontSee('3.000');
     }
 
+    public function test_daily_carat_report_respects_time_filters_and_displays_selected_time_window(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.inventory_reports.show',
+        ]);
+
+        [$carat21Id] = $this->prepareReportDimensions();
+
+        $morningInvoiceId = $this->insertInvoice([
+            'bill_number' => 'DAY-TIME-1',
+            'type' => 'sale',
+            'payment_type' => 'cash',
+            'date' => '2026-03-22',
+            'time' => '09:15:00',
+            'branch_id' => $admin->branch_id,
+            'user_id' => $admin->id,
+        ]);
+
+        $this->insertInvoiceDetail([
+            'invoice_id' => $morningInvoiceId,
+            'gold_carat_id' => $carat21Id,
+            'out_weight' => 2,
+            'line_total' => 200,
+            'line_tax' => 30,
+            'net_total' => 230,
+            'date' => '2026-03-22',
+        ]);
+
+        $eveningInvoiceId = $this->insertInvoice([
+            'bill_number' => 'DAY-TIME-2',
+            'type' => 'sale',
+            'payment_type' => 'cash',
+            'date' => '2026-03-22',
+            'time' => '18:45:00',
+            'branch_id' => $admin->branch_id,
+            'user_id' => $admin->id,
+        ]);
+
+        $this->insertInvoiceDetail([
+            'invoice_id' => $eveningInvoiceId,
+            'gold_carat_id' => $carat21Id,
+            'out_weight' => 5,
+            'line_total' => 500,
+            'line_tax' => 75,
+            'net_total' => 575,
+            'date' => '2026-03-22',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('reports.daily_carat_report.index', [], false), [
+                'branch_id' => $admin->branch_id,
+                'date_from' => '2026-03-22',
+                'date_to' => '2026-03-22',
+                'from_time' => '18:00',
+                'to_time' => '19:00',
+            ]);
+
+        $response->assertOk();
+        $response->assertSee('18:00:00');
+        $response->assertSee('19:00:00');
+        $response->assertSee('575.00');
+        $response->assertSee('5.000');
+        $response->assertDontSee('230.00');
+        $response->assertDontSee('2.000');
+    }
+
     /**
      * @param  array<int, string>  $permissions
      */

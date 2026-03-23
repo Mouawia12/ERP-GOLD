@@ -68,6 +68,10 @@ class InvoiceNumberService
             'purchase_return' => 'PR',
             'initial_quantities' => 'INQ',
             'stock_settlements' => 'SS',
+            'manufacturing_order' => 'MO',
+            'manufacturing_receipt' => 'MR',
+            'manufacturing_return' => 'MRT',
+            'manufacturing_loss_settlement' => 'MLS',
             'stock_movement' => 'SM',
             default => strtoupper(substr($type, 0, 3)),
         };

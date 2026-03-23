@@ -11,6 +11,15 @@
         max-height: 48px;
         object-fit: contain;
     }
+
+    .branch-switcher-form {
+        min-width: 260px;
+        margin-left: 12px;
+    }
+
+    .branch-switcher-form .form-control {
+        height: 38px;
+    }
 </style>
 <div class="main-header sticky side-header nav nav-item" id="main-header">
     <div class="container-fluid">
@@ -35,6 +44,26 @@
         <div class="main-header-right">
 
             <div class="nav nav-item  navbar-nav-right ml-auto">
+                @if(($availableAdminBranches ?? collect())->count() > 1)
+                    <form action="{{ route('admin.current_branch.update') }}" method="POST" class="branch-switcher-form">
+                        @csrf
+                        <div class="input-group">
+                            <select class="form-control" name="branch_id" onchange="this.form.submit()">
+                                @foreach(($availableAdminBranches ?? collect()) as $availableBranch)
+                                    <option
+                                        value="{{ $availableBranch->id }}"
+                                        @selected((int) ($currentAdminBranch?->id ?? Auth::user()->branch_id) === (int) $availableBranch->id)
+                                    >
+                                        {{ $availableBranch->branch_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <div class="input-group-append">
+                                <span class="input-group-text">الفرع النشط</span>
+                            </div>
+                        </div>
+                    </form>
+                @endif
 
                 <div class="dropdown main-profile-menu nav nav-item nav-link">
                     <a class="profile-user d-flex" href="#">

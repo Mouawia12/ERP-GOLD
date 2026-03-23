@@ -199,6 +199,17 @@
                                                 </div>
                                                 <div class="col-md-6">
                                                     <div class="form-group">
+                                                        <label>قالب الشروط</label>
+                                                        <select id="invoice_terms_template_selector" class="form-control mb-2">
+                                                            @foreach($invoiceTermTemplates as $template)
+                                                                <option
+                                                                    value="{{ $template['key'] }}"
+                                                                    @selected(($defaultInvoiceTermsTemplateKey ?? null) === $template['key'])
+                                                                >
+                                                                    {{ $template['title'] }}
+                                                                </option>
+                                                            @endforeach
+                                                        </select>
                                                         <label>شروط الفاتورة</label>
                                                         <textarea
                                                             name="invoice_terms"
@@ -1220,5 +1231,23 @@ function calcTotals(updateLineNetTotal = true){
 
 
 </script> 
+<script>
+    (function () {
+        const selector = document.getElementById('invoice_terms_template_selector');
+        const textarea = document.getElementById('invoice_terms');
+        const templates = @json($invoiceTermTemplates);
+
+        if (!selector || !textarea) {
+            return;
+        }
+
+        selector.addEventListener('change', function () {
+            const selected = templates.find((template) => template.key === this.value);
+            if (selected) {
+                textarea.value = selected.content;
+            }
+        });
+    })();
+</script>
 @endsection 
  

@@ -35,13 +35,22 @@
                 <div class="card-header pb-0" id="head-right" >
                     <div class="col-lg-12 margin-tb text-center">
                         @php
-                            $baseListParams = array_filter([
+                            $isCashListing = !empty($cashDirectory) || !empty($cashOnly);
+                            $directoryRouteName = $isCashListing ? 'customers.cash' : 'customers';
+                            $allPartiesRoute = route('customers', array_filter([
                                 'type' => $type,
                                 'identity_number' => $identityNumber ?? null,
-                            ], fn ($value) => $value !== null && $value !== '');
+                            ], fn ($value) => $value !== null && $value !== ''));
+                            $cashPartiesRoute = route('customers.cash', array_filter([
+                                'type' => $type,
+                                'identity_number' => $identityNumber ?? null,
+                            ], fn ($value) => $value !== null && $value !== ''));
+                            $directoryTitle = !empty($cashDirectory)
+                                ? ($type == 'customer' ? 'العملاء النقديون' : 'الموردون النقديون')
+                                : ($type == 'customer' ? __('main.customers') : __('main.suppliers'));
                         @endphp
                         <h4  class="alert alert-primary text-center">
-                         [ {{$type == 'customer' ? __('main.customers') : __('main.suppliers')}} ] 
+                         [ {{$directoryTitle}} ] 
                         </h4>
                         @canany(['employee.customers.add','employee.suppliers.add' ])     
                             <button type="button" class="btn btn-labeled btn-info " id="createButton">
@@ -52,22 +61,19 @@
                         @endcan
                         <div class="mt-3">
                             <a
-                                href="{{ route('customers', $baseListParams) }}"
-                                class="btn {{ empty($cashOnly) ? 'btn-primary' : 'btn-outline-primary' }}"
+                                href="{{ $allPartiesRoute }}"
+                                class="btn {{ empty($isCashListing) ? 'btn-primary' : 'btn-outline-primary' }}"
                             >
                                 كل {{ $type == 'customer' ? __('main.customers') : __('main.suppliers') }}
                             </a>
                             <a
-                                href="{{ route('customers', $baseListParams + ['cash_only' => 1]) }}"
-                                class="btn {{ !empty($cashOnly) ? 'btn-primary' : 'btn-outline-primary' }}"
+                                href="{{ $cashPartiesRoute }}"
+                                class="btn {{ !empty($isCashListing) ? 'btn-primary' : 'btn-outline-primary' }}"
                             >
-                                الأطراف النقدية فقط
+                                {{ $type == 'customer' ? 'العملاء النقديون' : 'الموردون النقديون' }}
                             </a>
                         </div>
-                        <form method="GET" action="{{ route('customers', ['type' => $type]) }}" class="mt-3">
-                            @if(!empty($cashOnly))
-                                <input type="hidden" name="cash_only" value="1">
-                            @endif
+                        <form method="GET" action="{{ route($directoryRouteName, ['type' => $type]) }}" class="mt-3">
                             <div class="row justify-content-center">
                                 <div class="col-lg-4 col-md-6">
                                     <div class="input-group">
@@ -75,19 +81,22 @@
                                             type="text"
                                             name="identity_number"
                                             class="form-control text-right"
-                                            placeholder="بحث برقم الهوية"
+                                            placeholder="{{ !empty($cashDirectory) ? 'بحث داخل الأطراف النقدية برقم الهوية' : 'بحث برقم الهوية' }}"
                                             value="{{ $identityNumber ?? '' }}"
                                         >
                                         <div class="input-group-append">
                                             <button type="submit" class="btn btn-outline-primary">بحث</button>
                                             <a
-                                                href="{{ route('customers', ['type' => $type] + (!empty($cashOnly) ? ['cash_only' => 1] : [])) }}"
+                                                href="{{ route($directoryRouteName, ['type' => $type]) }}"
                                                 class="btn btn-outline-secondary"
                                             >
                                                 مسح
                                             </a>
                                         </div>
                                     </div>
+                                    @if(!empty($isCashListing))
+                                        <small class="text-muted d-block mt-2">هذه القائمة تعرض الأطراف النقدية فقط.</small>
+                                    @endif
                                     @if(!empty($identityNumber))
                                         <small class="text-muted d-block mt-2">التصفية الحالية على رقم الهوية: {{ $identityNumber }}</small>
                                     @endif

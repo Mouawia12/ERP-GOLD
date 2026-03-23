@@ -41,7 +41,8 @@ return [
         'accounting_reports',
         'journal_entries',
         'gold_balance_sheet',
-        'stock_settlements'
+        'stock_settlements',
+        'manufacturing_orders'
     ],
     'accounts_types' => [
         'not_have',

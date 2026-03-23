@@ -5,22 +5,57 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\FinancialYear;
+use App\Models\JournalEntry;
+use App\Models\JournalEntryDocument;
 use App\Models\OpeningBalance;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
-use DataTables;
 
 class AccountsController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('permission:employee.accounts.show,admin-web')->only(['index', 'opening']);
+        $this->middleware('permission:employee.accounts.add,admin-web')->only(['create', 'store', 'excepted_code', 'opening_store']);
+        $this->middleware('permission:employee.accounts.edit,admin-web')->only(['edit', 'update']);
+        $this->middleware('permission:employee.accounts.delete,admin-web')->only(['destroy']);
+    }
+
     public function index()
     {
-        $accounts = Account::where('level', '>', 0)->orderBy('code')->get();
-        $roots = Account::where('parent_account_id', null)->orderBy('id')->get();
+        $activeFinancialYear = FinancialYear::query()->where('is_active', true)->first();
 
-        return view('admin.accounts.index', compact('accounts', 'roots'));
+        $accounts = Account::query()
+            ->with('parent')
+            ->withCount('childrens')
+            ->orderBy('code')
+            ->get();
+
+        $roots = Account::query()
+            ->with('childrensRecursive')
+            ->withCount('childrens')
+            ->whereNull('parent_account_id')
+            ->orderBy('code')
+            ->get();
+
+        $stats = [
+            'total_accounts' => $accounts->count(),
+            'root_accounts' => $roots->count(),
+            'leaf_accounts' => $accounts->where('childrens_count', 0)->count(),
+            'max_level' => (int) ($accounts->max(fn (Account $account) => (int) $account->level) ?? 0),
+            'accounts_with_opening_balance' => $activeFinancialYear
+                ? OpeningBalance::query()
+                    ->where('financial_year', $activeFinancialYear->id)
+                    ->distinct('account_id')
+                    ->count('account_id')
+                : 0,
+            'manual_journals_count' => JournalEntry::query()->whereNull('journalable_type')->count(),
+            'transaction_journals_count' => JournalEntry::query()->whereNotNull('journalable_type')->count(),
+            'journal_documents_count' => JournalEntryDocument::query()->count(),
+        ];
+
+        return view('admin.accounts.index', compact('accounts', 'roots', 'activeFinancialYear', 'stats'));
     }
 
     /**
@@ -124,6 +159,43 @@ class AccountsController extends Controller
         } catch (\Throwable $th) {
             DB::rollBack();
             return redirect()->back()->with('error', $th->getMessage());
+        }
+    }
+
+    public function destroy($id)
+    {
+        $account = Account::query()
+            ->withCount('childrens')
+            ->findOrFail($id);
+
+        if ($account->childrens_count > 0) {
+            return redirect()
+                ->route('accounts.index')
+                ->with('error', 'لا يمكن حذف حساب يحتوي على حسابات فرعية.');
+        }
+
+        if (OpeningBalance::query()->where('account_id', $account->id)->exists()) {
+            return redirect()
+                ->route('accounts.index')
+                ->with('error', 'لا يمكن حذف حساب عليه رصيد افتتاحي.');
+        }
+
+        if (JournalEntryDocument::query()->where('account_id', $account->id)->exists()) {
+            return redirect()
+                ->route('accounts.index')
+                ->with('error', 'لا يمكن حذف حساب مرتبط بقيود يومية.');
+        }
+
+        try {
+            $account->delete();
+
+            return redirect()
+                ->route('accounts.index')
+                ->with('success', __('main.deleted'));
+        } catch (\Throwable $th) {
+            return redirect()
+                ->route('accounts.index')
+                ->with('error', $th->getMessage());
         }
     }
 

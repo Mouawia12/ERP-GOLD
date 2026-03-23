@@ -21,7 +21,7 @@ return new class extends Migration {
             $table->string('bill_client_phone')->nullable();
             $table->string('bill_client_name')->nullable();
             $table->foreignId('parent_id')->nullable()->constrained('invoices')->onDelete('cascade');
-            $table->enum('type', ['sale', 'sale_return', 'purchase', 'purchase_return', 'initial_quantities', 'stock_settlements'])->default('sale');
+            $table->string('type')->default('sale');
             $table->foreignId('account_id')->nullable()->constrained('accounts')->onDelete('cascade');
             $table->enum('sale_type', ['simplified', 'standard'])->default('simplified');
             $table->enum('purchase_type', config('settings.purchase_types'))->nullable();

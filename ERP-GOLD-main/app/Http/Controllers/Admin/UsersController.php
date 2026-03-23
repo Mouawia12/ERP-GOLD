@@ -7,12 +7,17 @@ use App\Models\Branch;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\UserAuditLog;
+use App\Services\Branches\BranchContextService;
+use App\Services\Permissions\PermissionMatrixService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 class UsersController extends Controller
 {
-    public function __construct()
+    public function __construct(
+        private readonly BranchContextService $branchContextService,
+        private readonly PermissionMatrixService $permissionMatrixService,
+    )
     {
         $this->middleware('permission:employee.users.show', ['only' => ['index', 'show']]);
         $this->middleware('permission:employee.users.add', ['only' => ['create', 'store']]);
@@ -22,7 +27,7 @@ class UsersController extends Controller
 
     public function index()
     {
-        $users = User::with(['branch', 'roles'])
+        $users = User::with(['branch', 'branches', 'roles'])
             ->latest()
             ->get();
 
@@ -33,8 +38,19 @@ class UsersController extends Controller
     {
         $roles = Role::all();
         $branches = Branch::latest()->get();
+        $selectedBranchId = request()->integer('branch_id');
+        $selectedBranchIds = old('branch_ids', $selectedBranchId ? [$selectedBranchId] : []);
+        $returnBranchId = request()->integer('return_branch_id');
 
-        return view('admin.users.create', compact('roles', 'branches'));
+        return view('admin.users.create', [
+            'roles' => $roles,
+            'branches' => $branches,
+            'selectedBranchId' => $selectedBranchId,
+            'selectedBranchIds' => $selectedBranchIds,
+            'returnBranchId' => $returnBranchId,
+            'permissionGroups' => $this->permissionMatrixService->permissionGroups(),
+            'selectedPermissions' => old('direct_permissions', []),
+        ]);
     }
 
     public function store(Request $request)
@@ -44,8 +60,17 @@ class UsersController extends Controller
             'email' => 'required|email|max:255|unique:users,email',
             'role_id' => 'required|exists:roles,id',
             'branch_id' => 'required|exists:branches,id',
+            'branch_ids' => 'required|array|min:1',
+            'branch_ids.*' => 'integer|exists:branches,id',
             'password' => 'required|string|same:confirm-password',
+            'direct_permissions' => 'nullable|array',
+            'direct_permissions.*' => 'string|exists:permissions,name',
         ]);
+
+        $assignedBranchIds = $this->normalizedBranchIds(
+            $validated['branch_ids'] ?? [],
+            (int) $validated['branch_id']
+        );
 
         $user = User::create([
             'name' => $validated['name'],
@@ -58,29 +83,45 @@ class UsersController extends Controller
 
         $role = Role::findOrFail($validated['role_id']);
         $user->assignRole($role);
+        $user->syncPermissions($validated['direct_permissions'] ?? []);
+        $this->branchContextService->syncUserBranches($user, $assignedBranchIds, (int) $validated['branch_id']);
 
-        return redirect()->route('admin.users.index')->with('success', __('main.created'));
+        return $this->redirectAfterUserSave($request, __('main.created'));
     }
 
     public function update(Request $request, $id)
     {
-        $user = User::findOrFail($id);
+        $user = User::with(['roles', 'permissions', 'branches'])->findOrFail($id);
         $previousBranch = $user->branch;
         $previousRole = $user->roles->first();
+        $previousDirectPermissions = $user->permissions->pluck('name')->sort()->values()->all();
+        $previousAssignedBranches = $user->branches
+            ->pluck('branch_name', 'id')
+            ->map(fn ($name, $branchId) => ['id' => (int) $branchId, 'name' => $name])
+            ->values()
+            ->all();
 
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:users,name,' . $user->id,
             'email' => 'required|email|max:255|unique:users,email,' . $user->id,
             'role_id' => 'required|exists:roles,id',
             'branch_id' => 'required|exists:branches,id',
+            'branch_ids' => 'required|array|min:1',
+            'branch_ids.*' => 'integer|exists:branches,id',
             'status' => 'nullable|boolean',
             'password' => 'nullable|string|same:confirm-password',
+            'direct_permissions' => 'nullable|array',
+            'direct_permissions.*' => 'string|exists:permissions,name',
         ]);
 
         $previousStatus = (bool) $user->status;
         $previousBranchId = (int) $user->branch_id;
         $previousRoleId = $previousRole?->id;
         $passwordChanged = ! empty($validated['password']);
+        $assignedBranchIds = $this->normalizedBranchIds(
+            $validated['branch_ids'] ?? [],
+            (int) $validated['branch_id']
+        );
 
         $payload = [
             'name' => $validated['name'],
@@ -94,44 +135,71 @@ class UsersController extends Controller
         }
 
         $user->update($payload);
+        $this->branchContextService->syncUserBranches($user, $assignedBranchIds, (int) $validated['branch_id']);
         $role = Role::findOrFail($validated['role_id']);
         $user->syncRoles([$role]);
+        $user->syncPermissions($validated['direct_permissions'] ?? []);
         $this->writeAuditLogs(
             $request->user('admin-web'),
-            $user->fresh(['branch', 'roles']),
+            $user->fresh(['branch', 'roles', 'permissions']),
             [
                 'status' => $previousStatus,
                 'branch_id' => $previousBranchId,
                 'branch_name' => $previousBranch?->branch_name,
                 'role_id' => $previousRoleId,
                 'role_name' => $this->resolveRoleName($previousRole),
+                'assigned_branches' => $previousAssignedBranches,
+                'direct_permissions' => $previousDirectPermissions,
             ],
             $passwordChanged,
         );
 
-        return redirect()->route('admin.users.index')->with('success', __('main.updated'));
+        return $this->redirectAfterUserSave($request, __('main.updated'));
     }
 
     public function show($id)
     {
         $user = User::with([
             'branch',
-            'roles',
+            'branches',
+            'roles.permissions',
+            'permissions',
             'auditLogs' => function ($query) {
                 $query->with('actor')->latest()->limit(15);
             },
         ])->findOrFail($id);
-        return view('admin.users.show', compact('user'));
+
+        $directPermissions = $user->permissions->pluck('name')->sort()->values();
+        $rolePermissions = $user->roles
+            ->flatMap(fn (Role $role) => $role->permissions->pluck('name'))
+            ->unique()
+            ->sort()
+            ->values();
+        $effectivePermissions = $user->getAllPermissions()
+            ->pluck('name')
+            ->unique()
+            ->sort()
+            ->values();
+
+        return view('admin.users.show', compact('user', 'directPermissions', 'rolePermissions', 'effectivePermissions'));
     }
 
     public function edit($id)
     {
-        $user = User::with(['branch', 'roles'])->findOrFail($id);
+        $user = User::with(['branch', 'branches', 'roles', 'permissions'])->findOrFail($id);
         $roles = Role::all();
         $branches = Branch::latest()->get();
         $userRole = $user->roles->pluck('id')->all();
 
-        return view('admin.users.edit', compact('user', 'roles', 'branches', 'userRole'));
+        return view('admin.users.edit', [
+            'user' => $user,
+            'roles' => $roles,
+            'branches' => $branches,
+            'userRole' => $userRole,
+            'selectedBranchIds' => old('branch_ids', $user->branches->pluck('id')->all() ?: [$user->branch_id]),
+            'permissionGroups' => $this->permissionMatrixService->permissionGroups(),
+            'selectedPermissions' => old('direct_permissions', $user->permissions->pluck('name')->all()),
+        ]);
     }
 
     public function destroy($id)
@@ -180,6 +248,33 @@ class UsersController extends Controller
             ]);
         }
 
+        $beforeAssignedBranches = collect($before['assigned_branches'] ?? [])
+            ->map(fn ($branch) => ['id' => (int) ($branch['id'] ?? 0), 'name' => $branch['name'] ?? null])
+            ->sortBy('id')
+            ->values()
+            ->all();
+
+        $currentAssignedBranches = $user->branches
+            ->pluck('branch_name', 'id')
+            ->map(fn ($name, $branchId) => ['id' => (int) $branchId, 'name' => $name])
+            ->sortBy('id')
+            ->values()
+            ->all();
+
+        if ($beforeAssignedBranches !== $currentAssignedBranches) {
+            UserAuditLog::create([
+                'actor_user_id' => $actor?->id,
+                'target_user_id' => $user->id,
+                'event_key' => 'assigned_branches_changed',
+                'old_values' => [
+                    'branches' => $beforeAssignedBranches,
+                ],
+                'new_values' => [
+                    'branches' => $currentAssignedBranches,
+                ],
+            ]);
+        }
+
         if ((int) ($before['role_id'] ?? 0) !== (int) ($currentRole?->id ?? 0)) {
             UserAuditLog::create([
                 'actor_user_id' => $actor?->id,
@@ -192,6 +287,26 @@ class UsersController extends Controller
                 'new_values' => [
                     'role_id' => $currentRole?->id,
                     'role_name' => $this->resolveRoleName($currentRole),
+                ],
+            ]);
+        }
+
+        $currentDirectPermissions = $user->permissions->pluck('name')->sort()->values()->all();
+        $beforeDirectPermissions = collect($before['direct_permissions'] ?? [])
+            ->sort()
+            ->values()
+            ->all();
+
+        if ($beforeDirectPermissions !== $currentDirectPermissions) {
+            UserAuditLog::create([
+                'actor_user_id' => $actor?->id,
+                'target_user_id' => $user->id,
+                'event_key' => 'direct_permissions_changed',
+                'old_values' => [
+                    'permissions' => $beforeDirectPermissions,
+                ],
+                'new_values' => [
+                    'permissions' => $currentDirectPermissions,
                 ],
             ]);
         }
@@ -221,5 +336,37 @@ class UsersController extends Controller
         }
 
         return $roleName;
+    }
+
+    /**
+     * @param  array<int, mixed>  $branchIds
+     * @return array<int>
+     */
+    private function normalizedBranchIds(array $branchIds, int $defaultBranchId): array
+    {
+        return collect($branchIds)
+            ->map(fn ($branchId) => (int) $branchId)
+            ->push($defaultBranchId)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function redirectAfterUserSave(Request $request, string $message)
+    {
+        $returnBranchId = $request->integer('return_branch_id');
+
+        if (
+            $returnBranchId
+            && Branch::query()->whereKey($returnBranchId)->exists()
+            && $request->user('admin-web')?->can('employee.branches.show')
+        ) {
+            return redirect()
+                ->route('admin.branches.show', $returnBranchId)
+                ->with('success', $message);
+        }
+
+        return redirect()->route('admin.users.index')->with('success', $message);
     }
 }

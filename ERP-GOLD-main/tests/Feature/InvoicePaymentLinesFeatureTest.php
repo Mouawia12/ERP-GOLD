@@ -596,6 +596,150 @@ class InvoicePaymentLinesFeatureTest extends TestCase
         $printResponse->assertSee('5010101010');
     }
 
+    public function test_purchase_return_store_supports_receipt_payment_lines_and_increases_shift_expected_cash_by_cash_refund(): void
+    {
+        $branch = $this->createBranch('فرع مردود الشراء');
+        $user = $this->createUser($branch, 'purchase-return-payments-user@example.com');
+        $this->createFinancialYear();
+        $this->createWarehouse($branch);
+        [$customerId, $supplierId] = $this->createTradingParties();
+        [$itemUnitId, $caratId] = $this->createInventoryFixture($branch);
+        [$safeAccount] = $this->createBranchAccountSettings($branch, $customerId, $supplierId);
+
+        $cardLedgerAccount = $this->createAccount('شبكة مردود الشراء', '8450');
+        $cardBankAccount = BankAccount::create([
+            'branch_id' => $branch->id,
+            'ledger_account_id' => $cardLedgerAccount->id,
+            'account_name' => 'جهاز مردود الشراء',
+            'bank_name' => 'بنك مردود الشراء',
+            'terminal_name' => 'PUR-RET-POS-1',
+            'supports_credit_card' => true,
+            'supports_bank_transfer' => false,
+            'is_default' => true,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($user, 'admin-web')
+            ->post(route('admin.shifts.store', [], false), [
+                'branch_id' => $branch->id,
+                'opening_cash' => 20,
+            ])
+            ->assertRedirect(route('admin.shifts.index', [], false))
+            ->assertSessionHasNoErrors();
+
+        $shift = Shift::query()->firstOrFail();
+
+        $purchaseResponse = $this->actingAs($user, 'admin-web')
+            ->postJson(route('purchases.store', [], false), [
+                'bill_date' => '2026-03-22 18:15:00',
+                'branch_id' => $branch->id,
+                'carat_type' => 'crafted',
+                'purchase_type' => 'normal',
+                'supplier_id' => $supplierId,
+                'bill_client_name' => 'مورد مردود',
+                'bill_client_phone' => '0559999999',
+                'bill_client_identity_number' => '6010101010',
+                'cash' => 115,
+                'payment_lines' => [],
+                'unit_id' => [$itemUnitId],
+                'carats_id' => [$caratId],
+                'weight' => [1],
+                'item_total_cost' => [100],
+                'item_total_labor_cost' => [0],
+                'discount' => [0],
+            ]);
+
+        $purchaseResponse->assertOk()->assertJson([
+            'status' => true,
+        ]);
+
+        $purchaseInvoice = Invoice::query()
+            ->with('details')
+            ->where('type', 'purchase')
+            ->firstOrFail();
+
+        $purchaseDetailId = $purchaseInvoice->details->firstOrFail()->id;
+
+        $returnResponse = $this->actingAs($user, 'admin-web')
+            ->post(route('purchase_return.store', ['id' => $purchaseInvoice->id], false), [
+                'checkDetail' => [$purchaseDetailId],
+                'cash' => 15,
+                'payment_lines' => [
+                    [
+                        'method_type' => 'credit_card',
+                        'bank_account_id' => $cardBankAccount->id,
+                        'reference_no' => 'PUR-RET-REF-1',
+                        'amount' => 100,
+                    ],
+                ],
+            ]);
+
+        $returnResponse
+            ->assertRedirect(route('purchase_return.index', [], false))
+            ->assertSessionHasNoErrors();
+
+        $returnInvoice = Invoice::query()
+            ->with(['paymentLines.bankAccount', 'journalEntry.documents', 'details'])
+            ->where('type', 'purchase_return')
+            ->firstOrFail();
+
+        $this->assertSame($purchaseInvoice->id, (int) $returnInvoice->parent_id);
+        $this->assertSame($shift->id, $returnInvoice->shift_id);
+        $this->assertSame('6010101010', $returnInvoice->bill_client_identity_number);
+        $this->assertSame(15.0, (float) $returnInvoice->cash_paid_total);
+        $this->assertSame(100.0, (float) $returnInvoice->credit_card_paid_total);
+
+        $this->assertDatabaseHas('invoice_details', [
+            'invoice_id' => $returnInvoice->id,
+            'parent_id' => $purchaseDetailId,
+        ]);
+
+        $this->assertDatabaseHas('invoice_payment_lines', [
+            'invoice_id' => $returnInvoice->id,
+            'method_type' => 'cash',
+            'amount' => 15,
+        ]);
+        $this->assertDatabaseHas('invoice_payment_lines', [
+            'invoice_id' => $returnInvoice->id,
+            'method_type' => 'credit_card',
+            'bank_account_id' => $cardBankAccount->id,
+            'amount' => 100,
+            'reference_no' => 'PUR-RET-REF-1',
+        ]);
+
+        $journalId = $returnInvoice->journalEntry?->id;
+        $this->assertNotNull($journalId);
+
+        $this->assertDatabaseHas('journal_entry_documents', [
+            'journal_id' => $journalId,
+            'account_id' => $safeAccount->id,
+            'debit' => 15,
+            'credit' => 0,
+        ]);
+        $this->assertDatabaseHas('journal_entry_documents', [
+            'journal_id' => $journalId,
+            'account_id' => $cardLedgerAccount->id,
+            'debit' => 100,
+            'credit' => 0,
+        ]);
+
+        $shiftResponse = $this->actingAs($user, 'admin-web')
+            ->get(route('admin.shifts.show', $shift, false));
+
+        $shiftResponse->assertOk();
+        $shiftResponse->assertSee('مردود شراء نقدي');
+        $shiftResponse->assertSee('15.00');
+        $shiftResponse->assertSee('-80.00');
+
+        $printResponse = $this->actingAs($user, 'admin-web')
+            ->get(route('purchase_return.show', $returnInvoice->id, false));
+
+        $printResponse->assertOk();
+        $printResponse->assertSee('بنك مردود الشراء');
+        $printResponse->assertSee('PUR-RET-REF-1');
+        $printResponse->assertSee('6010101010');
+    }
+
     private function createBranch(string $name): Branch
     {
         return Branch::create([

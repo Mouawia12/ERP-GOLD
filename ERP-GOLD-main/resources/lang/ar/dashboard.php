@@ -106,5 +106,6 @@ return [
         'journal_entries' => 'قيود اليومية',
         'gold_balance_sheet' => 'ميزان الذهب',
         'stock_settlements' => 'جرد المخزون',
+        'manufacturing_orders' => 'أوامر التصنيع',
     ],
 ];

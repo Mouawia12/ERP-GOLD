@@ -13,7 +13,7 @@ use Illuminate\Validation\Rule;
 
 class BranchController extends Controller
 {
-    function __construct()
+    public function __construct()
     {
         $this->middleware('permission:employee.branches.show', ['only' => ['index', 'show']]);
         $this->middleware('permission:employee.branches.add', ['only' => ['create', 'store']]);
@@ -23,7 +23,11 @@ class BranchController extends Controller
 
     public function index(Request $request)
     {
-        $data = Branch::withCount('users')
+        $data = Branch::withCount([
+                'assignedUsers as users_count' => function ($query) {
+                    $query->wherePivot('is_active', true);
+                },
+            ])
             ->latest()
             ->get();
 
@@ -103,7 +107,17 @@ class BranchController extends Controller
 
     public function show($id)
     {
-        $branch = Branch::with(['users.roles'])->withCount('users')->findOrFail($id);
+        $branch = Branch::with([
+                'assignedUsers' => function ($query) {
+                    $query->wherePivot('is_active', true)->with('roles');
+                },
+            ])
+            ->withCount([
+                'assignedUsers as users_count' => function ($query) {
+                    $query->wherePivot('is_active', true);
+                },
+            ])
+            ->findOrFail($id);
 
         return view('admin.branches.show', compact('branch'));
     }

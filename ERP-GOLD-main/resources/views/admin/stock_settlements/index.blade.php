@@ -43,7 +43,10 @@
                                             <th>#</th>
                                             <th>{{__('main.bill_no')}}</th> 
                                             <th>{{__('التاريخ')}}</th> 
+                                            <th>الفرع</th>
+                                            <th>المستخدم</th>
                                             <th> {{__('اجمالي الكميات')}} </th>
+                                            <th>فرق الوزن</th>
                                             <th> {{__('اجمالي المبلغ')}} </th>
                                             <th>{{__('main.actions')}}</th>
                                         </tr>
@@ -133,8 +136,20 @@
                         name: 'date'
                     }, 
                     {
+                        data: 'branch_name',
+                        name: 'branch_name'
+                    },
+                    {
+                        data: 'user_name',
+                        name: 'user_name'
+                    },
+                    {
                         data: 'total_quantity',
                         name: 'total_quantity'
+                    },
+                    {
+                        data: 'difference_weight',
+                        name: 'difference_weight'
                     },
                     {
                         data: 'net_total',

@@ -169,6 +169,7 @@
                     <tr>
                         <th>#</th>
                         <th>رقم الفاتورة</th>
+                        <th>الطرف على المستند</th>
                         <th>العملية</th>
                         <th>التاريخ</th>
                         <th>الوقت</th>
@@ -188,6 +189,12 @@
                         <tr>
                             <td>{{ $loop->iteration }}</td>
                             <td>{{ $transaction['bill_number'] }}</td>
+                            <td>
+                                <div>{{ $transaction['party_name'] }}</div>
+                                @if($transaction['party_phone'] !== '-')
+                                    <small class="text-muted d-block">{{ $transaction['party_phone'] }}</small>
+                                @endif
+                            </td>
                             <td>{{ $transaction['operation_label'] }}</td>
                             <td>{{ $transaction['date'] }}</td>
                             <td>{{ $transaction['time'] }}</td>
@@ -215,7 +222,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="14" class="text-center text-muted">لا توجد بيانات لعرضها.</td>
+                            <td colspan="15" class="text-center text-muted">لا توجد بيانات لعرضها.</td>
                         </tr>
                     @endforelse
                 </tbody>

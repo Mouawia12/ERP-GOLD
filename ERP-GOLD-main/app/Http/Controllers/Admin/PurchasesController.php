@@ -12,6 +12,7 @@ use App\Models\GoldCaratType;
 use App\Models\Invoice;
 use App\Models\ItemUnit;
 use App\Models\Tax;
+use App\Services\Branches\BranchAccessService;
 use App\Services\Invoices\InvoicePartySnapshotService;
 use App\Services\Invoices\InvoiceTermsService;
 use App\Services\JournalEntriesService;
@@ -31,6 +32,7 @@ class PurchasesController extends Controller
     private const NON_GOLD_CARAT_TYPE = 'non_gold';
 
     public function __construct(
+        private readonly BranchAccessService $branchAccessService,
         private readonly InvoiceTermsService $invoiceTermsService,
         private readonly InvoicePartySnapshotService $invoicePartySnapshotService,
         private readonly InvoicePaymentService $invoicePaymentService,
@@ -40,21 +42,31 @@ class PurchasesController extends Controller
 
     public function index(Request $request)
     {
-        $data = Invoice::where('type', 'purchase')
-            ->orderBy('id', 'DESC')
-            ->get();
-
-        $branches = Branch::all();
+        $query = Invoice::query()->where('type', 'purchase');
+        $this->branchAccessService->scopeToAccessibleBranch($query, $request->user('admin-web'));
+        $data = $query->orderBy('id', 'DESC')->get();
 
         if ($request->ajax()) {
             return Datatables::of($data)
                 ->addIndexColumn()
                 ->addColumn('action', function ($row) {
+                    $btn = '';
+
                     if (auth()->user()->canany(['employee.purchase_invoices.show'])) {
-                        $btn = '<a href=' . route('purchases.show', $row->id) . ' class="btn btn-primary" 
+                        $btn .= '<a href=' . route('purchases.show', $row->id) . ' class="btn btn-primary" 
                                     value="' . $row->id . '" role="button" data-bs-toggle="button" target="_blank" >
                                     <i class="fa fa-eye"></i>معاينة</a>';
                     }
+
+                    if (
+                        auth()->user()->canany(['employee.purchase_invoices.add'])
+                        && ($row->purchase_type ?? 'normal') === 'normal'
+                    ) {
+                        $btn .= '<a style="margin:0 5px;" href=' . route('purchase_return.create', $row->id) . ' class="btn btn-info" 
+                                    value="' . $row->id . '" role="button" data-bs-toggle="button">
+                                    <i class="fa fa-retweet"></i> عمل مردود</a>';
+                    }
+
                     return $btn ?? '';
                 })
                 ->addColumn('bill_number', function ($row) {
@@ -84,8 +96,9 @@ class PurchasesController extends Controller
 
     public function create()
     {
+        $currentUser = Auth::guard('admin-web')->user();
         $customers = Customer::where('type', '=', 'supplier')->get();
-        $branches = Branch::all();
+        $branches = $this->branchAccessService->visibleBranches($currentUser);
         $caratTypes = GoldCaratType::all();
 
         return view('admin.purchases.create', [
@@ -93,6 +106,8 @@ class PurchasesController extends Controller
             'branches' => $branches,
             'caratTypes' => $caratTypes,
             'defaultInvoiceTerms' => $this->invoiceTermsService->defaultTerms(),
+            'invoiceTermTemplates' => $this->invoiceTermsService->templates(),
+            'defaultInvoiceTermsTemplateKey' => $this->invoiceTermsService->defaultTemplateKey(),
         ]);
     }
 
@@ -101,6 +116,7 @@ class PurchasesController extends Controller
         $money = $request->net_after_discount;
         $type = $request->document_type;
         $branchId = (int) $request->branch_id;
+        $this->branchAccessService->enforceBranchAccess($request->user('admin-web'), $branchId);
         $bankAccounts = BankAccount::query()
             ->active()
             ->where('branch_id', $branchId)
@@ -109,6 +125,72 @@ class PurchasesController extends Controller
             ->get();
 
         return view('admin.purchases.payment', compact('money', 'type', 'bankAccounts', 'branchId'))->render();
+    }
+
+    public function purchase_return_index(Request $request)
+    {
+        $query = Invoice::query()->where('type', 'purchase_return');
+        $this->branchAccessService->scopeToAccessibleBranch($query, $request->user('admin-web'));
+        $data = $query->orderByDesc('id')->get();
+
+        if ($request->ajax()) {
+            return Datatables::of($data)
+                ->addIndexColumn()
+                ->addColumn('action', function ($row) {
+                    if (auth()->user()->canany(['employee.purchase_invoices.show'])) {
+                        return '<a href=' . route('purchase_return.show', $row->id) . ' class="btn btn-primary" 
+                                    value="' . $row->id . '" role="button" data-bs-toggle="button" target="_blank" >
+                                    <i class="fa fa-eye"></i>معاينة</a>';
+                    }
+
+                    return '';
+                })
+                ->addColumn('bill_number', function ($row) {
+                    return $row->bill_number;
+                })
+                ->addColumn('parent_invoice', function ($row) {
+                    return $row->parent?->bill_number ?? '-';
+                })
+                ->addColumn('customer', function ($row) {
+                    return $row->customer->name ?? ($row->bill_client_name ?? '-');
+                })
+                ->addColumn('net_money', function ($row) {
+                    return round($row->net_total, 2);
+                })
+                ->addColumn('total_money', function ($row) {
+                    return round($row->lines_total, 2);
+                })
+                ->addColumn('tax', function ($row) {
+                    return round($row->taxes_total, 2);
+                })
+                ->rawColumns(['action'])
+                ->make(true);
+        }
+
+        return view('admin.purchase_return.index', compact('data'));
+    }
+
+    public function purchase_return_create($id)
+    {
+        $invoice = Invoice::findOrFail($id);
+        $this->branchAccessService->enforceInvoiceAccess(auth('admin-web')->user(), $invoice);
+
+        if ($invoice->type !== 'purchase') {
+            return redirect()->route('purchases.index')->with('error', __('main.not_found'));
+        }
+
+        if (($invoice->purchase_type ?? 'normal') !== 'normal') {
+            return redirect()->route('purchases.index')->with('error', 'مردود المشتريات متاح حاليًا لفواتير الشراء العادي فقط.');
+        }
+
+        $bankAccounts = BankAccount::query()
+            ->active()
+            ->where('branch_id', $invoice->branch_id)
+            ->orderByDesc('is_default')
+            ->orderBy('account_name')
+            ->get();
+
+        return view('admin.purchase_return.create', compact('invoice', 'bankAccounts'));
     }
 
     public function store(Request $request)
@@ -143,6 +225,7 @@ class PurchasesController extends Controller
                     'errors' => $validator->errors()->all()
                 ], 422);
             }
+            $this->branchAccessService->enforceBranchAccess(Auth::user(), (int) $request->branch_id);
             $purchaseType = $request->purchase_type;
             $financialYear = FinancialYear::where('is_active', 1)->first();
             $supplier = Customer::find($request->supplier_id);
@@ -176,7 +259,7 @@ class PurchasesController extends Controller
                 }
             }
 
-            $branch = Branch::find($request->branch_id);
+            $branch = Branch::findOrFail($request->branch_id);
             $accountSetting = $branch->accountSetting;
             $caratType = $request->carat_type;
             $lines = array();
@@ -414,12 +497,161 @@ class PurchasesController extends Controller
                 'status' => false,
                 'errors' => collect($ex->errors())->flatten()->values()->all(),
             ], 422);
-        } catch (Exception $ex) {
+        } catch (\Throwable $ex) {
             DB::rollBack();
             return response()->json([
                 'status' => false,
                 'message' => $ex->getMessage()
             ]);
+        }
+    }
+
+    public function purchase_return_store(Request $request, $id)
+    {
+        $invoice = Invoice::findOrFail($id);
+        $this->branchAccessService->enforceInvoiceAccess(Auth::user(), $invoice);
+
+        if ($invoice->type !== 'purchase') {
+            return redirect()->route('purchases.index')->with('error', __('main.not_found'));
+        }
+
+        if (($invoice->purchase_type ?? 'normal') !== 'normal') {
+            return redirect()->route('purchases.index')->with('error', 'مردود المشتريات متاح حاليًا لفواتير الشراء العادي فقط.');
+        }
+
+        try {
+            DB::beginTransaction();
+            $activeShift = $this->shiftService->requireActiveShift(Auth::user(), (int) $invoice->branch_id);
+            $selectedDetailIds = collect($request->input('checkDetail', []))
+                ->filter()
+                ->map(fn ($detailId) => (int) $detailId)
+                ->unique()
+                ->values()
+                ->all();
+
+            if (count($selectedDetailIds) === 0) {
+                throw ValidationException::withMessages([
+                    'checkDetail' => ['يجب اختيار صنف واحد على الأقل قبل حفظ مردود المشتريات.'],
+                ]);
+            }
+
+            $returnedDetails = $invoice->details()
+                ->whereIn('id', $selectedDetailIds)
+                ->whereNotIn('id', $invoice->returnInvoicesDetailsIds)
+                ->get();
+
+            if ($returnedDetails->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'checkDetail' => ['العناصر المحددة غير صالحة أو تم إرجاعها سابقًا.'],
+                ]);
+            }
+
+            $linesTotal = 0;
+            $linesDiscount = 0;
+            $linesTotalAfterDiscount = 0;
+            $linesTax = 0;
+            $linesNetTotal = 0;
+            $totalCost = 0;
+            $laborTotal = 0;
+            $lines = [];
+
+            foreach ($returnedDetails as $detail) {
+                $weight = (float) ($detail->in_weight ?: $detail->out_weight);
+                $lineTotal = (float) $detail->line_total;
+                $lineDiscount = (float) $detail->line_discount;
+                $lineTax = (float) $detail->line_tax;
+                $lineNetTotal = (float) $detail->net_total;
+
+                $linesTotal += $lineTotal;
+                $linesDiscount += $lineDiscount;
+                $linesTotalAfterDiscount += ($lineTotal - $lineDiscount);
+                $linesTax += $lineTax;
+                $linesNetTotal += $lineNetTotal;
+                $totalCost += (float) $detail->unit_cost * $weight;
+                $laborTotal += (float) ($detail->labor_cost_per_gram ?? 0) * $weight;
+
+                $lines[] = [
+                    'parent_id' => $detail->id,
+                    'warehouse_id' => $invoice->warehouse_id ?? null,
+                    'item_id' => $detail->item_id,
+                    'unit_id' => $detail->unit_id,
+                    'gold_carat_id' => $detail->gold_carat_id,
+                    'gold_carat_type_id' => $detail->gold_carat_type_id,
+                    'date' => Carbon::now()->format('Y-m-d'),
+                    'in_quantity' => 0,
+                    'out_quantity' => $detail->out_quantity ?: 1,
+                    'in_weight' => 0,
+                    'out_weight' => $weight,
+                    'unit_cost' => $detail->unit_cost,
+                    'labor_cost_per_gram' => $detail->labor_cost_per_gram,
+                    'unit_price' => $detail->unit_price,
+                    'unit_discount' => $detail->unit_discount,
+                    'unit_tax' => $detail->unit_tax,
+                    'unit_tax_rate' => $detail->unit_tax_rate,
+                    'unit_tax_id' => $detail->unit_tax_id,
+                    'line_total' => $lineTotal,
+                    'line_discount' => $lineDiscount,
+                    'line_tax' => $lineTax,
+                    'net_total' => $lineNetTotal,
+                ];
+            }
+
+            $paymentPayload = $request->all();
+            $paymentPayload['cash'] = $request->filled('cash')
+                ? $request->input('cash')
+                : $linesNetTotal;
+
+            $paymentLines = $this->invoicePaymentService->normalizeSalesLines(
+                $paymentPayload,
+                (int) $invoice->branch_id,
+                (float) $linesNetTotal,
+            );
+
+            $returnInvoice = $invoice->returnInvoices()->create([
+                'branch_id' => $invoice->branch_id,
+                'warehouse_id' => $invoice->warehouse_id ?? null,
+                'customer_id' => $invoice->customer_id,
+                'financial_year' => FinancialYear::where('is_active', true)->first()->id,
+                'type' => 'purchase_return',
+                'payment_type' => $this->invoicePaymentService->resolveStoredPaymentType($paymentLines),
+                'purchase_type' => $invoice->purchase_type ?? 'normal',
+                'purchase_carat_type_id' => $invoice->purchase_carat_type_id,
+                'notes' => $request->notes ?? '',
+                'invoice_terms' => $invoice->invoice_terms,
+                'date' => Carbon::now()->format('Y-m-d'),
+                'time' => Carbon::now()->format('H:i:s'),
+                'lines_total' => $linesTotal,
+                'discount_total' => $linesDiscount,
+                'lines_total_after_discount' => $linesTotalAfterDiscount,
+                'taxes_total' => $linesTax,
+                'net_total' => $linesNetTotal,
+                'user_id' => Auth::user()->id,
+                'shift_id' => $activeShift->id,
+            ] + $this->invoicePartySnapshotService->fromInvoice($invoice));
+
+            $returnInvoice->details()->createMany($lines);
+            $this->invoicePaymentService->persist($returnInvoice, $paymentLines);
+            JournalEntriesService::invoiceGenerateJournalEntries(
+                $returnInvoice,
+                $this->purchase_return_prepare_journal_entry_details($returnInvoice, $laborTotal, $totalCost),
+            );
+
+            DB::commit();
+
+            return redirect()->route('purchase_return.index')->with('success', __('main.created'));
+        } catch (ValidationException $ex) {
+            DB::rollBack();
+
+            return redirect()
+                ->back()
+                ->withErrors($ex->errors())
+                ->withInput();
+        } catch (\Throwable $ex) {
+            DB::rollBack();
+
+            return redirect()
+                ->route('purchase_return.create', ['id' => $id])
+                ->with('error', $ex->getMessage());
         }
     }
 
@@ -430,10 +662,23 @@ class PurchasesController extends Controller
 
     public function show($id)
     {
-        $invoice = Invoice::find($id);
+        $invoice = Invoice::findOrFail($id);
+        $this->branchAccessService->enforceInvoiceAccess(auth('admin-web')->user(), $invoice);
         if (!in_array($invoice->type, ['purchase', 'purchase_return'])) {
             return redirect()->route('purchases.index')->with('error', __('main.not_found'));
         }
+        return view('admin.purchases_and_purchases_return.print', compact('invoice'));
+    }
+
+    public function purchase_return_show($id)
+    {
+        $invoice = Invoice::findOrFail($id);
+        $this->branchAccessService->enforceInvoiceAccess(auth('admin-web')->user(), $invoice);
+
+        if ($invoice->type !== 'purchase_return') {
+            return redirect()->route('purchase_return.index')->with('error', __('main.not_found'));
+        }
+
         return view('admin.purchases_and_purchases_return.print', compact('invoice'));
     }
 
@@ -513,6 +758,67 @@ class PurchasesController extends Controller
                 'account_id' => $accountSetting->stock_account_pure,
                 'debit' => 0,
                 'credit' => $discountFromPuretotal,
+                'document_date' => $documentDate,
+            ];
+        }
+
+        return $lines;
+    }
+
+    public function purchase_return_prepare_journal_entry_details($invoice, $laborTotal, $totalCost)
+    {
+        $branch = $invoice->branch;
+        $accountSetting = $branch->accountSetting;
+        $documentDate = $invoice->date;
+        $lines = [];
+
+        $lines = array_merge(
+            $lines,
+            $this->invoicePaymentService->journalDebitLines(
+                $invoice,
+                (int) $accountSetting->safe_account,
+                $accountSetting->bank_account ? (int) $accountSetting->bank_account : null,
+            ),
+        );
+
+        $lines[] = [
+            'account_id' => $invoice->customer->account_id,
+            'debit' => $invoice->net_total,
+            'credit' => 0,
+            'document_date' => $documentDate,
+        ];
+
+        $lines[] = [
+            'account_id' => $invoice->customer->account_id,
+            'debit' => 0,
+            'credit' => $invoice->net_total,
+            'document_date' => $documentDate,
+        ];
+
+        if ($laborTotal > 0) {
+            $lines[] = [
+                'account_id' => $accountSetting->made_account,
+                'debit' => 0,
+                'credit' => $laborTotal,
+                'document_date' => $documentDate,
+            ];
+        }
+
+        if ($invoice->taxes_total > 0) {
+            $lines[] = [
+                'account_id' => $accountSetting->purchase_tax_account,
+                'debit' => 0,
+                'credit' => $invoice->taxes_total,
+                'document_date' => $documentDate,
+            ];
+        }
+
+        if ($totalCost > 0) {
+            $stockAccount = 'stock_account_' . ($invoice->purchaseCaratType?->key ?? 'crafted');
+            $lines[] = [
+                'account_id' => $accountSetting->{$stockAccount},
+                'debit' => 0,
+                'credit' => $totalCost,
                 'document_date' => $documentDate,
             ];
         }

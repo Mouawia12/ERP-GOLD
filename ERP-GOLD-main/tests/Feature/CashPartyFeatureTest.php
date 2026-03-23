@@ -101,10 +101,95 @@ class CashPartyFeatureTest extends TestCase
             ->get(route('customers', ['type' => 'customer', 'cash_only' => 1], false));
 
         $response->assertOk();
-        $response->assertSee('الأطراف النقدية فقط');
+        $response->assertSee('العملاء النقديون');
         $response->assertSee('عميل نقدي ظاهر');
         $response->assertDontSee('عميل عادي مخفي');
         $response->assertSee('نقدي');
+    }
+
+    public function test_cash_directory_route_shows_only_cash_customers_with_dedicated_heading(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.customers.show',
+        ]);
+
+        DB::table('customers')->insert([
+            [
+                'name' => 'عميل نقدي في الدليل',
+                'phone' => '0554222222',
+                'type' => 'customer',
+                'is_cash_party' => true,
+                'identity_number' => 'CID-100',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'name' => 'عميل عادي خارج الدليل',
+                'phone' => '0554333333',
+                'type' => 'customer',
+                'is_cash_party' => false,
+                'identity_number' => 'CID-200',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('customers.cash', ['type' => 'customer'], false));
+
+        $response->assertOk();
+        $response->assertSee('العملاء النقديون');
+        $response->assertSee('هذه القائمة تعرض الأطراف النقدية فقط.');
+        $response->assertSee('عميل نقدي في الدليل');
+        $response->assertDontSee('عميل عادي خارج الدليل');
+    }
+
+    public function test_cash_directory_route_shows_only_cash_suppliers_and_supports_identity_search(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.suppliers.show',
+        ]);
+
+        DB::table('customers')->insert([
+            [
+                'name' => 'مورد نقدي أول',
+                'phone' => '0565222222',
+                'type' => 'supplier',
+                'is_cash_party' => true,
+                'identity_number' => 'SUP-100',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'name' => 'مورد نقدي آخر',
+                'phone' => '0565333333',
+                'type' => 'supplier',
+                'is_cash_party' => true,
+                'identity_number' => 'SUP-200',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'name' => 'مورد عادي',
+                'phone' => '0565444444',
+                'type' => 'supplier',
+                'is_cash_party' => false,
+                'identity_number' => 'SUP-300',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('customers.cash', ['type' => 'supplier', 'identity_number' => 'SUP-200'], false));
+
+        $response->assertOk();
+        $response->assertSee('الموردون النقديون');
+        $response->assertSee('مورد نقدي آخر');
+        $response->assertDontSee('مورد نقدي أول');
+        $response->assertDontSee('مورد عادي');
     }
 
     public function test_sales_create_page_exposes_cash_party_filter_and_marks_customer_options(): void

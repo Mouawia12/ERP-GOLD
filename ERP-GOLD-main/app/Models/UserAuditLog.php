@@ -32,7 +32,9 @@ class UserAuditLog extends Model
             'status_changed' => 'تغيير حالة المستخدم',
             'password_changed' => 'تغيير كلمة المرور',
             'branch_changed' => 'تغيير الفرع',
+            'assigned_branches_changed' => 'تغيير الفروع المسموح بها',
             'role_changed' => 'تغيير الصلاحية',
+            'direct_permissions_changed' => 'تغيير الصلاحيات المباشرة',
             default => $this->event_key,
         };
     }
@@ -51,10 +53,20 @@ class UserAuditLog extends Model
                 $this->stringValue($this->old_values['branch_name'] ?? null),
                 $this->stringValue($this->new_values['branch_name'] ?? null),
             ),
+            'assigned_branches_changed' => sprintf(
+                '%s -> %s',
+                $this->branchesSummary($this->old_values['branches'] ?? []),
+                $this->branchesSummary($this->new_values['branches'] ?? []),
+            ),
             'role_changed' => sprintf(
                 '%s -> %s',
                 $this->stringValue($this->old_values['role_name'] ?? null),
                 $this->stringValue($this->new_values['role_name'] ?? null),
+            ),
+            'direct_permissions_changed' => sprintf(
+                '%s -> %s',
+                $this->permissionsSummary($this->old_values['permissions'] ?? []),
+                $this->permissionsSummary($this->new_values['permissions'] ?? []),
             ),
             default => '-',
         };
@@ -76,5 +88,41 @@ class UserAuditLog extends Model
         }
 
         return $value ?: '-';
+    }
+
+    private function permissionsSummary($value): string
+    {
+        $permissions = collect(is_array($value) ? $value : [])
+            ->filter()
+            ->values();
+
+        if ($permissions->isEmpty()) {
+            return 'بدون صلاحيات مباشرة';
+        }
+
+        $preview = $permissions->take(3)->implode('، ');
+        $suffix = $permissions->count() > 3 ? ' ...' : '';
+
+        return sprintf('%d صلاحية: %s%s', $permissions->count(), $preview, $suffix);
+    }
+
+    private function branchesSummary($value): string
+    {
+        $branches = collect(is_array($value) ? $value : [])
+            ->map(function ($branch) {
+                if (! is_array($branch)) {
+                    return null;
+                }
+
+                return $branch['name'] ?? null;
+            })
+            ->filter()
+            ->values();
+
+        if ($branches->isEmpty()) {
+            return 'بدون فروع مرتبطة';
+        }
+
+        return $branches->implode('، ');
     }
 }

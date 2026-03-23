@@ -96,8 +96,8 @@ class ShiftService
             ->get();
 
         $voucherRows = $shift->financialVouchers()
-            ->selectRaw('type, COUNT(*) as count, SUM(total_amount) as total_amount')
-            ->groupBy('type')
+            ->with('bankAccount')
+            ->orderByDesc('date')
             ->get();
 
         $invoiceTotals = $this->normalizeInvoiceTotals($invoiceRows);
@@ -106,16 +106,17 @@ class ShiftService
         $salesCashTotal = $invoiceTotals['sale_cash_total'];
         $saleReturnsCashTotal = $invoiceTotals['sale_return_cash_total'];
         $purchaseCashTotal = $invoiceTotals['purchase_cash_total'];
-        $receiptsTotal = $voucherTotals['receipt_total'];
-        $paymentsTotal = $voucherTotals['payment_total'];
-        $expectedCash = round((float) $shift->opening_cash + $salesCashTotal + $receiptsTotal - $paymentsTotal - $purchaseCashTotal - $saleReturnsCashTotal, 2);
+        $purchaseReturnCashTotal = $invoiceTotals['purchase_return_cash_total'];
+        $receiptsTotal = $voucherTotals['receipt_cash_total'];
+        $paymentsTotal = $voucherTotals['payment_cash_total'];
+        $expectedCash = round((float) $shift->opening_cash + $salesCashTotal + $receiptsTotal + $purchaseReturnCashTotal - $paymentsTotal - $purchaseCashTotal - $saleReturnsCashTotal, 2);
 
         return [
             'invoice_totals' => $invoiceTotals,
             'voucher_totals' => $voucherTotals,
             'expected_cash' => $expectedCash,
             'linked_invoices' => $shift->invoices()->with(['branch', 'user'])->orderByDesc('date')->orderByDesc('time')->get(),
-            'linked_vouchers' => $shift->financialVouchers()->with('branch')->orderByDesc('date')->get(),
+            'linked_vouchers' => $voucherRows,
         ];
     }
 
@@ -136,6 +137,8 @@ class ShiftService
             'purchase_cash_total' => 0.0,
             'purchase_non_cash_total' => 0.0,
             'purchase_return_total' => 0.0,
+            'purchase_return_cash_total' => 0.0,
+            'purchase_return_non_cash_total' => 0.0,
             'invoice_count' => 0,
         ];
 
@@ -163,6 +166,10 @@ class ShiftService
                 $totals['purchase_non_cash_total'] += $purchaseNonCashTotal;
             } elseif ($row->type === 'purchase_return') {
                 $totals['purchase_return_total'] += $totalNet;
+                $purchaseReturnCashTotal = round((float) $row->cash_paid_total, 2);
+                $purchaseReturnNonCashTotal = round((float) $row->credit_card_paid_total + (float) $row->bank_transfer_paid_total, 2);
+                $totals['purchase_return_cash_total'] += $purchaseReturnCashTotal;
+                $totals['purchase_return_non_cash_total'] += $purchaseReturnNonCashTotal;
             }
         }
 
@@ -184,20 +191,40 @@ class ShiftService
         $totals = [
             'receipt_total' => 0.0,
             'payment_total' => 0.0,
+            'receipt_cash_total' => 0.0,
+            'receipt_non_cash_total' => 0.0,
+            'payment_cash_total' => 0.0,
+            'payment_non_cash_total' => 0.0,
             'voucher_count' => 0,
         ];
 
         foreach ($rows as $row) {
-            $totals['voucher_count'] += (int) $row->count;
+            $amount = round((float) $row->total_amount, 2);
+            $isCashVoucher = ($row->payment_method ?? 'cash') === 'cash';
+            $totals['voucher_count']++;
+
             if ($row->type === 'receipt') {
-                $totals['receipt_total'] += round((float) $row->total_amount, 2);
+                $totals['receipt_total'] += $amount;
+                if ($isCashVoucher) {
+                    $totals['receipt_cash_total'] += $amount;
+                } else {
+                    $totals['receipt_non_cash_total'] += $amount;
+                }
             } elseif ($row->type === 'payment') {
-                $totals['payment_total'] += round((float) $row->total_amount, 2);
+                $totals['payment_total'] += $amount;
+                if ($isCashVoucher) {
+                    $totals['payment_cash_total'] += $amount;
+                } else {
+                    $totals['payment_non_cash_total'] += $amount;
+                }
             }
         }
 
-        $totals['receipt_total'] = round((float) $totals['receipt_total'], 2);
-        $totals['payment_total'] = round((float) $totals['payment_total'], 2);
+        foreach ($totals as $key => $value) {
+            if ($key !== 'voucher_count') {
+                $totals[$key] = round((float) $value, 2);
+            }
+        }
 
         return $totals;
     }

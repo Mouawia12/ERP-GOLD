@@ -13,7 +13,8 @@
                     <tr>
                         <th class="border-bottom-0 text-center">اسم المستخدم</th>
                         <th class="border-bottom-0 text-center">البريد الالكتروني</th>
-                        <th class="border-bottom-0 text-center">الفرع</th>
+                        <th class="border-bottom-0 text-center">الفرع الافتراضي</th>
+                        <th class="border-bottom-0 text-center">الفروع المسموح بها</th>
                         <th class="border-bottom-0 text-center">الصلاحية</th>
                         <th class="border-bottom-0 text-center">الحالة</th>
                         <th class="border-bottom-0 text-center">الصورة الشخصية</th>
@@ -24,6 +25,18 @@
                         <td>{{ $user->name }}</td>
                         <td>{{ $user->email }}</td>
                         <td>{{ $user->branch?->branch_name ?? '-' }}</td>
+                        <td class="text-right">
+                            @forelse($user->branches as $branch)
+                                <span class="badge badge-info mb-1 p-2">
+                                    {{ $branch->branch_name }}
+                                    @if($branch->pivot?->is_default)
+                                        <small>(افتراضي)</small>
+                                    @endif
+                                </span>
+                            @empty
+                                -
+                            @endforelse
+                        </td>
                         <td>{{ $user->roles->pluck('name')->filter()->implode('، ') ?: '-' }}</td>
                         <td>{{ $user->status ? 'مفعل' : 'موقوف' }}</td>
                         <td>
@@ -48,6 +61,55 @@
         </div>
 
         <div class="col-lg-12 mt-4">
+            <div class="row">
+                <div class="col-lg-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0">الصلاحيات المباشرة</h5>
+                        </div>
+                        <div class="card-body text-right">
+                            @forelse($directPermissions as $permissionName)
+                                <span class="badge badge-primary mb-2 p-2">{{ $permissionName }}</span>
+                            @empty
+                                <p class="text-muted mb-0">لا توجد صلاحيات مباشرة مضافة على هذا المستخدم.</p>
+                            @endforelse
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0">صلاحيات الدور</h5>
+                        </div>
+                        <div class="card-body text-right">
+                            @forelse($rolePermissions as $permissionName)
+                                <span class="badge badge-secondary mb-2 p-2">{{ $permissionName }}</span>
+                            @empty
+                                <p class="text-muted mb-0">لا توجد صلاحيات موروثة من الدور.</p>
+                            @endforelse
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="mb-0">الصلاحيات الفعلية</h5>
+                        </div>
+                        <div class="card-body text-right">
+                            @forelse($effectivePermissions as $permissionName)
+                                <span class="badge badge-success mb-2 p-2">{{ $permissionName }}</span>
+                            @empty
+                                <p class="text-muted mb-0">لا توجد صلاحيات فعالة على المستخدم.</p>
+                            @endforelse
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-12 mt-2">
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0">سجل التعديلات على المستخدم</h5>

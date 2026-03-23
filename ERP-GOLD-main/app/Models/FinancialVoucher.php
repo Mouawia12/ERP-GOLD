@@ -11,6 +11,10 @@ class FinancialVoucher extends Model
 
     protected $guarded = ['id'];
 
+    protected $casts = [
+        'total_amount' => 'float',
+    ];
+
     public static function boot()
     {
         parent::boot();
@@ -47,6 +51,11 @@ class FinancialVoucher extends Model
         return $this->belongsTo(Branch::class, 'branch_id');
     }
 
+    public function bankAccount()
+    {
+        return $this->belongsTo(BankAccount::class);
+    }
+
     public function shift()
     {
         return $this->belongsTo(Shift::class);
@@ -55,5 +64,29 @@ class FinancialVoucher extends Model
     public function journalEntry()
     {
         return $this->morphOne(JournalEntry::class, 'journalable');
+    }
+
+    public function getPaymentMethodLabelAttribute(): string
+    {
+        return match ($this->payment_method) {
+            'credit_card' => 'شبكة / بطاقة',
+            'bank_transfer' => 'تحويل بنكي',
+            default => 'نقدي',
+        };
+    }
+
+    public function getPaymentChannelLabelAttribute(): string
+    {
+        $segments = [$this->payment_method_label];
+
+        if ($this->bankAccount?->display_name) {
+            $segments[] = $this->bankAccount->display_name;
+        }
+
+        if ($this->reference_no) {
+            $segments[] = $this->reference_no;
+        }
+
+        return implode(' - ', array_filter($segments));
     }
 }

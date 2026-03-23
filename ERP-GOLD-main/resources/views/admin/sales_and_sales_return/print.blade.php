@@ -4,6 +4,7 @@
     @php
         $printSettings = app(\App\Services\Invoices\InvoicePrintSettingsService::class)->currentSettings();
         $printFormat = $printSettings['format'];
+        $printTemplate = $printSettings['template'];
         $sheetWidth = $printFormat === 'a5' ? '148mm' : '210mm';
         $screenFontSize = $printFormat === 'a5' ? '12px' : '13px';
         $printFontSize = $printFormat === 'a5' ? '10px' : '11px';
@@ -82,8 +83,47 @@
             margin-bottom: 14px;
         } 
 
+        .invoice-title-box {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 999px;
+        }
+
         .invoice-print-qr {
             width: {{ $qrWidth }};
+        }
+
+        body.invoice-template-modern .print-header-section {
+            border-color: #111827;
+            background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+        }
+
+        body.invoice-template-modern .invoice-title-box {
+            border: 2px solid #111827;
+            background: #fff;
+        }
+
+        body.invoice-template-compact .print-header-section {
+            padding: 8px 10px;
+            border-radius: 6px;
+        }
+
+        body.invoice-template-compact table {
+            margin-top: 6px !important;
+        }
+
+        body.invoice-template-compact .invoice-title-box {
+            background: #f3f4f6;
+        }
+
+        body.invoice-template-classic .invoice-title-box {
+            background: #f8fafc;
+        }
+
+        .print-footer-section {
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px dashed #cbd5e1;
         }
     </style>
     <style type="text/css" media="print">
@@ -141,9 +181,10 @@
 <body
     dir="rtl"
     data-print-format="{{ $printFormat }}"
+    data-print-template="{{ $printTemplate }}"
     data-show-header="{{ $printSettings['show_header'] ? '1' : '0' }}"
     data-show-footer="{{ $printSettings['show_footer'] ? '1' : '0' }}"
-    class="text-center invoice-print-format-{{ $printFormat }}"
+    class="text-center invoice-print-format-{{ $printFormat }} invoice-template-{{ $printTemplate }}"
     style="background: #fff;
     page-break-before: avoid;
     page-break-after: avoid;
@@ -216,7 +257,7 @@
             </div>
             <div class="col-4 text-center">
                 <h4 class="text-center mt-1" style="font-weight: bold;">
-                    <strong> 
+                    <strong class="invoice-title-box"> 
                         @if($invoice->sale_type == 'standard')
                             @if($invoice->type == 'sale')
                                 {{__('main.sales_standard')}}

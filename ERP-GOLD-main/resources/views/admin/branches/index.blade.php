@@ -42,12 +42,14 @@
                     </div>
                     <div class="clearfix"></div>
                 </div>
-                <div class="row mt-1 mb-1 text-center justify-content-center align-content-center">
-				    <a href="{{route('admin.branches.create')}}" role="button" class="btn btn-md btn-info m-1">
-                        <i class="fa fa-plus"></i>
-                        اضافة
-                    </a> 
-                </div>
+                @can('employee.branches.add')
+                    <div class="row mt-1 mb-1 text-center justify-content-center align-content-center">
+                        <a href="{{route('admin.branches.create')}}" role="button" class="btn btn-md btn-info m-1">
+                            <i class="fa fa-plus"></i>
+                            اضافة
+                        </a>
+                    </div>
+                @endcan
                 <div class="card-body p-1 m-1">
                     <table
                         class="table table-condensed table-striped table-hover display w-100 table-bordered"

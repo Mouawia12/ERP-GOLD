@@ -9,12 +9,17 @@ use App\Http\Controllers\Admin\BankAccountController;
 use App\Http\Controllers\Admin\CaratController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CustomerController;
+use App\Http\Controllers\Admin\CurrentBranchController;
 use App\Http\Controllers\Admin\FinancialVoucherController;
 use App\Http\Controllers\Admin\HomeController;
 use App\Http\Controllers\Admin\InitialQuantitiesController;
 use App\Http\Controllers\Admin\ItemController;
 use App\Http\Controllers\Admin\ItemsReportsController;
 use App\Http\Controllers\Admin\JournalEntryController;
+use App\Http\Controllers\Admin\ManufacturingLossSettlementController;
+use App\Http\Controllers\Admin\ManufacturingOrderController;
+use App\Http\Controllers\Admin\ManufacturingReceiptController;
+use App\Http\Controllers\Admin\ManufacturingReturnController;
 use App\Http\Controllers\Admin\PricingController;
 use App\Http\Controllers\Admin\PurchasesController;
 use App\Http\Controllers\Admin\RolesController;
@@ -62,13 +67,14 @@ Route::group(
             }
         );
         Route::group(
-            ['middleware' => ['auth:admin-web', 'enforce.admin.session'],
+            ['middleware' => ['auth:admin-web', 'apply.admin.branch', 'enforce.admin.session'],
                     'prefix' => 'admin',
                     'namespace' => 'Admin'], function () {
                 Route::get('/', [LoginController::class, 'showLoginForm']);
                 Route::get('/home', [HomeController::class, 'index'])->name('admin.home');
                 Route::get('/lock-screen', [HomeController::class, 'lock_screen'])->name('admin.lock.screen');
                 Route::post('admin/logout', [LoginController::class, 'logout'])->name('admin.logout');
+                Route::post('/current-branch', [CurrentBranchController::class, 'update'])->name('admin.current_branch.update');
 
                 Route::get('/categories', [CategoryController::class, 'index'])->name('categories');
                 Route::post('/storeCategory', [CategoryController::class, 'store'])->name('storeCategory');
@@ -76,6 +82,7 @@ Route::group(
                 Route::get('/getCategory/{id}', [CategoryController::class, 'show'])->name('getCategory');
 
                 Route::get('/customers/{type}', [CustomerController::class, 'index'])->name('customers');
+                Route::get('/customers/cash/{type}', [CustomerController::class, 'cashDirectory'])->name('customers.cash');
                 Route::get('/customers/report/{id}', [CustomerController::class, 'report'])->name('customers.report');
                 Route::post('customers/store/{type}', [CustomerController::class, 'store'])->name('customers.store');
                 Route::post('customers/quick-store/{type}', [CustomerController::class, 'quickStore'])->name('customers.quick-store');
@@ -89,11 +96,26 @@ Route::group(
                 Route::get('/stock_settlements', [StockSettlementController::class, 'index'])->name('stock_settlements.index');
                 Route::get('/stock_settlements/create', [StockSettlementController::class, 'create'])->name('stock_settlements.create');
                 Route::get('/stock_settlements/by_default/create', [StockSettlementController::class, 'create_by_default'])->name('stock_settlements.create_by_default');
+                Route::get('/stock_settlements/show/{id}', [StockSettlementController::class, 'show'])->name('stock_settlements.show');
                 Route::post('/stock_settlements/store_by_default', [StockSettlementController::class, 'store_by_default'])->name('stock_settlements.store_by_default');
                 Route::get('/stock_settlements/get_carat_type_stock', [StockSettlementController::class, 'get_carat_type_stock'])->name('stock_settlements.get_carat_type_stock');
                 Route::post('/stock_settlements/store', [StockSettlementController::class, 'store'])->name('stock_settlements.store');
                 Route::post('/stock_settlements/search', [StockSettlementController::class, 'search'])->name('stock_settlements.search');
                 Route::post('/stock_settlements/show_uncounted_items', [StockSettlementController::class, 'show_uncounted_items'])->name('stock_settlements.show_uncounted_items');
+
+                Route::get('/manufacturing_orders', [ManufacturingOrderController::class, 'index'])->name('manufacturing_orders.index');
+                Route::get('/manufacturing_orders/create', [ManufacturingOrderController::class, 'create'])->name('manufacturing_orders.create');
+                Route::post('/manufacturing_orders/store', [ManufacturingOrderController::class, 'store'])->name('manufacturing_orders.store');
+                Route::get('/manufacturing_orders/show/{id}', [ManufacturingOrderController::class, 'show'])->name('manufacturing_orders.show');
+                Route::get('/manufacturing_receipts/create/{orderId}', [ManufacturingReceiptController::class, 'create'])->name('manufacturing_receipts.create');
+                Route::post('/manufacturing_receipts/store/{orderId}', [ManufacturingReceiptController::class, 'store'])->name('manufacturing_receipts.store');
+                Route::get('/manufacturing_receipts/show/{id}', [ManufacturingReceiptController::class, 'show'])->name('manufacturing_receipts.show');
+                Route::get('/manufacturing_returns/create/{orderId}', [ManufacturingReturnController::class, 'create'])->name('manufacturing_returns.create');
+                Route::post('/manufacturing_returns/store/{orderId}', [ManufacturingReturnController::class, 'store'])->name('manufacturing_returns.store');
+                Route::get('/manufacturing_returns/show/{id}', [ManufacturingReturnController::class, 'show'])->name('manufacturing_returns.show');
+                Route::get('/manufacturing_loss_settlements/create/{orderId}', [ManufacturingLossSettlementController::class, 'create'])->name('manufacturing_loss_settlements.create');
+                Route::post('/manufacturing_loss_settlements/store/{orderId}', [ManufacturingLossSettlementController::class, 'store'])->name('manufacturing_loss_settlements.store');
+                Route::get('/manufacturing_loss_settlements/show/{id}', [ManufacturingLossSettlementController::class, 'show'])->name('manufacturing_loss_settlements.show');
 
                 Route::get('/sales/{type}', [SalesController::class, 'index'])->name('sales.index');
                 Route::get('/sales/{type}/create', [SalesController::class, 'create'])->name('sales.create');
@@ -111,6 +133,11 @@ Route::group(
                 Route::post('/purchases/store', [PurchasesController::class, 'store'])->name('purchases.store');
                 Route::get('/purchases/show/{id}', [PurchasesController::class, 'show'])->name('purchases.show');
                 Route::post('/purchases/payments', [PurchasesController::class, 'purchase_payment_show'])->name('purchases.payments');
+
+                Route::get('/purchase_return', [PurchasesController::class, 'purchase_return_index'])->name('purchase_return.index');
+                Route::get('/purchase_return/create/{id}', [PurchasesController::class, 'purchase_return_create'])->name('purchase_return.create');
+                Route::post('/purchase_return/store/{id}', [PurchasesController::class, 'purchase_return_store'])->name('purchase_return.store');
+                Route::get('/purchase_return/show/{id}', [PurchasesController::class, 'purchase_return_show'])->name('purchase_return.show');
 
                 Route::get('/shifts', [ShiftController::class, 'index'])->name('admin.shifts.index');
                 Route::post('/shifts', [ShiftController::class, 'store'])->name('admin.shifts.store');

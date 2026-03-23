@@ -38,7 +38,18 @@
         <div class="col-lg-12">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0">المستخدمون المرتبطون بهذا الفرع</h5>
+                    <div class="d-flex flex-wrap justify-content-between align-items-center">
+                        <h5 class="mb-0">المستخدمون المرتبطون بهذا الفرع</h5>
+                        @can('employee.users.add')
+                            <a
+                                href="{{ route('admin.users.create', ['branch_id' => $branch->id, 'return_branch_id' => $branch->id]) }}"
+                                class="btn btn-sm btn-primary mt-2 mt-md-0"
+                            >
+                                <i class="fa fa-plus"></i>
+                                إضافة مستخدم لهذا الفرع
+                            </a>
+                        @endcan
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive hoverable-table">
@@ -50,20 +61,51 @@
                                 <th>البريد الالكتروني</th>
                                 <th>الصلاحية</th>
                                 <th>الحالة</th>
+                                <th>الإدارة</th>
                             </tr>
                             </thead>
                             <tbody>
-                            @forelse ($branch->users as $linkedUser)
+                            @forelse ($branch->assignedUsers as $linkedUser)
                                 <tr>
                                     <td>{{ $loop->iteration }}</td>
                                     <td>{{ $linkedUser->name }}</td>
                                     <td>{{ $linkedUser->email }}</td>
-                                    <td>{{ $linkedUser->roles->pluck('name')->filter()->implode('، ') ?: '-' }}</td>
+                                    <td>
+                                        {{ $linkedUser->roles->pluck('name')->filter()->implode('، ') ?: '-' }}
+                                        @if($linkedUser->pivot?->is_default)
+                                            <span class="badge badge-info">افتراضي</span>
+                                        @endif
+                                    </td>
                                     <td>{{ $linkedUser->status ? 'مفعل' : 'موقوف' }}</td>
+                                    <td>
+                                        @can('employee.users.show')
+                                            <a
+                                                href="{{ route('admin.users.show', $linkedUser->id) }}"
+                                                class="btn btn-sm btn-outline-primary"
+                                                title="عرض المستخدم"
+                                            >
+                                                <i class="fa fa-eye"></i>
+                                            </a>
+                                        @endcan
+                                        @can('employee.users.edit')
+                                            <a
+                                                href="{{ route('admin.users.edit', ['user' => $linkedUser->id, 'return_branch_id' => $branch->id]) }}"
+                                                class="btn btn-sm btn-outline-info"
+                                                title="تعديل المستخدم"
+                                            >
+                                                <i class="fa fa-edit"></i>
+                                            </a>
+                                        @endcan
+                                        @cannot('employee.users.show')
+                                            @cannot('employee.users.edit')
+                                                <span class="text-muted">-</span>
+                                            @endcannot
+                                        @endcannot
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="5">لا يوجد مستخدمون مرتبطون بهذا الفرع.</td>
+                                    <td colspan="6">لا يوجد مستخدمون مرتبطون بهذا الفرع.</td>
                                 </tr>
                             @endforelse
                             </tbody>

@@ -49,6 +49,7 @@
                                         <th> {{__('main.basedon_no')}} </th>
                                         <th> {{__('main.from')}} </th>
                                         <th> {{__('main.to')}} </th>
+                                        <th>قناة السند</th>
                                         <th> {{__('main.total_money')}} </th>
                                         <th>{{__('main.actions')}}</th>
                                     </tr>
@@ -60,6 +61,7 @@
                                         <td class="text-center">{{$voucher -> bill_number}}</td>
                                         <td class="text-center">{{$voucher -> fromAccount->name??'-' }}</td>
                                         <td class="text-center">{{$voucher -> toAccount->name??'-' }}</td>
+                                        <td class="text-center">{{$voucher -> payment_channel_label}}</td>
                                         <td class="text-center">{{$voucher -> total_amount}}</td>
                                         <td class="text-center">
                                             <button type="button" class="btn btn-labeled btn-secondary editBtn" value="">
@@ -109,7 +111,7 @@
                                 <label class="d-block">
                                     الفرع <span style="color:red; font-size:20px; font-weight:bold;">*</span>
                                 </label>
-                                @if(empty(Auth::user()->branch_id))
+                                @if(Auth::user()->is_admin)
                                 <select required class="form-control select2" name="branch_id" id="branch_id">
                                     <option value="">حدد الاختيار</option>
                                     @foreach($branches as $branch)
@@ -146,6 +148,33 @@
                                     <option value="{{$account -> id}}">{{$account -> name}}</option>
                                     @endforeach
                                 </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-4">
+                            <div class="form-group">
+                                <label>طريقة التحصيل / السداد</label>
+                                <select id="payment_method" name="payment_method" class="form-control">
+                                    <option value="cash">نقدي</option>
+                                    <option value="credit_card">شبكة / بطاقة</option>
+                                    <option value="bank_transfer">تحويل بنكي</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-4" id="bank_account_wrapper" style="display:none;">
+                            <div class="form-group">
+                                <label>الحساب البنكي الفعلي</label>
+                                <select id="bank_account_id" name="bank_account_id" class="form-control">
+                                    <option value="">اختر الحساب البنكي</option>
+                                </select>
+                                <small class="text-muted">يجب أن يكون الحساب البنكي أحد طرفي السند المحاسبي.</small>
+                            </div>
+                        </div>
+                        <div class="col-4" id="reference_no_wrapper" style="display:none;">
+                            <div class="form-group">
+                                <label>مرجع العملية</label>
+                                <input class="form-control" id="reference_no" name="reference_no" type="text" placeholder="رقم المرجع / رقم العملية">
                             </div>
                         </div>
                     </div>
@@ -225,6 +254,8 @@
 
 <script type="text/javascript">
     let id = 0;
+    const voucherBankAccounts = @json($bankAccountOptions);
+
     $(document).ready(function() {
         var now = new Date();
         var day = ("0" + now.getDate()).slice(-2);
@@ -235,6 +266,11 @@
 
         $(document).on('click', '#createButton', function(event) {
             $('#createModal').modal("show");
+            syncVoucherBankAccountOptions();
+        });
+
+        $(document).on('change', '#branch_id, #payment_method', function() {
+            syncVoucherBankAccountOptions();
         });
 
 
@@ -298,6 +334,37 @@
         let url = "";
         url = url.replace(':id', id);
         document.location.href = url;
+    }
+
+    function syncVoucherBankAccountOptions() {
+        var paymentMethod = $('#payment_method').val() || 'cash';
+        var branchId = $('#branch_id').val();
+        var bankAccountSelect = $('#bank_account_id');
+
+        if (paymentMethod === 'cash') {
+            $('#bank_account_wrapper').hide();
+            $('#reference_no_wrapper').hide();
+            bankAccountSelect.html('<option value="">اختر الحساب البنكي</option>');
+            return;
+        }
+
+        $('#bank_account_wrapper').show();
+        $('#reference_no_wrapper').show();
+
+        var options = '<option value="">اختر الحساب البنكي</option>';
+
+        voucherBankAccounts.forEach(function(bankAccount) {
+            var branchMatches = String(bankAccount.branch_id) === String(branchId || '');
+            var supported = paymentMethod === 'credit_card'
+                ? bankAccount.supports_credit_card
+                : bankAccount.supports_bank_transfer;
+
+            if (branchMatches && supported) {
+                options += '<option value="' + bankAccount.id + '">' + bankAccount.display_name + '</option>';
+            }
+        });
+
+        bankAccountSelect.html(options);
     }
 </script>
 @endsection

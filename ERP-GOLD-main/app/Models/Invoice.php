@@ -48,6 +48,11 @@ class Invoice extends Model
         return $this->belongsTo(Customer::class);
     }
 
+    public function account()
+    {
+        return $this->belongsTo(Account::class);
+    }
+
     public function branch()
     {
         return $this->belongsTo(Branch::class);
@@ -134,7 +139,29 @@ class Invoice extends Model
 
     public function returnInvoices()
     {
-        return $this->hasMany(self::class, 'parent_id')->where('type', 'sale_return');
+        $returnType = $this->type === 'purchase' ? 'purchase_return' : 'sale_return';
+
+        return $this->hasMany(self::class, 'parent_id')->where('type', $returnType);
+    }
+
+    public function manufacturingReceipts()
+    {
+        return $this->hasMany(self::class, 'parent_id')->where('type', 'manufacturing_receipt');
+    }
+
+    public function manufacturingReturns()
+    {
+        return $this->hasMany(self::class, 'parent_id')->where('type', 'manufacturing_return');
+    }
+
+    public function manufacturingLossSettlements()
+    {
+        return $this->hasMany(self::class, 'parent_id')->where('type', 'manufacturing_loss_settlement');
+    }
+
+    public function manufacturingLossSettlementLines()
+    {
+        return $this->hasMany(ManufacturingLossSettlementLine::class, 'invoice_id');
     }
 
     public function getStockCaratWeightAttribute()
@@ -196,5 +223,14 @@ class Invoice extends Model
     public function getPaymentLinesBreakdownAttribute(): array
     {
         return app(InvoicePaymentService::class)->paymentBreakdown($this);
+    }
+
+    public function getManufacturingReturnDirectionLabelAttribute(): string
+    {
+        return match ($this->manufacturing_return_direction) {
+            'from_manufacturer' => __('main.manufacturing_return_from_manufacturer'),
+            'to_manufacturer' => __('main.manufacturing_return_to_manufacturer'),
+            default => __('main.manufacturing_return'),
+        };
     }
 }

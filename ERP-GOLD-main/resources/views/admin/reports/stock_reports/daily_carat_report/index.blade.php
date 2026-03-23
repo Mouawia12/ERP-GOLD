@@ -26,6 +26,13 @@
             <h4 class="alert alert-primary text-center mb-3">التقرير اليومي للمبيعات والمشتريات حسب العيار</h4>
             <div>
                 <strong>{{ $periodFrom }} - {{ $periodTo }}</strong>
+                @if($fromTime || $toTime)
+                    <span class="mr-3">| الوقت:
+                        {{ $fromTime ?: '00:00:00' }}
+                        -
+                        {{ $toTime ?: '23:59:59' }}
+                    </span>
+                @endif
                 @if($branch)
                     <span class="mr-3">| الفرع: {{ $branch->name }}</span>
                 @endif

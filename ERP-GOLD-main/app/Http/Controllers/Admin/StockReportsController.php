@@ -217,6 +217,8 @@ class StockReportsController extends Controller
         $branch = $this->selectedBranch($request);
         $user = $this->selectedUser($request);
         $carat = $request->filled('carat_id') ? GoldCarat::find($request->carat_id) : null;
+        $fromTime = $this->normalizeTime($request->input('from_time'));
+        $toTime = $this->normalizeTime($request->input('to_time'));
 
         $rowsQuery = InvoiceDetail::query()
             ->join('invoices', 'invoice_details.invoice_id', '=', 'invoices.id')
@@ -299,6 +301,8 @@ class StockReportsController extends Controller
             'branch',
             'user',
             'carat',
+            'fromTime',
+            'toTime',
             'rows',
             'operationSummary',
             'dailyTotals'

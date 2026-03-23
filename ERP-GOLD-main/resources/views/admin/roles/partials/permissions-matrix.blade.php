@@ -1,3 +1,11 @@
+@php
+    $permissionInputName = $permissionInputName ?? 'permission[]';
+    $permissionSearchId = $permissionSearchId ?? 'permission-search';
+    $permissionCheckAllId = $permissionCheckAllId ?? 'check_all';
+    $permissionUncheckAllId = $permissionUncheckAllId ?? 'uncheck_all';
+    $permissionScope = $permissionScope ?? 'role-permissions';
+@endphp
+
 <style>
     .permission-toolbar {
         gap: 10px;
@@ -102,15 +110,15 @@
 <div class="d-flex flex-wrap justify-content-center align-items-center permission-toolbar mb-3">
     <input
         type="text"
-        id="permission-search"
+        id="{{ $permissionSearchId }}"
         class="form-control permission-search"
         placeholder="ابحث باسم الموديول أو الصلاحية"
     >
-    <button type="button" id="check_all" class="btn btn-danger">
+    <button type="button" id="{{ $permissionCheckAllId }}" class="btn btn-danger">
         <i class="fa fa-check"></i>
         تحديد الكل
     </button>
-    <button type="button" id="uncheck_all" class="btn btn-secondary">
+    <button type="button" id="{{ $permissionUncheckAllId }}" class="btn btn-secondary">
         <i class="fa fa-times"></i>
         الغاء تحديد الكل
     </button>
@@ -120,7 +128,12 @@
     <div class="permission-group-card">
         <div class="permission-group-title d-flex justify-content-between align-items-center">
             <span>{{ $group['label'] }}</span>
-            <button type="button" class="btn btn-sm btn-outline-primary toggle-group" data-group="{{ $loop->index }}">
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-primary toggle-group"
+                data-group="{{ $loop->index }}"
+                data-permission-scope="{{ $permissionScope }}"
+            >
                 تحديد المجموعة
             </button>
         </div>
@@ -142,6 +155,7 @@
                     <tr
                         class="permission-module-row"
                         data-group-index="{{ $loop->parent->index }}"
+                        data-permission-scope="{{ $permissionScope }}"
                         data-search-text="{{ mb_strtolower($group['label'].' '.$module['label'].' '.implode(' ', array_column($module['permissions'], 'label'))) }}"
                     >
                         <td>{{ $loop->iteration }}</td>
@@ -155,7 +169,8 @@
                                     <input
                                         type="checkbox"
                                         class="permission-checkbox"
-                                        name="permission[]"
+                                        data-permission-scope="{{ $permissionScope }}"
+                                        name="{{ $permissionInputName }}"
                                         value="{{ $permission['name'] }}"
                                         @checked(in_array($permission['name'], $selectedPermissions, true))
                                     >
@@ -174,26 +189,32 @@
 <script src="{{ asset('assets/js/jquery.min.js') }}"></script>
 <script>
     $(document).ready(function () {
-        $('#check_all').on('click', function () {
-            $('.permission-checkbox').prop('checked', true);
+        const permissionScope = @json($permissionScope);
+        const permissionRows = $('.permission-module-row[data-permission-scope="' + permissionScope + '"]');
+        const permissionCheckboxes = $('.permission-checkbox[data-permission-scope="' + permissionScope + '"]');
+
+        $('#{{ $permissionCheckAllId }}').on('click', function () {
+            permissionCheckboxes.prop('checked', true);
         });
 
-        $('#uncheck_all').on('click', function () {
-            $('.permission-checkbox').prop('checked', false);
+        $('#{{ $permissionUncheckAllId }}').on('click', function () {
+            permissionCheckboxes.prop('checked', false);
         });
 
-        $('.toggle-group').on('click', function () {
+        $('.toggle-group[data-permission-scope="' + permissionScope + '"]').on('click', function () {
             const groupIndex = $(this).data('group');
-            const groupCheckboxes = $('.permission-module-row[data-group-index="' + groupIndex + '"]:visible .permission-checkbox');
+            const groupCheckboxes = permissionRows
+                .filter('[data-group-index="' + groupIndex + '"]:visible')
+                .find('.permission-checkbox');
             const shouldCheck = groupCheckboxes.filter(':checked').length !== groupCheckboxes.length;
 
             groupCheckboxes.prop('checked', shouldCheck);
         });
 
-        $('#permission-search').on('input', function () {
+        $('#{{ $permissionSearchId }}').on('input', function () {
             const query = $(this).val().toString().trim().toLowerCase();
 
-            $('.permission-module-row').each(function () {
+            permissionRows.each(function () {
                 const haystack = ($(this).data('search-text') || '').toString().toLowerCase();
                 $(this).toggleClass('hidden-by-search', query !== '' && !haystack.includes(query));
             });

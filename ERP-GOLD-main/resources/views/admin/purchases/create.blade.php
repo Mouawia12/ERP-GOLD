@@ -85,7 +85,7 @@
                                             <label class="d-block">
                                                  الفرع <span style="color:red;">*</span> 
                                             </label>
-                                            @if(empty(Auth::user()->branch_id))
+                                            @if(Auth::user()->is_admin)
                                                 <select required  class="js-example-basic-single w-100" name="branch_id" id="branch_id"> 
                                                     @foreach($branches as $branch)
                                                         <option value="{{$branch->id}}">{{$branch->name}}</option>
@@ -227,6 +227,17 @@
                                     </div>
                                     <div class="col-6">
                                         <div class="form-group">
+                                            <label>قالب الشروط</label>
+                                            <select id="invoice_terms_template_selector" class="form-control mb-2">
+                                                @foreach($invoiceTermTemplates as $template)
+                                                    <option
+                                                        value="{{ $template['key'] }}"
+                                                        @selected(($defaultInvoiceTermsTemplateKey ?? null) === $template['key'])
+                                                    >
+                                                        {{ $template['title'] }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
                                             <label>شروط الفاتورة</label>
                                             <textarea
                                                 name="invoice_terms"
@@ -994,5 +1005,23 @@
         $("#net_total").val(net_total.toFixed(2));
     }
 </script> 
+<script>
+    (function () {
+        const selector = document.getElementById('invoice_terms_template_selector');
+        const textarea = document.getElementById('invoice_terms');
+        const templates = @json($invoiceTermTemplates);
+
+        if (!selector || !textarea) {
+            return;
+        }
+
+        selector.addEventListener('change', function () {
+            const selected = templates.find((template) => template.key === this.value);
+            if (selected) {
+                textarea.value = selected.content;
+            }
+        });
+    })();
+</script>
 @endsection 
  

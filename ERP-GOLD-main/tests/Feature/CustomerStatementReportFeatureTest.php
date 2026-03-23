@@ -399,11 +399,24 @@ class CustomerStatementReportFeatureTest extends TestCase
 
         $customerAccountId = $this->insertAccount('ذمم عميل الحركات', 'CR-1001');
         $safeAccountId = $this->insertAccount('الصندوق', 'SAFE-1001');
+        $bankLedgerAccountId = $this->insertAccount('حساب بنك التقرير', 'BANK-1001');
         $financialYearId = DB::table('financial_years')->insertGetId([
             'description' => 'السنة المالية للتقرير',
             'from' => '2026-01-01',
             'to' => '2026-12-31',
             'is_closed' => false,
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $bankAccountId = DB::table('bank_accounts')->insertGetId([
+            'branch_id' => $admin->branch_id,
+            'ledger_account_id' => $bankLedgerAccountId,
+            'account_name' => 'حساب التقرير البنكي',
+            'bank_name' => 'بنك التقرير',
+            'supports_credit_card' => false,
+            'supports_bank_transfer' => true,
+            'is_default' => true,
             'is_active' => true,
             'created_at' => now(),
             'updated_at' => now(),
@@ -436,7 +449,10 @@ class CustomerStatementReportFeatureTest extends TestCase
             'branch_id' => $admin->branch_id,
             'financial_year' => $financialYearId,
             'from_account_id' => $customerAccountId,
-            'to_account_id' => $safeAccountId,
+            'to_account_id' => $bankLedgerAccountId,
+            'payment_method' => 'bank_transfer',
+            'bank_account_id' => $bankAccountId,
+            'reference_no' => 'CR-REF-7788',
             'date' => '2026-03-22',
             'total_amount' => 500,
             'shift_id' => $adminShiftId,
@@ -482,7 +498,9 @@ class CustomerStatementReportFeatureTest extends TestCase
         $response->assertSee('R-1-00002');
         $response->assertSee('سند قبض');
         $response->assertSee('سند صرف');
-        $response->assertSee('من ذمم عميل الحركات إلى الصندوق');
+        $response->assertSee('من ذمم عميل الحركات إلى حساب بنك التقرير');
+        $response->assertSee('حساب التقرير البنكي');
+        $response->assertSee('CR-REF-7788');
         $response->assertSee('من الصندوق إلى ذمم عميل الحركات');
         $response->assertSee('500.00');
         $response->assertSee('200.00');
@@ -663,8 +681,11 @@ class CustomerStatementReportFeatureTest extends TestCase
             'bill_number' => null,
             'serial' => null,
             'type' => 'receipt',
+            'payment_method' => 'cash',
             'from_account_id' => null,
             'to_account_id' => null,
+            'bank_account_id' => null,
+            'reference_no' => null,
             'date' => '2026-03-22',
             'total_amount' => 0,
             'description' => null,

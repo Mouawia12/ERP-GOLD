@@ -110,6 +110,7 @@ class AdminAccessTest extends TestCase
             'email' => 'user@example.com',
             'role_id' => $role->id,
             'branch_id' => $targetBranch->id,
+            'branch_ids' => [$targetBranch->id],
             'password' => 'secret123',
             'confirm-password' => 'secret123',
         ]);
@@ -141,6 +142,7 @@ class AdminAccessTest extends TestCase
             'email' => 'blocked@example.com',
             'role_id' => $role->id,
             'branch_id' => $targetBranch->id,
+            'branch_ids' => [$targetBranch->id],
             'password' => 'secret123',
             'confirm-password' => 'secret123',
         ]);
@@ -195,6 +197,7 @@ class AdminAccessTest extends TestCase
                 'email' => 'managed-user@example.com',
                 'role_id' => $newRole->id,
                 'branch_id' => $newBranch->id,
+                'branch_ids' => [$newBranch->id],
                 'status' => '0',
                 'password' => 'new-secret-123',
                 'confirm-password' => 'new-secret-123',
@@ -215,9 +218,9 @@ class AdminAccessTest extends TestCase
             ->orderBy('event_key')
             ->get();
 
-        $this->assertCount(4, $auditLogs);
+        $this->assertCount(5, $auditLogs);
         $this->assertEqualsCanonicalizing(
-            ['branch_changed', 'password_changed', 'role_changed', 'status_changed'],
+            ['assigned_branches_changed', 'branch_changed', 'password_changed', 'role_changed', 'status_changed'],
             $auditLogs->pluck('event_key')->all()
         );
         $this->assertTrue($auditLogs->every(fn (UserAuditLog $log) => $log->actor_user_id === $admin->id));
@@ -235,6 +238,7 @@ class AdminAccessTest extends TestCase
         $showResponse->assertSee('تغيير حالة المستخدم');
         $showResponse->assertSee('تغيير كلمة المرور');
         $showResponse->assertSee('تغيير الفرع');
+        $showResponse->assertSee('تغيير الفروع المسموح بها');
         $showResponse->assertSee('تغيير الصلاحية');
         $showResponse->assertSee('فرع المستخدم القديم');
         $showResponse->assertSee('فرع المستخدم الجديد');
@@ -277,6 +281,96 @@ class AdminAccessTest extends TestCase
         $response->assertSee('عرض بيانات الفرع');
         $response->assertSee('Branch User One');
         $response->assertSee('Branch User Two');
+    }
+
+    public function test_branch_details_allow_managing_users_from_branch_screen(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.branches.show',
+            'employee.users.add',
+            'employee.users.edit',
+            'employee.users.show',
+        ]);
+        $branch = Branch::create([
+            'name' => ['ar' => 'فرع الإدارة', 'en' => 'Management Branch'],
+            'email' => 'management-branch@example.com',
+            'phone' => '999999999',
+            'tax_number' => '999999999999999',
+            'short_address' => 'جدة',
+        ]);
+        $role = Role::create([
+            'name' => ['ar' => 'مشرف', 'en' => 'Supervisor'],
+            'guard_name' => 'admin-web',
+        ]);
+
+        $linkedUser = User::create([
+            'name' => 'Managed From Branch',
+            'email' => 'managed-from-branch@example.com',
+            'password' => Hash::make('secret123'),
+            'branch_id' => $branch->id,
+            'status' => true,
+            'profile_pic' => 'default.png',
+        ]);
+        $linkedUser->assignRole($role);
+
+        $branchResponse = $this->actingAs($admin, 'admin-web')->get(route('admin.branches.show', $branch->id, false));
+
+        $branchResponse->assertOk();
+        $branchResponse->assertSee(e(route('admin.users.create', [
+            'branch_id' => $branch->id,
+            'return_branch_id' => $branch->id,
+        ], false)), false);
+        $branchResponse->assertSee(e(route('admin.users.edit', [
+            'user' => $linkedUser->id,
+            'return_branch_id' => $branch->id,
+        ], false)), false);
+
+        $createResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('admin.users.create', [
+                'branch_id' => $branch->id,
+                'return_branch_id' => $branch->id,
+            ], false));
+
+        $createResponse->assertOk();
+        $createResponse->assertSee('name="return_branch_id"', false);
+        $createResponse->assertSee('سيتم إعادتك إلى شاشة هذا الفرع بعد الحفظ.');
+
+        $storeResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('admin.users.store', [], false), [
+                'name' => 'Branch Managed User',
+                'email' => 'branch-managed-user@example.com',
+                'role_id' => $role->id,
+                'branch_id' => $branch->id,
+                'branch_ids' => [$branch->id],
+                'password' => 'secret123',
+                'confirm-password' => 'secret123',
+                'return_branch_id' => $branch->id,
+            ]);
+
+        $storeResponse->assertRedirect(route('admin.branches.show', $branch->id, false));
+
+        $storedUser = User::where('email', 'branch-managed-user@example.com')->firstOrFail();
+
+        $updateResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->patch(route('admin.users.update', $storedUser->id, false), [
+                'name' => 'Branch Managed User Updated',
+                'email' => 'branch-managed-user@example.com',
+                'role_id' => $role->id,
+                'branch_id' => $branch->id,
+                'branch_ids' => [$branch->id],
+                'status' => '1',
+                'return_branch_id' => $branch->id,
+            ]);
+
+        $updateResponse->assertRedirect(route('admin.branches.show', $branch->id, false));
+        $this->assertDatabaseHas('users', [
+            'id' => $storedUser->id,
+            'name' => 'Branch Managed User Updated',
+            'branch_id' => $branch->id,
+        ]);
     }
 
     public function test_authorized_admin_can_update_login_mode_setting(): void
@@ -326,12 +420,32 @@ class AdminAccessTest extends TestCase
             ->actingAs($admin, 'admin-web')
             ->patch(route('admin.system-settings.invoice-terms.update', [], false), [
                 'invoice_terms' => "يحق الاستبدال خلال 3 أيام\nمع إبراز الفاتورة الأصلية",
+                'default_template_key' => 'custom-retail',
+                'templates' => [
+                    [
+                        'key' => 'custom-retail',
+                        'title' => 'بيع تجزئة',
+                        'content' => "يحق الاستبدال خلال 3 أيام\nمع إبراز الفاتورة الأصلية",
+                    ],
+                    [
+                        'key' => 'supplier-standard',
+                        'title' => 'مورد قياسي',
+                        'content' => "يتم اعتماد الوزن بعد الفحص\nوالسداد حسب الاتفاق",
+                    ],
+                ],
             ]);
 
         $response->assertRedirect(route('admin.system-settings.invoice-terms.edit', [], false));
         $this->assertDatabaseHas('system_settings', [
             'key' => 'default_invoice_terms',
             'value' => "يحق الاستبدال خلال 3 أيام\nمع إبراز الفاتورة الأصلية",
+        ]);
+        $this->assertDatabaseHas('system_settings', [
+            'key' => 'default_invoice_terms_template_key',
+            'value' => 'custom-retail',
+        ]);
+        $this->assertDatabaseHas('system_settings', [
+            'key' => 'invoice_terms_templates',
         ]);
     }
 
@@ -362,6 +476,7 @@ class AdminAccessTest extends TestCase
             ->actingAs($admin, 'admin-web')
             ->patch(route('admin.system-settings.invoice-print.update', [], false), [
                 'format' => 'a5',
+                'template' => 'modern',
                 'show_header' => '1',
             ]);
 
@@ -378,6 +493,10 @@ class AdminAccessTest extends TestCase
             'key' => 'invoice_print_show_footer',
             'value' => '0',
         ]);
+        $this->assertDatabaseHas('system_settings', [
+            'key' => 'invoice_print_template',
+            'value' => 'modern',
+        ]);
     }
 
     public function test_unauthorized_admin_cannot_update_invoice_print_settings(): void
@@ -388,6 +507,7 @@ class AdminAccessTest extends TestCase
             ->actingAs($admin, 'admin-web')
             ->patch(route('admin.system-settings.invoice-print.update', [], false), [
                 'format' => 'a5',
+                'template' => 'compact',
                 'show_header' => '1',
                 'show_footer' => '1',
             ]);

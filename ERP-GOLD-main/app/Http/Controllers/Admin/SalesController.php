@@ -9,6 +9,7 @@ use App\Models\FinancialYear;
 use App\Models\Invoice;
 use App\Models\ItemUnit;
 use App\Models\Tax;
+use App\Services\Branches\BranchAccessService;
 use App\Services\Invoices\InvoiceTermsService;
 use App\Services\Invoices\InvoicePartySnapshotService;
 use App\Services\Payments\InvoicePaymentService;
@@ -26,6 +27,7 @@ use DataTables;
 class SalesController extends Controller
 {
     public function __construct(
+        private readonly BranchAccessService $branchAccessService,
         private readonly InvoiceTermsService $invoiceTermsService,
         private readonly InvoicePartySnapshotService $invoicePartySnapshotService,
         private readonly InvoicePaymentService $invoicePaymentService,
@@ -35,13 +37,15 @@ class SalesController extends Controller
 
     public function index(Request $request)
     {
+        $currentUser = $request->user('admin-web');
         $type = $request->type;
-        $data = Invoice::where('type', 'sale')
-            ->where('sale_type', $type)
-            ->orderBy('id', 'DESC')
-            ->get();
+        $query = Invoice::query()
+            ->where('type', 'sale')
+            ->where('sale_type', $type);
 
-        $branches = Branch::all();
+        $this->branchAccessService->scopeToAccessibleBranch($query, $currentUser);
+
+        $data = $query->orderBy('id', 'DESC')->get();
 
         if ($request->ajax()) {
             return Datatables::of($data)
@@ -84,16 +88,19 @@ class SalesController extends Controller
 
     public function create($type)
     {
+        $currentUser = Auth::guard('admin-web')->user();
         $customers = Customer::when($type == 'simplified', function ($query) {
             return $query->where('tax_number', null);
         })->where('type', '=', 'customer')->get();
-        $branches = Branch::all();
+        $branches = $this->branchAccessService->visibleBranches($currentUser);
 
         return view('admin.sales.create', [
             'type' => $type,
             'customers' => $customers,
             'branches' => $branches,
             'defaultInvoiceTerms' => $this->invoiceTermsService->defaultTerms(),
+            'invoiceTermTemplates' => $this->invoiceTermsService->templates(),
+            'defaultInvoiceTermsTemplateKey' => $this->invoiceTermsService->defaultTemplateKey(),
         ]);
     }
 
@@ -107,6 +114,7 @@ class SalesController extends Controller
         $money = $request->net_after_discount;
         $type = $request->document_type;
         $branchId = (int) $request->branch_id;
+        $this->branchAccessService->enforceBranchAccess($request->user('admin-web'), $branchId);
         $bankAccounts = BankAccount::query()
             ->active()
             ->where('branch_id', $branchId)
@@ -142,10 +150,12 @@ class SalesController extends Controller
                 ], 422);
             }
 
+            $this->branchAccessService->enforceBranchAccess(Auth::user(), (int) $request->branch_id);
+
             $lines = array();
             if (count($request->unit_id)) {
                 // store header
-                $branch = Branch::find($request->branch_id);
+                $branch = Branch::findOrFail($request->branch_id);
                 $activeShift = $this->shiftService->requireActiveShift(Auth::user(), (int) $request->branch_id);
                 $customer = Customer::find($request->customer_id);
                 $warehouse = $branch->warehouses->first();
@@ -288,7 +298,7 @@ class SalesController extends Controller
                 'status' => false,
                 'errors' => collect($ex->errors())->flatten()->values()->all(),
             ], 422);
-        } catch (Exception $ex) {
+        } catch (\Throwable $ex) {
             DB::rollBack();
             return response()->json([
                 'status' => false,
@@ -299,22 +309,25 @@ class SalesController extends Controller
 
     public function show($id)
     {
-        $invoice = Invoice::find($id);
+        $invoice = Invoice::findOrFail($id);
         if (!in_array($invoice->type, ['sale', 'sale_return'])) {
-            return redirect()->route('sales.index')->with('error', __('main.not_found'));
+            abort(404);
         }
+        $this->branchAccessService->enforceInvoiceAccess(auth('admin-web')->user(), $invoice);
         return view('admin.sales_and_sales_return.print', compact('invoice'));
     }
 
     public function sales_return_index(Request $request)
     {
+        $currentUser = $request->user('admin-web');
         $type = $request->type;
-        $data = Invoice::where('type', 'sale_return')
-            ->where('sale_type', $type)
-            ->orderBy('id', 'DESC')
-            ->get();
+        $query = Invoice::query()
+            ->where('type', 'sale_return')
+            ->where('sale_type', $type);
 
-        $branches = Branch::all();
+        $this->branchAccessService->scopeToAccessibleBranch($query, $currentUser);
+
+        $data = $query->orderBy('id', 'DESC')->get();
 
         if ($request->ajax()) {
             return Datatables::of($data)
@@ -360,7 +373,9 @@ class SalesController extends Controller
 
     public function sales_return_create($type, $id)
     {
-        $invoice = Invoice::find($id);
+        $invoice = Invoice::findOrFail($id);
+        abort_unless($invoice->type === 'sale', 404);
+        $this->branchAccessService->enforceInvoiceAccess(auth('admin-web')->user(), $invoice);
         $bankAccounts = BankAccount::query()
             ->active()
             ->where('branch_id', $invoice->branch_id)
@@ -373,7 +388,9 @@ class SalesController extends Controller
 
     public function sales_return_store(Request $request, $type, $id)
     {
-        $invoice = Invoice::find($id);
+        $invoice = Invoice::findOrFail($id);
+        abort_unless($invoice->type === 'sale', 404);
+        $this->branchAccessService->enforceInvoiceAccess(Auth::user(), $invoice);
 
         try {
             DB::beginTransaction();
@@ -510,7 +527,7 @@ class SalesController extends Controller
                 ->back()
                 ->withErrors($ex->errors())
                 ->withInput();
-        } catch (Exception $ex) {
+        } catch (\Throwable $ex) {
             DB::rollBack();
             return redirect()->route('sales_return.create', ['type' => $type, 'id' => $id])->with('error', $ex->getMessage());
         }
@@ -518,7 +535,9 @@ class SalesController extends Controller
 
     public function sales_return_show($id)
     {
-        $invoice = Invoice::find($id);
+        $invoice = Invoice::findOrFail($id);
+        abort_unless($invoice->type === 'sale_return', 404);
+        $this->branchAccessService->enforceInvoiceAccess(auth('admin-web')->user(), $invoice);
         return view('admin.sales_and_sales_return.print', compact('invoice'));
     }
 

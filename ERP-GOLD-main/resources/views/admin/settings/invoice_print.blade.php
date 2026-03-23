@@ -50,6 +50,45 @@
                         </div>
 
                         <div class="form-group mb-4">
+                            <label class="d-block font-weight-bold mb-3">قالب الطباعة</label>
+                            <div class="row">
+                                @foreach ($availableTemplates as $templateKey => $templateLabel)
+                                    <div class="col-md-4 mb-3">
+                                        <div class="card border h-100">
+                                            <div class="card-body">
+                                                <div class="custom-control custom-radio">
+                                                    <input
+                                                        type="radio"
+                                                        id="template_{{ $templateKey }}"
+                                                        name="template"
+                                                        value="{{ $templateKey }}"
+                                                        class="custom-control-input"
+                                                        {{ $printSettings['template'] === $templateKey ? 'checked' : '' }}
+                                                    >
+                                                    <label class="custom-control-label font-weight-bold" for="template_{{ $templateKey }}">
+                                                        {{ $templateLabel }}
+                                                    </label>
+                                                </div>
+                                                <small class="text-muted d-block mt-2">
+                                                    @switch($templateKey)
+                                                        @case('compact')
+                                                            مناسب للطباعة المختصرة والمساحات المحدودة.
+                                                            @break
+                                                        @case('modern')
+                                                            ترويسة أوضح وتباين بصري أعلى للعرض الرسمي.
+                                                            @break
+                                                        @default
+                                                            تنسيق متوازن ومناسب للاستخدام العام.
+                                                    @endswitch
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-4">
                             <label class="d-block font-weight-bold mb-3">عناصر الطباعة</label>
 
                             <div class="custom-control custom-checkbox mb-3">

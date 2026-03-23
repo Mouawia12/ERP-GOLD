@@ -32,6 +32,13 @@ class Branch extends Model
         return $this->hasMany(User::class, 'branch_id', 'id');
     }
 
+    public function assignedUsers()
+    {
+        return $this->belongsToMany(User::class, 'branch_user', 'branch_id', 'user_id')
+            ->withPivot(['is_default', 'is_active'])
+            ->withTimestamps();
+    }
+
     public function bankAccounts()
     {
         return $this->hasMany(BankAccount::class, 'branch_id', 'id');

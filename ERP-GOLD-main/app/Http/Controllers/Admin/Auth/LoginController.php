@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Providers\RouteServiceProvider;
+use App\Services\Branches\BranchContextService;
 use App\Services\Auth\LoginModeService;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Http\Request;
@@ -37,6 +38,7 @@ class LoginController extends Controller
             Auth::guard('admin-web')->user(),
             $request->session()->getId()
         );
+        app(BranchContextService::class)->clearSession($request->session());
 
         Auth::guard('admin-web')->logout();
         $request->session()->invalidate();
@@ -94,6 +96,7 @@ class LoginController extends Controller
     protected function authenticated(Request $request, $user): void
     {
         app(LoginModeService::class)->syncAuthenticatedSession($user, $request->session()->getId());
+        app(BranchContextService::class)->applyToUser($user, $request->session());
     }
     
 }

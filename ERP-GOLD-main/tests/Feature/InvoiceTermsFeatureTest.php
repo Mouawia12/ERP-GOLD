@@ -34,6 +34,19 @@ class InvoiceTermsFeatureTest extends TestCase
     public function test_sales_create_page_prefills_default_invoice_terms(): void
     {
         SystemSetting::putValue('default_invoice_terms', "الاستبدال خلال 3 أيام\nمع الفاتورة الأصلية");
+        SystemSetting::putValue('invoice_terms_templates', json_encode([
+            [
+                'key' => 'retail-exchange',
+                'title' => 'استبدال وبيع تجزئة',
+                'content' => "الاستبدال خلال 3 أيام\nمع الفاتورة الأصلية",
+            ],
+            [
+                'key' => 'cash-party',
+                'title' => 'عميل نقدي',
+                'content' => "يلتزم العميل بالمراجعة قبل المغادرة",
+            ],
+        ], JSON_UNESCAPED_UNICODE));
+        SystemSetting::putValue('default_invoice_terms_template_key', 'retail-exchange');
         $admin = $this->createAdminUser([
             'employee.simplified_tax_invoices.add',
         ]);
@@ -44,6 +57,8 @@ class InvoiceTermsFeatureTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('شروط الفاتورة');
+        $response->assertSee('قالب الشروط');
+        $response->assertSee('استبدال وبيع تجزئة');
         $response->assertSee('الاستبدال خلال 3 أيام');
         $response->assertSee('مع الفاتورة الأصلية');
     }
@@ -51,6 +66,14 @@ class InvoiceTermsFeatureTest extends TestCase
     public function test_purchases_create_page_prefills_default_invoice_terms(): void
     {
         SystemSetting::putValue('default_invoice_terms', "الشراء النهائي بعد الفحص\nولا يقبل الإلغاء");
+        SystemSetting::putValue('invoice_terms_templates', json_encode([
+            [
+                'key' => 'supplier-standard',
+                'title' => 'مورد قياسي',
+                'content' => "الشراء النهائي بعد الفحص\nولا يقبل الإلغاء",
+            ],
+        ], JSON_UNESCAPED_UNICODE));
+        SystemSetting::putValue('default_invoice_terms_template_key', 'supplier-standard');
         $admin = $this->createAdminUser([
             'employee.purchase_invoices.add',
         ]);
@@ -61,6 +84,8 @@ class InvoiceTermsFeatureTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('شروط الفاتورة');
+        $response->assertSee('قالب الشروط');
+        $response->assertSee('مورد قياسي');
         $response->assertSee('الشراء النهائي بعد الفحص');
         $response->assertSee('ولا يقبل الإلغاء');
     }

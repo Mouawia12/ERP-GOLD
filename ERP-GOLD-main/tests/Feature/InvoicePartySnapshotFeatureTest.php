@@ -166,6 +166,56 @@ class InvoicePartySnapshotFeatureTest extends TestCase
         $response->assertDontSee('0000111122');
     }
 
+    public function test_customer_report_displays_saved_invoice_snapshot_even_after_customer_master_changes(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.customers.show',
+        ]);
+        $customerId = DB::table('customers')->insertGetId([
+            'name' => 'الاسم الحالي للعميل',
+            'phone' => '0501212121',
+            'identity_number' => '1212121212',
+            'type' => 'customer',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $invoice = $this->createInvoice($admin->branch, $admin, 'sale', [
+            'customer_id' => $customerId,
+            'sale_type' => 'simplified',
+            'bill_client_name' => 'اسم الفاتورة المحفوظ',
+            'bill_client_phone' => '0509898989',
+            'bill_client_identity_number' => '9898989898',
+        ]);
+
+        DB::table('invoice_details')->insert([
+            'invoice_id' => $invoice->id,
+            'date' => now()->format('Y-m-d'),
+            'line_total' => 100,
+            'line_tax' => 15,
+            'net_total' => 115,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('customers')->where('id', $customerId)->update([
+            'name' => 'الاسم الحالي بعد التعديل',
+            'phone' => '0503434343',
+            'identity_number' => '3434343434',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('customers.report', $customerId, false));
+
+        $response->assertOk();
+        $response->assertSee('الاسم الحالي بعد التعديل');
+        $response->assertSee('0503434343');
+        $response->assertSee('اسم الفاتورة المحفوظ');
+        $response->assertSee('0509898989');
+        $response->assertSee($invoice->bill_number);
+    }
+
     /**
      * @param  array<int, string>  $permissions
      */

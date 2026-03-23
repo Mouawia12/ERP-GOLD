@@ -53,6 +53,13 @@ class Account extends Model
         return $this->hasMany($this, 'parent_account_id');
     }
 
+    public function childrensRecursive()
+    {
+        return $this->childrens()
+            ->orderBy('code')
+            ->with('childrensRecursive');
+    }
+
     /*
      * Get account childs ids
      * notice this array contain account id and its childs ids
