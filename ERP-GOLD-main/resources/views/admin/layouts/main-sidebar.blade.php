@@ -22,6 +22,10 @@
             filter: drop-shadow(0 6px 18px rgba(229, 184, 11, 0.18));
         }
     </style>
+    @php
+        $currentSidebarUser = Auth::guard('admin-web')->user();
+        $isOwnerSidebar = (bool) ($currentSidebarUser?->is_admin ?? false);
+    @endphp
     
     <div class="main-sidemenu" style="overflow: auto!important;" id="right">
         <div class="app-sidebar__user clearfix">
@@ -44,7 +48,62 @@
                     <span class="side-menu__label"> الرئيسية </span>
                 </a>
             </li>       
-           
+            @if($isOwnerSidebar)
+                @canany(['employee.branches.show', 'employee.users.show', 'employee.user_permissions.show'])
+                    <li class="slide">
+                        <a class="side-menu__item" data-toggle="slide" href="#">
+                            <i class="fa fa-users side-menu__icon"></i>
+                            <span class="side-menu__label">
+                                إدارة المشتركين
+                            </span><i class="angle fe fe-chevron-down"></i>
+                        </a>
+                        <ul class="slide-menu">
+                            @can('employee.branches.add')
+                                <li>
+                                    <a class="slide-item" href="{{ route('admin.branches.create') }}">
+                                        إضافة مشترك جديد
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('employee.branches.show')
+                                <li>
+                                    <a class="slide-item" href="{{ route('admin.branches.index') }}">
+                                        قائمة المشتركين
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('employee.users.add')
+                                <li>
+                                    <a class="slide-item" href="{{ route('admin.users.create') }}">
+                                        إضافة مستخدم للمشترك
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('employee.users.show')
+                                <li>
+                                    <a class="slide-item" href="{{ route('admin.users.index') }}">
+                                        قائمة مستخدمي المشتركين
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('employee.user_permissions.show')
+                                <li>
+                                    <a class="slide-item" href="{{ route('admin.roles.index') }}">
+                                        صلاحيات المشتركين
+                                    </a>
+                                </li>
+                            @endcan
+                            @can('employee.user_permissions.add')
+                                <li>
+                                    <a class="slide-item" href="{{ route('admin.roles.create') }}">
+                                        إضافة دور جديد
+                                    </a>
+                                </li>
+                            @endcan
+                        </ul>
+                    </li>
+                @endcanany
+            @else
             @can('employee.simplified_tax_invoices.show')                
                 <li class="slide">
                     <a class="side-menu__item" data-toggle="slide" href="#">
@@ -636,6 +695,7 @@
                     </ul>
                 </li>
             @endcan
+            @endif
         </ul>
     </div>
 </aside>

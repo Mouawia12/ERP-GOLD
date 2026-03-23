@@ -1,50 +1,96 @@
 @extends('admin.layouts.master')
 
 @php
-    $summaryCards = [
-        [
-            'label' => 'مبيعات اليوم',
-            'value' => number_format($overview['today_sales_total'], 2),
-            'meta' => 'صافي قبل خصم مرتجعات اليوم',
-            'class' => 'dashboard-card--gold',
-            'icon' => 'fa-coins',
-        ],
-        [
-            'label' => 'صافي البيع اليومي',
-            'value' => number_format($overview['today_net_sales_total'], 2),
-            'meta' => 'المبيعات - مرتجع المبيعات',
-            'class' => 'dashboard-card--emerald',
-            'icon' => 'fa-chart-line',
-        ],
-        [
-            'label' => 'مشتريات اليوم',
-            'value' => number_format($overview['today_purchases_total'], 2),
-            'meta' => 'إجمالي فواتير الشراء',
-            'class' => 'dashboard-card--blue',
-            'icon' => 'fa-cart-plus',
-        ],
-        [
-            'label' => 'وزن البيع اليوم',
-            'value' => number_format($overview['today_sold_weight'], 3) . ' جم',
-            'meta' => 'وزن ذهبي محسوب بعامل التحويل',
-            'class' => 'dashboard-card--rose',
-            'icon' => 'fa-weight-scale',
-        ],
-        [
-            'label' => 'وزن الشراء اليوم',
-            'value' => number_format($overview['today_purchased_weight'], 3) . ' جم',
-            'meta' => 'الوزن الداخل على فواتير الشراء',
-            'class' => 'dashboard-card--violet',
-            'icon' => 'fa-box-open',
-        ],
-        [
-            'label' => 'عمليات اليوم',
-            'value' => number_format($overview['today_invoice_count']),
-            'meta' => 'بيع وشراء ومرتجعات اليوم',
-            'class' => 'dashboard-card--slate',
-            'icon' => 'fa-file-invoice-dollar',
-        ],
-    ];
+    $isOwnerView = (bool) ($user->is_admin ?? false);
+    $summaryCards = $isOwnerView
+        ? [
+            [
+                'label' => 'المشتركون',
+                'value' => number_format($directoryCounts['branches']),
+                'meta' => 'إجمالي الفروع/الحسابات التي يديرها المالك',
+                'icon' => 'fa-building',
+                'style' => 'background: linear-gradient(135deg, #9c6b11 0%, #d9a328 100%);',
+            ],
+            [
+                'label' => 'مستخدمو المشتركين',
+                'value' => number_format($directoryCounts['users']),
+                'meta' => 'إجمالي المستخدمين المسجلين عبر جميع المشتركين',
+                'icon' => 'fa-users',
+                'style' => 'background: linear-gradient(135deg, #0f6d5d 0%, #2ea37d 100%);',
+            ],
+            [
+                'label' => 'المشتركون النشطون اليوم',
+                'value' => number_format($overview['today_active_branches_count']),
+                'meta' => 'عدد الفروع التي سجلت حركة اليوم',
+                'icon' => 'fa-signal',
+                'style' => 'background: linear-gradient(135deg, #1b4f8f 0%, #3b82d1 100%);',
+            ],
+            [
+                'label' => 'عمليات اليوم',
+                'value' => number_format($overview['today_invoice_count']),
+                'meta' => 'كل العمليات المسجلة على مستوى المشتركين',
+                'icon' => 'fa-file-invoice-dollar',
+                'style' => 'background: linear-gradient(135deg, #7c3053 0%, #c85f89 100%);',
+            ],
+            [
+                'label' => 'العملاء',
+                'value' => number_format($directoryCounts['customers']),
+                'meta' => 'قاعدة العملاء المرتبطة بالمشتركين',
+                'icon' => 'fa-user-tie',
+                'style' => 'background: linear-gradient(135deg, #5f3f8c 0%, #8a68c0 100%);',
+            ],
+            [
+                'label' => 'الموردون',
+                'value' => number_format($directoryCounts['suppliers']),
+                'meta' => 'إجمالي الموردين المسجلين داخل النظام',
+                'icon' => 'fa-truck',
+                'style' => 'background: linear-gradient(135deg, #2d3d4f 0%, #536779 100%);',
+            ],
+        ]
+        : [
+            [
+                'label' => 'مبيعات اليوم',
+                'value' => number_format($overview['today_sales_total'], 2),
+                'meta' => 'صافي قبل خصم مرتجعات اليوم',
+                'icon' => 'fa-coins',
+                'style' => 'background: linear-gradient(135deg, #9c6b11 0%, #d9a328 100%);',
+            ],
+            [
+                'label' => 'صافي البيع اليومي',
+                'value' => number_format($overview['today_net_sales_total'], 2),
+                'meta' => 'المبيعات - مرتجع المبيعات',
+                'icon' => 'fa-chart-line',
+                'style' => 'background: linear-gradient(135deg, #0f6d5d 0%, #2ea37d 100%);',
+            ],
+            [
+                'label' => 'مشتريات اليوم',
+                'value' => number_format($overview['today_purchases_total'], 2),
+                'meta' => 'إجمالي فواتير الشراء',
+                'icon' => 'fa-cart-plus',
+                'style' => 'background: linear-gradient(135deg, #1b4f8f 0%, #3b82d1 100%);',
+            ],
+            [
+                'label' => 'وزن البيع اليوم',
+                'value' => number_format($overview['today_sold_weight'], 3) . ' جم',
+                'meta' => 'وزن ذهبي محسوب بعامل التحويل',
+                'icon' => 'fa-weight-scale',
+                'style' => 'background: linear-gradient(135deg, #7c3053 0%, #c85f89 100%);',
+            ],
+            [
+                'label' => 'وزن الشراء اليوم',
+                'value' => number_format($overview['today_purchased_weight'], 3) . ' جم',
+                'meta' => 'الوزن الداخل على فواتير الشراء',
+                'icon' => 'fa-box-open',
+                'style' => 'background: linear-gradient(135deg, #5f3f8c 0%, #8a68c0 100%);',
+            ],
+            [
+                'label' => 'عمليات اليوم',
+                'value' => number_format($overview['today_invoice_count']),
+                'meta' => 'بيع وشراء ومرتجعات اليوم',
+                'icon' => 'fa-file-invoice-dollar',
+                'style' => 'background: linear-gradient(135deg, #2d3d4f 0%, #536779 100%);',
+            ],
+        ];
 @endphp
 
 <style>
@@ -261,11 +307,13 @@
 </style>
 
 @section('page-header')
-    <div class="breadcrumb-header justify-content-between">
+        <div class="breadcrumb-header justify-content-between">
         <div class="left-content">
             <div>
-                <h2 class="main-content-title tx-24 mg-b-1 mg-b-lg-1">لوحة المالك</h2>
-                <p class="mb-0 text-muted">ملخص يومي موحد للمال والحركة الوزنية والمستخدمين والفروع.</p>
+                <h2 class="main-content-title tx-24 mg-b-1 mg-b-lg-1">{{ $isOwnerView ? 'لوحة المالك' : 'لوحة التشغيل' }}</h2>
+                <p class="mb-0 text-muted">
+                    {{ $isOwnerView ? 'ملخص يركز على إدارة المشتركين وحركة الفروع المرتبطة بهم.' : 'ملخص يومي موحد للمال والحركة الوزنية والمستخدمين والفروع.' }}
+                </p>
             </div>
         </div>
     </div>
@@ -274,11 +322,11 @@
         <div class="owner-dashboard__hero">
             <span class="owner-dashboard__eyebrow">
                 <i class="fa fa-layer-group"></i>
-                {{ $user->is_admin ? 'عرض المالك على مستوى جميع الفروع' : 'عرض الفرع النشط فقط' }}
+                {{ $isOwnerView ? 'عرض المالك على مستوى جميع المشتركين' : 'عرض الفرع النشط فقط' }}
             </span>
             <div class="row align-items-end">
                 <div class="col-xl-7">
-                    <h1 class="owner-dashboard__title">تشغيل {{ $scopeLabel }}</h1>
+                    <h1 class="owner-dashboard__title">{{ $isOwnerView ? 'إدارة المشتركين' : 'تشغيل ' . $scopeLabel }}</h1>
                     <p class="owner-dashboard__subtitle">
                         تاريخ العمل: {{ $today->format('Y-m-d') }}
                         @if($latestGoldPrice)
@@ -289,20 +337,20 @@
                 <div class="col-xl-5">
                     <div class="owner-dashboard__hero-grid">
                         <div class="owner-dashboard__hero-box">
-                            <span class="owner-dashboard__hero-box-label">الفروع النشطة اليوم</span>
-                            <span class="owner-dashboard__hero-box-value">{{ number_format($overview['today_active_branches_count']) }}</span>
+                            <span class="owner-dashboard__hero-box-label">{{ $isOwnerView ? 'المشتركون' : 'الفروع النشطة اليوم' }}</span>
+                            <span class="owner-dashboard__hero-box-value">{{ number_format($isOwnerView ? $directoryCounts['branches'] : $overview['today_active_branches_count']) }}</span>
                         </div>
                         <div class="owner-dashboard__hero-box">
-                            <span class="owner-dashboard__hero-box-label">العملاء</span>
-                            <span class="owner-dashboard__hero-box-value">{{ number_format($directoryCounts['customers']) }}</span>
+                            <span class="owner-dashboard__hero-box-label">{{ $isOwnerView ? 'المستخدمون' : 'العملاء' }}</span>
+                            <span class="owner-dashboard__hero-box-value">{{ number_format($isOwnerView ? $directoryCounts['users'] : $directoryCounts['customers']) }}</span>
                         </div>
                         <div class="owner-dashboard__hero-box">
-                            <span class="owner-dashboard__hero-box-label">الموردون</span>
-                            <span class="owner-dashboard__hero-box-value">{{ number_format($directoryCounts['suppliers']) }}</span>
+                            <span class="owner-dashboard__hero-box-label">{{ $isOwnerView ? 'الفروع النشطة اليوم' : 'الموردون' }}</span>
+                            <span class="owner-dashboard__hero-box-value">{{ number_format($isOwnerView ? $overview['today_active_branches_count'] : $directoryCounts['suppliers']) }}</span>
                         </div>
                         <div class="owner-dashboard__hero-box">
-                            <span class="owner-dashboard__hero-box-label">الأصناف</span>
-                            <span class="owner-dashboard__hero-box-value">{{ number_format($directoryCounts['items']) }}</span>
+                            <span class="owner-dashboard__hero-box-label">{{ $isOwnerView ? 'العمليات اليوم' : 'الأصناف' }}</span>
+                            <span class="owner-dashboard__hero-box-value">{{ number_format($isOwnerView ? $overview['today_invoice_count'] : $directoryCounts['items']) }}</span>
                         </div>
                     </div>
                 </div>
@@ -312,7 +360,7 @@
         <div class="row">
             @foreach($summaryCards as $card)
                 <div class="col-xl-4 col-lg-6 col-md-6">
-                    <div class="card dashboard-card {{ $card['class'] }}">
+                    <div class="card dashboard-card" style="{{ $card['style'] }}">
                         <div class="dashboard-card__body">
                             <div>
                                 <span class="dashboard-card__icon">
@@ -413,39 +461,41 @@
         </div>
 
         <div class="row">
-            <div class="col-xl-4">
-                <div class="card dashboard-panel">
-                    <div class="card-body">
-                        <div class="dashboard-panel__header">
-                            <div>
-                                <h3 class="dashboard-panel__title">المشتريات حسب العيار</h3>
-                                <p class="dashboard-panel__subtitle">تجميع يومي للوزن والقيمة بحسب العيار المشتَرى.</p>
-                            </div>
-                            <span class="dashboard-chip">
-                                <i class="fa fa-weight-hanging"></i>
-                                {{ number_format($overview['today_purchased_weight'], 3) }} جم
-                            </span>
-                        </div>
-
-                        @forelse($purchaseBreakdown as $row)
-                            <div class="d-flex justify-content-between align-items-center border rounded-lg px-3 py-2 mb-2">
+            @if(! $isOwnerView)
+                <div class="col-xl-4">
+                    <div class="card dashboard-panel">
+                        <div class="card-body">
+                            <div class="dashboard-panel__header">
                                 <div>
-                                    <strong>{{ $row->carat_title }}</strong>
-                                    <div class="text-muted small">{{ number_format($row->invoice_count) }} فاتورة شراء</div>
+                                    <h3 class="dashboard-panel__title">المشتريات حسب العيار</h3>
+                                    <p class="dashboard-panel__subtitle">تجميع يومي للوزن والقيمة بحسب العيار المشتَرى.</p>
                                 </div>
-                                <div class="text-left">
-                                    <div class="font-weight-bold">{{ number_format($row->total_in_weight, 3) }} جم</div>
-                                    <div class="text-muted small">{{ number_format($row->total_net_total, 2) }}</div>
-                                </div>
+                                <span class="dashboard-chip">
+                                    <i class="fa fa-weight-hanging"></i>
+                                    {{ number_format($overview['today_purchased_weight'], 3) }} جم
+                                </span>
                             </div>
-                        @empty
-                            <div class="dashboard-empty">لا توجد مشتريات مسجلة لهذا اليوم.</div>
-                        @endforelse
+
+                            @forelse($purchaseBreakdown as $row)
+                                <div class="d-flex justify-content-between align-items-center border rounded-lg px-3 py-2 mb-2">
+                                    <div>
+                                        <strong>{{ $row->carat_title }}</strong>
+                                        <div class="text-muted small">{{ number_format($row->invoice_count) }} فاتورة شراء</div>
+                                    </div>
+                                    <div class="text-left">
+                                        <div class="font-weight-bold">{{ number_format($row->total_in_weight, 3) }} جم</div>
+                                        <div class="text-muted small">{{ number_format($row->total_net_total, 2) }}</div>
+                                    </div>
+                                </div>
+                            @empty
+                                <div class="dashboard-empty">لا توجد مشتريات مسجلة لهذا اليوم.</div>
+                            @endforelse
+                        </div>
                     </div>
                 </div>
-            </div>
+            @endif
 
-            <div class="col-xl-8">
+            <div class="{{ $isOwnerView ? 'col-xl-12' : 'col-xl-8' }}">
                 <div class="card dashboard-panel">
                     <div class="card-body">
                         <div class="dashboard-panel__header">
