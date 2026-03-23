@@ -24,7 +24,7 @@
     </style>
     @php
         $currentSidebarUser = Auth::guard('admin-web')->user();
-        $isOwnerSidebar = (bool) ($currentSidebarUser?->is_admin ?? false);
+        $isOwnerSidebar = (bool) $currentSidebarUser?->isOwner();
     @endphp
     
     <div class="main-sidemenu" style="overflow: auto!important;" id="right">

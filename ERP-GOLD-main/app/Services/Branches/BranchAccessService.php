@@ -12,7 +12,7 @@ class BranchAccessService
 {
     public function canAccessAllBranches(?User $user): bool
     {
-        return (bool) ($user?->is_admin ?? false);
+        return (bool) $user?->isOwner();
     }
 
     public function branchIdForUser(User $user): ?int

@@ -73,5 +73,7 @@ class Kernel extends HttpKernel
         'localeViewPath'          => \Mcamara\LaravelLocalization\Middleware\LaravelLocalizationViewPath::class,
         'enforce.admin.session' => \App\Http\Middleware\EnsureValidAdminSession::class,
         'apply.admin.branch' => \App\Http\Middleware\ApplyCurrentAdminBranch::class,
+        'owner.only' => \App\Http\Middleware\EnsureOwnerUser::class,
+        'ops.only' => \App\Http\Middleware\EnsureOperationalUser::class,
     ];
 }

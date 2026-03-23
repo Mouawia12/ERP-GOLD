@@ -13,7 +13,7 @@ class BranchContextService
 
     public function accessibleBranches(User $user): Collection
     {
-        if ($user->is_admin) {
+        if ($user->isOwner()) {
             return collect();
         }
 
@@ -34,7 +34,7 @@ class BranchContextService
      */
     public function accessibleBranchIds(User $user): array
     {
-        if ($user->is_admin) {
+        if ($user->isOwner()) {
             return [];
         }
 
@@ -57,7 +57,7 @@ class BranchContextService
 
     public function defaultBranchId(User $user): ?int
     {
-        if ($user->is_admin) {
+        if ($user->isOwner()) {
             return $this->persistedDefaultBranchId($user);
         }
 
@@ -83,7 +83,7 @@ class BranchContextService
     {
         $defaultBranchId = $this->defaultBranchId($user);
 
-        if ($user->is_admin) {
+        if ($user->isOwner()) {
             return $defaultBranchId;
         }
 
@@ -121,7 +121,7 @@ class BranchContextService
 
     public function switchTo(User $user, int $branchId, Session $session): void
     {
-        if (! $user->is_admin) {
+        if (! $user->isOwner()) {
             abort_unless(
                 in_array($branchId, $this->accessibleBranchIds($user), true),
                 403,

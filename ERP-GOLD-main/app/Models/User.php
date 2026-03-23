@@ -78,6 +78,16 @@ class User extends Authenticatable implements JWTSubject
         return $this->getRoleNames()->first();
     }
 
+    public function isOwner(): bool
+    {
+        return (bool) ($this->is_admin ?? false);
+    }
+
+    public function isOperationalUser(): bool
+    {
+        return ! $this->isOwner();
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *

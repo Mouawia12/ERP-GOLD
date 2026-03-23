@@ -1,7 +1,7 @@
 @extends('admin.layouts.master')
 
 @php
-    $isOwnerView = (bool) ($user->is_admin ?? false);
+    $isOwnerView = $user->isOwner();
     $summaryCards = $isOwnerView
         ? [
             [
@@ -9,42 +9,42 @@
                 'value' => number_format($directoryCounts['branches']),
                 'meta' => 'إجمالي الفروع/الحسابات التي يديرها المالك',
                 'icon' => 'fa-building',
-                'style' => 'background: linear-gradient(135deg, #9c6b11 0%, #d9a328 100%);',
+                'style' => 'linear-gradient(135deg, #9c6b11 0%, #d9a328 100%)',
             ],
             [
                 'label' => 'مستخدمو المشتركين',
                 'value' => number_format($directoryCounts['users']),
                 'meta' => 'إجمالي المستخدمين المسجلين عبر جميع المشتركين',
                 'icon' => 'fa-users',
-                'style' => 'background: linear-gradient(135deg, #0f6d5d 0%, #2ea37d 100%);',
+                'style' => 'linear-gradient(135deg, #0f6d5d 0%, #2ea37d 100%)',
             ],
             [
                 'label' => 'المشتركون النشطون اليوم',
                 'value' => number_format($overview['today_active_branches_count']),
                 'meta' => 'عدد الفروع التي سجلت حركة اليوم',
                 'icon' => 'fa-signal',
-                'style' => 'background: linear-gradient(135deg, #1b4f8f 0%, #3b82d1 100%);',
+                'style' => 'linear-gradient(135deg, #1b4f8f 0%, #3b82d1 100%)',
             ],
             [
                 'label' => 'عمليات اليوم',
                 'value' => number_format($overview['today_invoice_count']),
                 'meta' => 'كل العمليات المسجلة على مستوى المشتركين',
                 'icon' => 'fa-file-invoice-dollar',
-                'style' => 'background: linear-gradient(135deg, #7c3053 0%, #c85f89 100%);',
+                'style' => 'linear-gradient(135deg, #7c3053 0%, #c85f89 100%)',
             ],
             [
                 'label' => 'العملاء',
                 'value' => number_format($directoryCounts['customers']),
                 'meta' => 'قاعدة العملاء المرتبطة بالمشتركين',
                 'icon' => 'fa-user-tie',
-                'style' => 'background: linear-gradient(135deg, #5f3f8c 0%, #8a68c0 100%);',
+                'style' => 'linear-gradient(135deg, #5f3f8c 0%, #8a68c0 100%)',
             ],
             [
                 'label' => 'الموردون',
                 'value' => number_format($directoryCounts['suppliers']),
                 'meta' => 'إجمالي الموردين المسجلين داخل النظام',
                 'icon' => 'fa-truck',
-                'style' => 'background: linear-gradient(135deg, #2d3d4f 0%, #536779 100%);',
+                'style' => 'linear-gradient(135deg, #2d3d4f 0%, #536779 100%)',
             ],
         ]
         : [
@@ -53,42 +53,42 @@
                 'value' => number_format($overview['today_sales_total'], 2),
                 'meta' => 'صافي قبل خصم مرتجعات اليوم',
                 'icon' => 'fa-coins',
-                'style' => 'background: linear-gradient(135deg, #9c6b11 0%, #d9a328 100%);',
+                'style' => 'linear-gradient(135deg, #9c6b11 0%, #d9a328 100%)',
             ],
             [
                 'label' => 'صافي البيع اليومي',
                 'value' => number_format($overview['today_net_sales_total'], 2),
                 'meta' => 'المبيعات - مرتجع المبيعات',
                 'icon' => 'fa-chart-line',
-                'style' => 'background: linear-gradient(135deg, #0f6d5d 0%, #2ea37d 100%);',
+                'style' => 'linear-gradient(135deg, #0f6d5d 0%, #2ea37d 100%)',
             ],
             [
                 'label' => 'مشتريات اليوم',
                 'value' => number_format($overview['today_purchases_total'], 2),
                 'meta' => 'إجمالي فواتير الشراء',
                 'icon' => 'fa-cart-plus',
-                'style' => 'background: linear-gradient(135deg, #1b4f8f 0%, #3b82d1 100%);',
+                'style' => 'linear-gradient(135deg, #1b4f8f 0%, #3b82d1 100%)',
             ],
             [
                 'label' => 'وزن البيع اليوم',
                 'value' => number_format($overview['today_sold_weight'], 3) . ' جم',
                 'meta' => 'وزن ذهبي محسوب بعامل التحويل',
                 'icon' => 'fa-weight-scale',
-                'style' => 'background: linear-gradient(135deg, #7c3053 0%, #c85f89 100%);',
+                'style' => 'linear-gradient(135deg, #7c3053 0%, #c85f89 100%)',
             ],
             [
                 'label' => 'وزن الشراء اليوم',
                 'value' => number_format($overview['today_purchased_weight'], 3) . ' جم',
                 'meta' => 'الوزن الداخل على فواتير الشراء',
                 'icon' => 'fa-box-open',
-                'style' => 'background: linear-gradient(135deg, #5f3f8c 0%, #8a68c0 100%);',
+                'style' => 'linear-gradient(135deg, #5f3f8c 0%, #8a68c0 100%)',
             ],
             [
                 'label' => 'عمليات اليوم',
                 'value' => number_format($overview['today_invoice_count']),
                 'meta' => 'بيع وشراء ومرتجعات اليوم',
                 'icon' => 'fa-file-invoice-dollar',
-                'style' => 'background: linear-gradient(135deg, #2d3d4f 0%, #536779 100%);',
+                'style' => 'linear-gradient(135deg, #2d3d4f 0%, #536779 100%)',
             ],
         ];
 @endphp
@@ -158,19 +158,24 @@
     }
 
     .dashboard-card {
-        border: 0;
-        border-radius: 20px;
+        border: 0 !important;
+        border-radius: 20px !important;
         overflow: hidden;
         min-height: 165px;
         box-shadow: 0 14px 32px rgba(19, 28, 45, 0.08);
+        background: transparent !important;
+        background-color: transparent !important;
     }
 
     .dashboard-card__body {
         padding: 18px 18px 16px;
-        height: 100%;
+        min-height: 165px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
+        border-radius: 20px;
+        background: var(--dashboard-card-bg) !important;
+        color: #fff !important;
     }
 
     .dashboard-card__icon {
@@ -189,7 +194,11 @@
     .dashboard-card__label,
     .dashboard-card__meta,
     .dashboard-card__value {
-        color: #fff;
+        color: inherit !important;
+    }
+
+    .dashboard-card__body i {
+        color: inherit !important;
     }
 
     .dashboard-card__label {
@@ -360,8 +369,8 @@
         <div class="row">
             @foreach($summaryCards as $card)
                 <div class="col-xl-4 col-lg-6 col-md-6">
-                    <div class="card dashboard-card" style="{{ $card['style'] }}">
-                        <div class="dashboard-card__body">
+                    <div class="card dashboard-card">
+                        <div class="dashboard-card__body" style="--dashboard-card-bg: {{ $card['style'] }};">
                             <div>
                                 <span class="dashboard-card__icon">
                                     <i class="fa {{ $card['icon'] }}"></i>

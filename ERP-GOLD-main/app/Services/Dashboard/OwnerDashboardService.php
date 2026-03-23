@@ -21,7 +21,7 @@ class OwnerDashboardService
 
     public function buildForUser(User $user): array
     {
-        $branchId = $user->is_admin ? null : $user->branch_id;
+        $branchId = $user->isOwner() ? null : $user->branch_id;
         $today = $this->businessDate($branchId);
         $scopeBranch = $branchId ? Branch::query()->find($branchId) : null;
 
