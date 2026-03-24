@@ -43,6 +43,13 @@ class AdminAccessTest extends TestCase
         $this->assertAuthenticatedAs($user, 'admin-web');
     }
 
+    public function test_unauthenticated_admin_route_redirects_to_admin_login_without_missing_route_error(): void
+    {
+        $response = $this->get(route('admin.home', [], false));
+
+        $response->assertRedirect(route('admin.login', [], false));
+    }
+
     public function test_inactive_admin_cannot_log_in(): void
     {
         $user = $this->createAdminUser();
