@@ -374,7 +374,7 @@ class StockReportFiltersFeatureTest extends TestCase
             'branch_id' => $branch->id,
             'status' => true,
             'profile_pic' => 'default.png',
-            'is_admin' => true,
+            'is_admin' => false,
         ]);
 
         $user->assignRole($role);

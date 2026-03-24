@@ -132,7 +132,7 @@ class GoldStockReportFeatureTest extends TestCase
             'password' => Hash::make('secret123'),
             'branch_id' => $branch->id,
             'status' => true,
-            'is_admin' => true,
+            'is_admin' => false,
             'profile_pic' => 'default.png',
         ]);
 

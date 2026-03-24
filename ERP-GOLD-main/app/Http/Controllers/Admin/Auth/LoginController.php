@@ -93,8 +93,22 @@ class LoginController extends Controller
         ])->onlyInput('email');
     }
 
-    protected function authenticated(Request $request, $user): void
+    protected function authenticated(Request $request, $user)
     {
+        if ($user->subscriber && ! $user->subscriber->isActiveForLogin()) {
+            app(LoginModeService::class)->clearAuthenticatedSession($user, $request->session()->getId());
+            app(BranchContextService::class)->clearSession($request->session());
+            Auth::guard('admin-web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()
+                ->route('admin.login')
+                ->withErrors([
+                    'email' => 'هذا الاشتراك موقوف أو منتهي ولا يمكنه تسجيل الدخول حاليًا.',
+                ]);
+        }
+
         app(LoginModeService::class)->syncAuthenticatedSession($user, $request->session()->getId());
         app(BranchContextService::class)->applyToUser($user, $request->session());
     }

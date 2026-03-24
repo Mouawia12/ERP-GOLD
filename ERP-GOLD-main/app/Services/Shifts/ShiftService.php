@@ -23,7 +23,7 @@ class ShiftService
     {
         $branch = Branch::findOrFail($branchId);
 
-        if (! $user->is_admin && (int) $user->branch_id !== (int) $branch->id) {
+        if (! $this->canManageAcrossBranches($user) && (int) $user->branch_id !== (int) $branch->id) {
             throw ValidationException::withMessages([
                 'branch_id' => ['لا يمكنك فتح شفت على فرع غير مخصص لك.'],
             ]);
@@ -227,5 +227,14 @@ class ShiftService
         }
 
         return $totals;
+    }
+
+    private function canManageAcrossBranches(User $user): bool
+    {
+        return $user->canAny([
+            'employee.users.show',
+            'employee.user_permissions.show',
+            'employee.branches.show',
+        ]);
     }
 }

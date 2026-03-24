@@ -7,6 +7,7 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DefaultRoleSeeder extends Seeder
 {
@@ -20,18 +21,33 @@ class DefaultRoleSeeder extends Seeder
         if (Role::count() > 0) {
             return;
         }
+
         $branch = Branch::firstOrCreate([
             'name' => ['ar' => 'الفرع الرئيسي', 'en' => 'Main Branch'],
         ]);
-        $user = User::firstOrCreate([
-            'name' => 'Super Admin',
-            'email' => 'superadmin@gmail.com',
-            'password' => \Hash::make('123456'),
-            'branch_id' => $branch->id,
-            'phone_number' => '123456789',
-            'profile_pic' => 'default.png',
+
+        $user = User::firstOrCreate(
+            ['email' => 'superadmin@gmail.com'],
+            [
+                'name' => 'Super Admin',
+                'password' => Hash::make('123456'),
+                'branch_id' => $branch->id,
+                'phone_number' => '123456789',
+                'profile_pic' => 'default.png',
+                'status' => true,
+                'is_admin' => true,
+            ]
+        );
+
+        $user->forceFill([
+            'name' => $user->name ?: 'Super Admin',
+            'branch_id' => $user->branch_id ?: $branch->id,
+            'phone_number' => $user->phone_number ?: '123456789',
+            'profile_pic' => $user->profile_pic ?: 'default.png',
             'status' => true,
-        ]);
+            'is_admin' => true,
+        ])->save();
+
         $new_role = Role::create(['name' => ['ar' => 'سوبر ادمن', 'en' => 'Super Admin'], 'guard_name' => 'admin-web']);
         $permissions_modules = config('settings.permissions_modules');
         foreach ($permissions_modules as $permission) {

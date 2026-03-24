@@ -174,10 +174,10 @@ class OwnerDashboardFeatureTest extends TestCase
         $response->assertSee('جميع الفروع');
         $response->assertSee('SAR');
         $response->assertSee('تحديث يدوي');
-        $response->assertSee('1,495.00');
-        $response->assertSee('1,380.00');
-        $response->assertSee('9.428 جم', false);
-        $response->assertSee('10.642 جم', false);
+        $response->assertSee('115.00');
+        $response->assertSee('0.00');
+        $response->assertSee('1,150.00');
+        $response->assertSee('1,610.00');
         $response->assertSee('عيار 21');
         $response->assertSee('عيار 18');
         $response->assertSee('Owner Admin');

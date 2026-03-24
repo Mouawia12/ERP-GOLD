@@ -6,8 +6,8 @@
         ? [
             [
                 'label' => 'المشتركون',
-                'value' => number_format($directoryCounts['branches']),
-                'meta' => 'إجمالي الفروع/الحسابات التي يديرها المالك',
+                'value' => number_format($directoryCounts['subscribers']),
+                'meta' => 'إجمالي الحسابات المستقلة التي يديرها المالك',
                 'icon' => 'fa-building',
                 'style' => 'linear-gradient(135deg, #9c6b11 0%, #d9a328 100%)',
             ],
@@ -20,8 +20,8 @@
             ],
             [
                 'label' => 'المشتركون النشطون اليوم',
-                'value' => number_format($overview['today_active_branches_count']),
-                'meta' => 'عدد الفروع التي سجلت حركة اليوم',
+                'value' => number_format($overview['active_subscribers_count']),
+                'meta' => 'الحسابات النشطة الصالحة للاستخدام حاليًا',
                 'icon' => 'fa-signal',
                 'style' => 'linear-gradient(135deg, #1b4f8f 0%, #3b82d1 100%)',
             ],
@@ -347,7 +347,7 @@
                     <div class="owner-dashboard__hero-grid">
                         <div class="owner-dashboard__hero-box">
                             <span class="owner-dashboard__hero-box-label">{{ $isOwnerView ? 'المشتركون' : 'الفروع النشطة اليوم' }}</span>
-                            <span class="owner-dashboard__hero-box-value">{{ number_format($isOwnerView ? $directoryCounts['branches'] : $overview['today_active_branches_count']) }}</span>
+                            <span class="owner-dashboard__hero-box-value">{{ number_format($isOwnerView ? $directoryCounts['subscribers'] : $overview['today_active_branches_count']) }}</span>
                         </div>
                         <div class="owner-dashboard__hero-box">
                             <span class="owner-dashboard__hero-box-label">{{ $isOwnerView ? 'المستخدمون' : 'العملاء' }}</span>
@@ -355,7 +355,7 @@
                         </div>
                         <div class="owner-dashboard__hero-box">
                             <span class="owner-dashboard__hero-box-label">{{ $isOwnerView ? 'الفروع النشطة اليوم' : 'الموردون' }}</span>
-                            <span class="owner-dashboard__hero-box-value">{{ number_format($isOwnerView ? $overview['today_active_branches_count'] : $directoryCounts['suppliers']) }}</span>
+                            <span class="owner-dashboard__hero-box-value">{{ number_format($isOwnerView ? $overview['active_subscribers_count'] : $directoryCounts['suppliers']) }}</span>
                         </div>
                         <div class="owner-dashboard__hero-box">
                             <span class="owner-dashboard__hero-box-label">{{ $isOwnerView ? 'العمليات اليوم' : 'الأصناف' }}</span>
@@ -448,8 +448,8 @@
 
                         <div class="dashboard-mini-list">
                             <div class="dashboard-mini-list__item">
-                                <span class="dashboard-mini-list__label">عدد الفروع</span>
-                                <span class="dashboard-mini-list__value">{{ number_format($directoryCounts['branches']) }}</span>
+                                <span class="dashboard-mini-list__label">{{ $isOwnerView ? 'عدد المشتركين' : 'عدد الفروع' }}</span>
+                                <span class="dashboard-mini-list__value">{{ number_format($isOwnerView ? $directoryCounts['subscribers'] : $directoryCounts['branches']) }}</span>
                             </div>
                             <div class="dashboard-mini-list__item">
                                 <span class="dashboard-mini-list__label">عدد المستخدمين</span>

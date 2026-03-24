@@ -73,7 +73,7 @@
                         @csrf
                         <div class="form-group">
                             <label>الفرع</label>
-                            @if(Auth::user()->is_admin)
+                            @if($canManageShiftDirectory)
                                 <select class="js-example-basic-single w-100" name="branch_id" required>
                                     @foreach($branches as $branch)
                                         <option value="{{ $branch->id }}" @selected(old('branch_id', Auth::user()->branch_id) == $branch->id)>
@@ -131,7 +131,7 @@
                                 <label>إلى تاريخ</label>
                                 <input type="date" class="form-control" name="date_to" value="{{ $filters['date_to'] ?? '' }}">
                             </div>
-                            @if(Auth::user()->is_admin)
+                            @if($canManageShiftDirectory)
                                 <div class="col-md-3">
                                     <label>الفرع</label>
                                     <select class="form-control" name="branch_id">

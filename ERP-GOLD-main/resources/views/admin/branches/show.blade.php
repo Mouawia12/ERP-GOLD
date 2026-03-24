@@ -65,7 +65,7 @@
                             </tr>
                             </thead>
                             <tbody>
-                            @forelse ($branch->assignedUsers as $linkedUser)
+                            @forelse ($branch->activeAssignedUsers as $linkedUser)
                                 <tr>
                                     <td>{{ $loop->iteration }}</td>
                                     <td>{{ $linkedUser->name }}</td>

@@ -20,10 +20,11 @@ class ShiftController extends Controller
     public function index(Request $request)
     {
         $user = $request->user('admin-web');
+        $canManageShiftDirectory = $this->canManageShiftDirectory($user);
 
         $query = Shift::with(['branch', 'user'])->orderByDesc('opened_at');
 
-        if (! $user->is_admin) {
+        if (! $canManageShiftDirectory) {
             $query->where('user_id', $user->id);
         } else {
             $query
@@ -52,6 +53,7 @@ class ShiftController extends Controller
             'branches' => Branch::where('status', 1)->orderBy('name')->get(),
             'users' => User::orderBy('name')->get(),
             'filters' => $request->only(['status', 'date_from', 'date_to', 'branch_id', 'user_id']),
+            'canManageShiftDirectory' => $canManageShiftDirectory,
         ]);
     }
 
@@ -124,6 +126,15 @@ class ShiftController extends Controller
 
     private function ensureVisibleTo($user, Shift $shift): void
     {
-        abort_unless($user->is_admin || (int) $shift->user_id === (int) $user->id, 403);
+        abort_unless($this->canManageShiftDirectory($user) || (int) $shift->user_id === (int) $user->id, 403);
+    }
+
+    private function canManageShiftDirectory(User $user): bool
+    {
+        return $user->canAny([
+            'employee.users.show',
+            'employee.user_permissions.show',
+            'employee.branches.show',
+        ]);
     }
 }

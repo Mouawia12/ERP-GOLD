@@ -218,6 +218,7 @@ class UserMultiBranchFeatureTest extends TestCase
             'email' => 'admin-multi-branch@example.com',
             'password' => Hash::make('secret123'),
             'branch_id' => $branch->id,
+            'is_admin' => false,
             'status' => true,
             'profile_pic' => 'default.png',
         ]);

@@ -111,6 +111,7 @@ class RolePermissionUiTest extends TestCase
             'email' => 'admin@example.com',
             'password' => Hash::make('secret123'),
             'branch_id' => $branch->id,
+            'is_admin' => true,
             'status' => true,
             'profile_pic' => 'default.png',
         ]);

@@ -9,6 +9,7 @@ use App\Models\GoldCaratType;
 use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\ItemUnit;
+use App\Services\Branches\BranchContextService;
 use App\Services\Items\BarcodePrintProfileService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -104,13 +105,15 @@ class ItemController extends Controller
      */
     public function create()
     {
+        $currentUser = $this->currentAdminUser();
         $categories = ItemCategory::all();
         $carats = GoldCarat::all();
         $caratTypes = GoldCaratType::all();
-        $branches = Branch::where('status', 1)->get();
+        $branches = $this->publicationBranchesForUser($currentUser);
         $inventoryClassifications = Item::inventoryClassificationOptions();
+        $canManageBranchPublications = $branches->count() > 1;
 
-        return view('admin.items.form', compact('categories', 'carats', 'caratTypes', 'branches', 'inventoryClassifications'));
+        return view('admin.items.form', compact('categories', 'carats', 'caratTypes', 'branches', 'inventoryClassifications', 'canManageBranchPublications'));
     }
 
     public function barcodes_table($itemId, $returnType = 'json', ?string $paperProfileKey = null)
@@ -146,14 +149,16 @@ class ItemController extends Controller
      */
     public function edit($id)
     {
+        $currentUser = $this->currentAdminUser();
         $item = Item::with('publishedBranches')->find($id);
         $categories = ItemCategory::all();
         $carats = GoldCarat::all();
         $caratTypes = GoldCaratType::all();
-        $branches = Branch::where('status', 1)->get();
+        $branches = $this->publicationBranchesForUser($currentUser);
         $inventoryClassifications = Item::inventoryClassificationOptions();
+        $canManageBranchPublications = $branches->count() > 1;
 
-        return view('admin.items.form', compact('item', 'categories', 'carats', 'caratTypes', 'branches', 'inventoryClassifications'));
+        return view('admin.items.form', compact('item', 'categories', 'carats', 'caratTypes', 'branches', 'inventoryClassifications', 'canManageBranchPublications'));
     }
 
     /**
@@ -165,9 +170,16 @@ class ItemController extends Controller
     public function store(Request $request)
     {
         $currentUser = $this->currentAdminUser();
-        $branchId = !empty($currentUser?->branch_id) && !$currentUser->is_admin
-            ? $currentUser->branch_id
-            : $request->input('branch_id');
+        $accessibleBranchIds = $this->accessiblePublicationBranchIds($currentUser);
+        $requestedBranchId = (int) $request->input('branch_id');
+        $defaultBranchId = ! empty($currentUser?->branch_id) ? (int) $currentUser->branch_id : $requestedBranchId;
+        $branchId = $requestedBranchId ?: $defaultBranchId;
+
+        if ($currentUser && ! $currentUser->isOwner()) {
+            $branchId = in_array($requestedBranchId, $accessibleBranchIds, true)
+                ? $requestedBranchId
+                : ($defaultBranchId ?: ($accessibleBranchIds[0] ?? $requestedBranchId));
+        }
 
         $validator = Validator::make(array_merge($request->all(), [
             'branch_id' => $branchId,
@@ -521,11 +533,18 @@ class ItemController extends Controller
             ->map(fn ($branchId) => (int) $branchId)
             ->push($ownerBranchId);
 
-        if (! $currentUser?->is_admin && ! empty($currentUser?->branch_id)) {
-            $selectedBranchIds = collect([(int) $currentUser->branch_id]);
+        if ($currentUser && ! $currentUser->isOwner()) {
+            $allowedBranchIds = collect($this->accessiblePublicationBranchIds($currentUser));
+
+            if ($allowedBranchIds->isNotEmpty()) {
+                $selectedBranchIds = $selectedBranchIds->intersect($allowedBranchIds);
+            }
         }
 
-        $selectedBranchIds = $selectedBranchIds->unique()->values();
+        $selectedBranchIds = $selectedBranchIds
+            ->push($ownerBranchId)
+            ->unique()
+            ->values();
 
         $payload = [];
 
@@ -545,5 +564,37 @@ class ItemController extends Controller
     private function currentAdminUser()
     {
         return auth('admin-web')->user() ?: Auth::user();
+    }
+
+    private function publicationBranchesForUser($user)
+    {
+        if (! $user) {
+            return Branch::where('status', 1)->get();
+        }
+
+        $branchIds = $this->accessiblePublicationBranchIds($user);
+
+        return Branch::query()
+            ->where('status', 1)
+            ->when($branchIds !== [], fn ($query) => $query->whereIn('id', $branchIds))
+            ->get();
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function accessiblePublicationBranchIds($user): array
+    {
+        if (! $user) {
+            return [];
+        }
+
+        $branchIds = app(BranchContextService::class)->accessibleBranchIds($user);
+
+        if ($branchIds === [] && ! empty($user->branch_id)) {
+            return [(int) $user->branch_id];
+        }
+
+        return $branchIds;
     }
 }

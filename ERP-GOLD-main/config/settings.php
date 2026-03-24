@@ -12,6 +12,7 @@ return [
         'core',
     ],
     'permissions_modules' => [
+        'subscribers',
         'users',
         'user_permissions',
         'branches',

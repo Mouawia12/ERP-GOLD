@@ -9,6 +9,7 @@ use App\Models\GoldPrice;
 use App\Models\Invoice;
 use App\Models\InvoiceDetail;
 use App\Models\Item;
+use App\Models\Subscriber;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -39,6 +40,14 @@ class OwnerDashboardService
                 ->whereNotNull('branch_id')
                 ->distinct('branch_id')
                 ->count('branch_id'),
+            'active_subscribers_count' => Subscriber::query()
+                ->where('status', true)
+                ->when(
+                    ! $branchId,
+                    fn ($query) => $query,
+                    fn ($query) => $query->whereHas('branches', fn ($branchQuery) => $branchQuery->where('id', $branchId))
+                )
+                ->count(),
         ];
 
         $overview['today_net_sales_total'] = round(
@@ -53,9 +62,13 @@ class OwnerDashboardService
             'latestGoldPrice' => GoldPrice::latestSnapshot(),
             'overview' => $overview,
             'directoryCounts' => [
+                'subscribers' => $branchId
+                    ? Branch::query()->whereKey($branchId)->whereNotNull('subscriber_id')->distinct('subscriber_id')->count('subscriber_id')
+                    : Subscriber::query()->count(),
                 'branches' => $branchId ? 1 : Branch::query()->count(),
                 'users' => User::query()
                     ->when($branchId, fn (Builder $query) => $query->where('branch_id', $branchId))
+                    ->when(! $branchId, fn (Builder $query) => $query->whereNotNull('subscriber_id'))
                     ->count(),
                 'items' => $branchId
                     ? BranchItem::query()->where('branch_id', $branchId)->where('is_active', true)->distinct('item_id')->count('item_id')

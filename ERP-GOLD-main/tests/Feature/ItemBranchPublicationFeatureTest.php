@@ -7,6 +7,7 @@ use App\Models\Item;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\Branches\BranchContextService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -32,13 +33,12 @@ class ItemBranchPublicationFeatureTest extends TestCase
 
     public function test_admin_can_create_item_once_and_publish_it_to_multiple_branches(): void
     {
-        $admin = $this->createAdminUser([
-            'employee.items.add',
-        ]);
-
         $ownerBranch = $this->createBranch('فرع المالك');
         $secondBranch = $this->createBranch('فرع العرض');
         $thirdBranch = $this->createBranch('فرع إضافي');
+        $admin = $this->createAdminUser([
+            'employee.items.add',
+        ], $ownerBranch, [$ownerBranch, $secondBranch, $thirdBranch]);
         [$categoryId, $caratId, $caratTypeId] = $this->createCatalogLookups();
 
         $response = $this
@@ -97,13 +97,12 @@ class ItemBranchPublicationFeatureTest extends TestCase
 
     public function test_sales_search_returns_only_items_published_to_requested_branch_and_uses_branch_sale_price_override(): void
     {
-        $admin = $this->createAdminUser([
-            'employee.items.add',
-        ]);
-
         $ownerBranch = $this->createBranch('فرع المصدر');
         $publishedBranch = $this->createBranch('فرع البيع');
         $hiddenBranch = $this->createBranch('فرع غير منشور');
+        $admin = $this->createAdminUser([
+            'employee.items.add',
+        ], $ownerBranch, [$ownerBranch, $publishedBranch]);
         [$categoryId, $caratId, $caratTypeId] = $this->createCatalogLookups();
 
         $this->actingAs($admin, 'admin-web')
@@ -209,9 +208,9 @@ class ItemBranchPublicationFeatureTest extends TestCase
     /**
      * @param  array<int, string>  $permissions
      */
-    private function createAdminUser(array $permissions = []): User
+    private function createAdminUser(array $permissions = [], ?Branch $defaultBranch = null, array $accessibleBranches = []): User
     {
-        $branch = $this->createBranch('فرع المدير');
+        $branch = $defaultBranch ?? $this->createBranch('فرع المدير');
 
         $role = Role::create([
             'name' => ['ar' => 'مدير الأصناف', 'en' => 'Items Admin'],
@@ -233,13 +232,21 @@ class ItemBranchPublicationFeatureTest extends TestCase
             'password' => Hash::make('secret123'),
             'branch_id' => $branch->id,
             'status' => true,
-            'is_admin' => true,
+            'is_admin' => false,
             'profile_pic' => 'default.png',
         ]);
 
         $user->assignRole($role);
 
-        return $user;
+        if ($accessibleBranches !== []) {
+            app(BranchContextService::class)->syncUserBranches(
+                $user,
+                collect($accessibleBranches)->map(fn (Branch $branch) => $branch->id)->all(),
+                $branch->id
+            );
+        }
+
+        return $user->fresh();
     }
 
     private function createRegularUser(Branch $branch, string $email): User

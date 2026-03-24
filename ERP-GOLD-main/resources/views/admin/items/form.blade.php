@@ -51,7 +51,7 @@
                                 <label class="d-block">
                                      الفرع
                                 </label>
-                                @if(Auth::user()->is_admin)
+                                @if($canManageBranchPublications)
                                     <select required  class="js-example-basic-single w-100" name="branch_id" id="branch_id"> 
                                         @foreach($branches as $branch)
                                             <option {{isset($item) ? $item->branch_id == $branch->id ? 'selected' : '' : ''}} value="{{$branch->id}}">{{$branch->name}}</option>
@@ -72,7 +72,7 @@
                         <div class="col-md-8">
                             <div class="form-group">
                                 <label class="d-block">نشر الصنف على الفروع</label>
-                                @if(Auth::user()->is_admin)
+                                @if($canManageBranchPublications)
                                     <div class="border rounded p-2" style="max-height: 220px; overflow-y: auto;">
                                         @foreach($branches as $publicationBranch)
                                             @php

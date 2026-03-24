@@ -24,7 +24,8 @@
     </style>
     @php
         $currentSidebarUser = Auth::guard('admin-web')->user();
-        $isOwnerSidebar = (bool) $currentSidebarUser?->isOwner();
+        $sidebarMode = $adminSidebarMode ?? ($currentSidebarUser?->isOwner() ? 'owner' : 'operational');
+        $isOwnerSidebar = $sidebarMode === 'owner';
     @endphp
     
     <div class="main-sidemenu" style="overflow: auto!important;" id="right">
@@ -49,60 +50,9 @@
                 </a>
             </li>       
             @if($isOwnerSidebar)
-                @canany(['employee.branches.show', 'employee.users.show', 'employee.user_permissions.show'])
-                    <li class="slide">
-                        <a class="side-menu__item" data-toggle="slide" href="#">
-                            <i class="fa fa-users side-menu__icon"></i>
-                            <span class="side-menu__label">
-                                إدارة المشتركين
-                            </span><i class="angle fe fe-chevron-down"></i>
-                        </a>
-                        <ul class="slide-menu">
-                            @can('employee.branches.add')
-                                <li>
-                                    <a class="slide-item" href="{{ route('admin.branches.create') }}">
-                                        إضافة مشترك جديد
-                                    </a>
-                                </li>
-                            @endcan
-                            @can('employee.branches.show')
-                                <li>
-                                    <a class="slide-item" href="{{ route('admin.branches.index') }}">
-                                        قائمة المشتركين
-                                    </a>
-                                </li>
-                            @endcan
-                            @can('employee.users.add')
-                                <li>
-                                    <a class="slide-item" href="{{ route('admin.users.create') }}">
-                                        إضافة مستخدم للمشترك
-                                    </a>
-                                </li>
-                            @endcan
-                            @can('employee.users.show')
-                                <li>
-                                    <a class="slide-item" href="{{ route('admin.users.index') }}">
-                                        قائمة مستخدمي المشتركين
-                                    </a>
-                                </li>
-                            @endcan
-                            @can('employee.user_permissions.show')
-                                <li>
-                                    <a class="slide-item" href="{{ route('admin.roles.index') }}">
-                                        صلاحيات المشتركين
-                                    </a>
-                                </li>
-                            @endcan
-                            @can('employee.user_permissions.add')
-                                <li>
-                                    <a class="slide-item" href="{{ route('admin.roles.create') }}">
-                                        إضافة دور جديد
-                                    </a>
-                                </li>
-                            @endcan
-                        </ul>
-                    </li>
-                @endcanany
+                @include('admin.layouts.sidebar.menu-sections', [
+                    'sections' => $ownerSidebarSections ?? [],
+                ])
             @else
             @can('employee.simplified_tax_invoices.show')                
                 <li class="slide">
@@ -601,100 +551,9 @@
                     </ul>
                 </li>     
             @endcan   
-            @can('employee.branches.show')   
-                <li class="slide">
-                    <a class="side-menu__item" data-toggle="slide" href="#">
-                        <i class="fa fa-code-branch side-menu__icon"></i>
-                        <span class="side-menu__label">
-                        الفروع
-                    </span><i class="angle fe fe-chevron-down"></i>
-                    </a>
-                    <ul class="slide-menu">
-                        @can('employee.branches.add')
-                            <li>
-                                <a class="slide-item" href="{{ route('admin.branches.create') }}">
-                                    اضافة فرع جديد
-                                </a>
-                            </li>
-                        @endcan
-                        @can('employee.branches.show')
-                            <li>
-                                <a class="slide-item" href="{{ route('admin.branches.index') }}">
-                                    قائمة الفروع
-                                </a>
-                            </li>
-                        @endcan
-                    </ul>
-                </li>
-            @endcan                                                                                  
-            @can('employee.user_permissions.show')
-                <li class="slide">
-                    <a class="side-menu__item" data-toggle="slide" href="#">
-                        <i class="fa fa-users side-menu__icon"></i>
-                        <span class="side-menu__label">
-                         الصلاحيات والمستخدمين
-                    </span><i class="angle fe fe-chevron-down"></i>
-                    </a>
-                    <ul class="slide-menu">
-                        @can('employee.user_permissions.add')
-                            <li>
-                                <a class="slide-item" href="{{ route('admin.roles.create') }}">
-                                    اضافة صلاحية جديد
-                                </a>
-                            </li>
-                        @endcan
-                        @can('employee.user_permissions.show')
-                            <li>
-                                <a class="slide-item" href="{{ route('admin.roles.index') }}">
-                                    قائمة صلاحيات المستخدمين
-                                </a>
-                            </li>
-                        @endcan
-                        @can('employee.user_permissions.add')
-                            <li>
-                                <a class="slide-item" href="{{ route('admin.users.create') }}">
-                                    اضافة مستخدم جديد
-                                </a>
-                            </li>
-                        @endcan
-                        @can('employee.user_permissions.show')
-                            <li>
-                                <a class="slide-item" href="{{ route('admin.users.index') }}">
-                                    قائمة المستخدمين
-                                </a>
-                            </li>
-                        @endcan
-                        @can('employee.system_settings.show')
-                            <li>
-                                <a class="slide-item" href="{{ route('admin.system-settings.login-mode.edit') }}">
-                                    إعدادات تسجيل الدخول
-                                </a>
-                            </li>
-                            <li>
-                                <a class="slide-item" href="{{ route('admin.system-settings.invoice-terms.edit') }}">
-                                    شروط الفاتورة
-                                </a>
-                            </li>
-                            <li>
-                                <a class="slide-item" href="{{ route('admin.system-settings.invoice-print.edit') }}">
-                                    إعدادات طباعة الفواتير
-                                </a>
-                            </li>
-                            <li>
-                                <a class="slide-item" href="{{ route('admin.system-settings.branding.edit') }}">
-                                    الشعار الرئيسي
-                                </a>
-                            </li>
-                            <li>
-                                <a class="slide-item" href="{{ route('admin.system-settings.bank-accounts.index') }}">
-                                    الحسابات البنكية
-                                </a>
-                            </li>
-                        @endcan
-
-                    </ul>
-                </li>
-            @endcan
+            @include('admin.layouts.sidebar.menu-sections', [
+                'sections' => $operationalAdminSections ?? [],
+            ])
             @endif
         </ul>
     </div>

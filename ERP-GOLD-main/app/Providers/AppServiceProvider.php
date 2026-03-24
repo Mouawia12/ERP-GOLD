@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\Branding\BrandLogoService;
+use App\Services\Navigation\AdminSidebarBuilder;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider; 
 
@@ -22,7 +23,13 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         View::composer('*', function ($view) {
+            $adminUser = auth('admin-web')->user();
+            $sidebarBuilder = app(AdminSidebarBuilder::class);
+
             $view->with('brandLogoUrl', app(BrandLogoService::class)->logoUrl());
+            $view->with('adminSidebarMode', $sidebarBuilder->modeFor($adminUser));
+            $view->with('ownerSidebarSections', $sidebarBuilder->ownerSections($adminUser));
+            $view->with('operationalAdminSections', $sidebarBuilder->operationalAdminSections($adminUser));
         });
 
         /*

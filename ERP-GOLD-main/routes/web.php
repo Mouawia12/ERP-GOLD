@@ -26,6 +26,7 @@ use App\Http\Controllers\Admin\RolesController;
 use App\Http\Controllers\Admin\SalesController;
 use App\Http\Controllers\Admin\StockReportsController;
 use App\Http\Controllers\Admin\StockSettlementController;
+use App\Http\Controllers\Admin\SubscribersController;
 use App\Http\Controllers\Admin\SystemSettingController;
 use App\Http\Controllers\Admin\ShiftController;
 use App\Http\Controllers\Admin\UsersController;
@@ -264,11 +265,6 @@ Route::group(
                     Route::patch('system-settings/bank-accounts/{bankAccount}', [BankAccountController::class, 'update'])
                         ->name('admin.system-settings.bank-accounts.update');
 
-                    Route::get('/financial_vouchers/{type}', [FinancialVoucherController::class, 'index'])->name('financial_vouchers');
-                    Route::post('/financial_vouchers/{type}', [FinancialVoucherController::class, 'store'])->name('financial_vouchers.store');
-                });
-
-                Route::middleware('owner.only')->group(function () {
                     Route::resource('branches', BranchController::class)->names([
                         'index' => 'admin.branches.index',
                         'create' => 'admin.branches.create',
@@ -283,15 +279,6 @@ Route::group(
                     Route::patch('branches/{id}/zatca', [BranchController::class, 'zatca'])
                         ->name('admin.branches.zatca.update');
 
-                    Route::resource('roles', RolesController::class)->names([
-                        'index' => 'admin.roles.index',
-                        'create' => 'admin.roles.create',
-                        'update' => 'admin.roles.update',
-                        'destroy' => 'admin.roles.destroy',
-                        'edit' => 'admin.roles.edit',
-                        'store' => 'admin.roles.store',
-                    ]);
-
                     Route::resource('users', UsersController::class)->names([
                         'index' => 'admin.users.index',
                         'create' => 'admin.users.create',
@@ -301,6 +288,31 @@ Route::group(
                         'store' => 'admin.users.store',
                         'show' => 'admin.users.show'
                     ]);
+
+                    Route::get('/financial_vouchers/{type}', [FinancialVoucherController::class, 'index'])->name('financial_vouchers');
+                    Route::post('/financial_vouchers/{type}', [FinancialVoucherController::class, 'store'])->name('financial_vouchers.store');
+                });
+
+                Route::middleware('owner.only')->group(function () {
+                    Route::resource('subscribers', SubscribersController::class)->names([
+                        'index' => 'admin.subscribers.index',
+                        'create' => 'admin.subscribers.create',
+                        'update' => 'admin.subscribers.update',
+                        'destroy' => 'admin.subscribers.destroy',
+                        'edit' => 'admin.subscribers.edit',
+                        'store' => 'admin.subscribers.store',
+                        'show' => 'admin.subscribers.show',
+                    ]);
+
+                    Route::resource('roles', RolesController::class)->names([
+                        'index' => 'admin.roles.index',
+                        'create' => 'admin.roles.create',
+                        'update' => 'admin.roles.update',
+                        'destroy' => 'admin.roles.destroy',
+                        'edit' => 'admin.roles.edit',
+                        'store' => 'admin.roles.store',
+                    ]);
+
                 });
 
                 Route::get('profile/edit/{id}', [UsersController::class, 'edit'])->name('admin.profile.edit');

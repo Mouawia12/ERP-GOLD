@@ -5,12 +5,14 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Role;
+use App\Models\Subscriber;
 use App\Models\User;
 use App\Models\UserAuditLog;
 use App\Services\Branches\BranchContextService;
 use App\Services\Permissions\PermissionMatrixService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class UsersController extends Controller
 {
@@ -27,7 +29,13 @@ class UsersController extends Controller
 
     public function index()
     {
-        $users = User::with(['branch', 'branches', 'roles'])
+        $actor = request()->user('admin-web');
+
+        $users = User::with(['subscriber', 'branch', 'branches', 'roles'])
+            ->when(
+                filled($actor?->subscriber_id),
+                fn ($query) => $query->where('subscriber_id', $actor->subscriber_id)
+            )
             ->latest()
             ->get();
 
@@ -37,7 +45,14 @@ class UsersController extends Controller
     public function create()
     {
         $roles = Role::all();
-        $branches = Branch::latest()->get();
+        $actor = request()->user('admin-web');
+        $branches = Branch::query()
+            ->when(
+                filled($actor?->subscriber_id),
+                fn ($query) => $query->where('subscriber_id', $actor->subscriber_id)
+            )
+            ->latest()
+            ->get();
         $selectedBranchId = request()->integer('branch_id');
         $selectedBranchIds = old('branch_ids', $selectedBranchId ? [$selectedBranchId] : []);
         $returnBranchId = request()->integer('return_branch_id');
@@ -72,7 +87,14 @@ class UsersController extends Controller
             (int) $validated['branch_id']
         );
 
+        $actor = $request->user('admin-web');
+        $subscriber = $this->currentSubscriber($actor);
+
+        $this->ensureBranchSelectionBelongsToSubscriber($subscriber, $assignedBranchIds);
+        $this->ensureSubscriberCanAddUser($subscriber);
+
         $user = User::create([
+            'subscriber_id' => $subscriber?->id,
             'name' => $validated['name'],
             'email' => $validated['email'],
             'branch_id' => $validated['branch_id'],
@@ -92,6 +114,10 @@ class UsersController extends Controller
     public function update(Request $request, $id)
     {
         $user = User::with(['roles', 'permissions', 'branches'])->findOrFail($id);
+        $actor = $request->user('admin-web');
+        $subscriber = $this->currentSubscriber($actor);
+        $this->ensureManagedUserBelongsToSubscriber($subscriber, $user);
+
         $previousBranch = $user->branch;
         $previousRole = $user->roles->first();
         $previousDirectPermissions = $user->permissions->pluck('name')->sort()->values()->all();
@@ -123,9 +149,12 @@ class UsersController extends Controller
             (int) $validated['branch_id']
         );
 
+        $this->ensureBranchSelectionBelongsToSubscriber($subscriber, $assignedBranchIds);
+
         $payload = [
             'name' => $validated['name'],
             'email' => $validated['email'],
+            'subscriber_id' => $subscriber?->id ?? $user->subscriber_id,
             'branch_id' => $validated['branch_id'],
             'status' => (bool) ($validated['status'] ?? $user->status),
         ];
@@ -168,6 +197,7 @@ class UsersController extends Controller
                 $query->with('actor')->latest()->limit(15);
             },
         ])->findOrFail($id);
+        $this->ensureManagedUserBelongsToSubscriber($this->currentSubscriber(request()->user('admin-web')), $user);
 
         $directPermissions = $user->permissions->pluck('name')->sort()->values();
         $rolePermissions = $user->roles
@@ -187,8 +217,17 @@ class UsersController extends Controller
     public function edit($id)
     {
         $user = User::with(['branch', 'branches', 'roles', 'permissions'])->findOrFail($id);
+        $actor = request()->user('admin-web');
+        $subscriber = $this->currentSubscriber($actor);
+        $this->ensureManagedUserBelongsToSubscriber($subscriber, $user);
         $roles = Role::all();
-        $branches = Branch::latest()->get();
+        $branches = Branch::query()
+            ->when(
+                filled($actor?->subscriber_id),
+                fn ($query) => $query->where('subscriber_id', $actor->subscriber_id)
+            )
+            ->latest()
+            ->get();
         $userRole = $user->roles->pluck('id')->all();
 
         return view('admin.users.edit', [
@@ -205,6 +244,8 @@ class UsersController extends Controller
     public function destroy($id)
     {
         $user = User::find($id);
+        $this->ensureManagedUserBelongsToSubscriber($this->currentSubscriber(request()->user('admin-web')), $user);
+
         if ($user) {
             $user->delete();
             return redirect()->route('admin.users.index')->with('success', __('main.deleted'));
@@ -368,5 +409,65 @@ class UsersController extends Controller
         }
 
         return redirect()->route('admin.users.index')->with('success', $message);
+    }
+
+    private function currentSubscriber(?User $actor): ?Subscriber
+    {
+        if (! $actor || ! filled($actor->subscriber_id)) {
+            return null;
+        }
+
+        return $actor->subscriber ?: Subscriber::query()->find($actor->subscriber_id);
+    }
+
+    /**
+     * @param  array<int>  $branchIds
+     */
+    private function ensureBranchSelectionBelongsToSubscriber(?Subscriber $subscriber, array $branchIds): void
+    {
+        if (! $subscriber || $branchIds === []) {
+            return;
+        }
+
+        $count = Branch::query()
+            ->where('subscriber_id', $subscriber->id)
+            ->whereIn('id', $branchIds)
+            ->count();
+
+        if ($count !== count($branchIds)) {
+            throw ValidationException::withMessages([
+                'branch_ids' => ['لا يمكنك ربط المستخدم بفروع خارج حساب المشترك الحالي.'],
+            ]);
+        }
+    }
+
+    private function ensureSubscriberCanAddUser(?Subscriber $subscriber): void
+    {
+        if (! $subscriber || blank($subscriber->max_users) || (int) $subscriber->max_users <= 0) {
+            return;
+        }
+
+        $currentUsersCount = User::query()
+            ->where('subscriber_id', $subscriber->id)
+            ->count();
+
+        if ($currentUsersCount >= (int) $subscriber->max_users) {
+            throw ValidationException::withMessages([
+                'email' => ['تم الوصول إلى الحد الأقصى للمستخدمين في هذا الاشتراك.'],
+            ]);
+        }
+    }
+
+    private function ensureManagedUserBelongsToSubscriber(?Subscriber $subscriber, ?User $managedUser): void
+    {
+        if (! $subscriber || ! $managedUser) {
+            return;
+        }
+
+        abort_unless(
+            (int) $managedUser->subscriber_id === (int) $subscriber->id,
+            403,
+            'لا يمكنك إدارة مستخدم خارج حساب المشترك الحالي.'
+        );
     }
 }

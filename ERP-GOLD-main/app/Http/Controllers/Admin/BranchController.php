@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\AccountSetting;
 use App\Models\AccountsTree;
 use App\Models\Branch;
+use App\Models\Subscriber;
 use App\Services\Zatca\OnBoarding;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class BranchController extends Controller
 {
@@ -23,10 +25,15 @@ class BranchController extends Controller
 
     public function index(Request $request)
     {
-        $data = Branch::withCount([
-                'assignedUsers as users_count' => function ($query) {
-                    $query->wherePivot('is_active', true);
-                },
+        $currentUser = $request->user('admin-web');
+
+        $data = Branch::query()
+            ->when(
+                filled($currentUser?->subscriber_id),
+                fn ($query) => $query->where('subscriber_id', $currentUser->subscriber_id)
+            )
+            ->withCount([
+                'activeAssignedUsers as users_count',
             ])
             ->latest()
             ->get();
@@ -41,6 +48,9 @@ class BranchController extends Controller
 
     public function store(Request $request)
     {
+        $subscriber = $this->currentSubscriber($request);
+        $this->ensureSubscriberCanAddBranch($subscriber);
+
         $validated = $this->validate($request, [
             'name' => 'required|string',
             'email' => 'required|email',
@@ -91,7 +101,10 @@ class BranchController extends Controller
         ]);
         try {
             DB::beginTransaction();
-            Branch::create($validated);
+            Branch::create([
+                ...$validated,
+                'subscriber_id' => $subscriber?->id,
+            ]);
             DB::commit();
             return redirect()
                 ->route('admin.branches.index')
@@ -107,17 +120,17 @@ class BranchController extends Controller
 
     public function show($id)
     {
+        $currentUser = request()->user('admin-web');
         $branch = Branch::with([
-                'assignedUsers' => function ($query) {
-                    $query->wherePivot('is_active', true)->with('roles');
+                'activeAssignedUsers' => function ($query) {
+                    $query->with('roles');
                 },
             ])
             ->withCount([
-                'assignedUsers as users_count' => function ($query) {
-                    $query->wherePivot('is_active', true);
-                },
+                'activeAssignedUsers as users_count',
             ])
             ->findOrFail($id);
+        $this->ensureBranchBelongsToSubscriber($currentUser?->subscriber_id, $branch);
 
         return view('admin.branches.show', compact('branch'));
     }
@@ -125,6 +138,7 @@ class BranchController extends Controller
     public function zatca_form($id)
     {
         $branch = Branch::findorfail($id);
+        $this->ensureBranchBelongsToSubscriber(request()->user('admin-web')?->subscriber_id, $branch);
         return view('admin.branches.zatca', compact('branch'));
     }
 
@@ -154,6 +168,7 @@ class BranchController extends Controller
         ]);
 
         $branch = Branch::findorfail($id);
+        $this->ensureBranchBelongsToSubscriber($request->user('admin-web')?->subscriber_id, $branch);
         $branch->zatca_settings()->updateOrCreate([
             'branch_id' => $id,
         ], [
@@ -201,11 +216,16 @@ class BranchController extends Controller
     public function edit($id)
     {
         $branch = Branch::findOrFail($id);
+        $this->ensureBranchBelongsToSubscriber(request()->user('admin-web')?->subscriber_id, $branch);
         return view('admin.branches.edit', compact('branch'));
     }
 
     public function update(Request $request, $id)
     {
+        $branch = Branch::findOrFail($id);
+        $subscriber = $this->currentSubscriber($request);
+        $this->ensureBranchBelongsToSubscriber($subscriber?->id, $branch);
+
         $validated = $this->validate($request, [
             'name' => 'required|string',
             'email' => 'required|email',
@@ -258,7 +278,10 @@ class BranchController extends Controller
             DB::beginTransaction();
             Branch::updateOrCreate([
                 'id' => $id,
-            ], $validated);
+            ], [
+                ...$validated,
+                'subscriber_id' => $subscriber?->id ?? $branch->subscriber_id,
+            ]);
             DB::commit();
             return redirect()
                 ->route('admin.branches.index')
@@ -276,5 +299,46 @@ class BranchController extends Controller
     {
         $branches = Branch::all();
         return view('admin.branches.print', compact('branches'));
+    }
+
+    private function currentSubscriber(Request $request): ?Subscriber
+    {
+        $user = $request->user('admin-web');
+
+        if (! $user || ! filled($user->subscriber_id)) {
+            return null;
+        }
+
+        return $user->subscriber ?: Subscriber::query()->find($user->subscriber_id);
+    }
+
+    private function ensureSubscriberCanAddBranch(?Subscriber $subscriber): void
+    {
+        if (! $subscriber || blank($subscriber->max_branches) || (int) $subscriber->max_branches <= 0) {
+            return;
+        }
+
+        $branchesCount = Branch::query()
+            ->where('subscriber_id', $subscriber->id)
+            ->count();
+
+        if ($branchesCount >= (int) $subscriber->max_branches) {
+            throw ValidationException::withMessages([
+                'name' => ['تم الوصول إلى الحد الأقصى للفروع في هذا الاشتراك.'],
+            ]);
+        }
+    }
+
+    private function ensureBranchBelongsToSubscriber(?int $subscriberId, Branch $branch): void
+    {
+        if (! $subscriberId) {
+            return;
+        }
+
+        abort_unless(
+            (int) $branch->subscriber_id === (int) $subscriberId,
+            403,
+            'لا يمكنك الوصول إلى فرع خارج حساب المشترك الحالي.'
+        );
     }
 }

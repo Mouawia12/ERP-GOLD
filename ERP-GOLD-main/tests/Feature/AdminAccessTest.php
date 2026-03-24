@@ -78,6 +78,44 @@ class AdminAccessTest extends TestCase
         $response->assertSee('brand-header-logo', false);
     }
 
+    public function test_owner_dashboard_shows_owner_sidebar_without_operational_menu_groups(): void
+    {
+        $owner = $this->createOwnerUser([
+            'employee.subscribers.show',
+            'employee.subscribers.add',
+            'employee.simplified_tax_invoices.show',
+            'employee.system_settings.show',
+        ]);
+
+        $response = $this->actingAs($owner, 'admin-web')->get(route('admin.home', [], false));
+
+        $response->assertOk();
+        $response->assertSee('إدارة المشتركين');
+        $response->assertSee('قائمة المشتركين');
+        $response->assertDontSee('المبيعات الضريبية المبسطة');
+        $response->assertDontSee('إعدادات الإدارة');
+    }
+
+    public function test_operational_dashboard_hides_owner_sidebar_and_shows_operational_admin_settings(): void
+    {
+        $user = $this->createAdminUser([
+            'employee.branches.show',
+            'employee.user_permissions.show',
+            'employee.system_settings.show',
+            'employee.simplified_tax_invoices.show',
+        ]);
+
+        $response = $this->actingAs($user, 'admin-web')->get(route('admin.home', [], false));
+
+        $response->assertOk();
+        $response->assertSee('المبيعات الضريبية المبسطة');
+        $response->assertSee('إعدادات الإدارة');
+        $response->assertSee('إعدادات تسجيل الدخول');
+        $response->assertDontSee('إدارة المشتركين');
+        $response->assertDontSee('قائمة المشتركين');
+        $response->assertDontSee('صلاحيات المشتركين');
+    }
+
     public function test_profile_edit_route_is_available_for_authenticated_admin(): void
     {
         $user = $this->createAdminUser([
@@ -283,6 +321,53 @@ class AdminAccessTest extends TestCase
         $response->assertSee('Branch User Two');
     }
 
+    public function test_branch_index_counts_only_active_assigned_users(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.branches.show',
+        ]);
+
+        $branch = Branch::create([
+            'name' => ['ar' => 'فرع العد', 'en' => 'Count Branch'],
+            'email' => 'count-branch@example.com',
+            'phone' => '123123123',
+            'tax_number' => '123451234512345',
+            'short_address' => 'مكة',
+        ]);
+
+        $activeUser = User::create([
+            'name' => 'Active Branch User',
+            'email' => 'active-branch-user@example.com',
+            'password' => Hash::make('secret123'),
+            'branch_id' => $branch->id,
+            'status' => true,
+            'profile_pic' => 'default.png',
+        ]);
+
+        $inactiveAssignmentUser = User::create([
+            'name' => 'Inactive Assignment User',
+            'email' => 'inactive-assignment-user@example.com',
+            'password' => Hash::make('secret123'),
+            'branch_id' => $branch->id,
+            'status' => true,
+            'profile_pic' => 'default.png',
+        ]);
+
+        $inactiveAssignmentUser->branches()->updateExistingPivot($branch->id, [
+            'is_active' => false,
+        ]);
+
+        $response = $this->actingAs($admin, 'admin-web')->get(route('admin.branches.index', [], false));
+
+        $response->assertOk();
+
+        $branchRow = $response->viewData('data')->firstWhere('id', $branch->id);
+
+        $this->assertNotNull($branchRow);
+        $this->assertSame(1, $branchRow->users_count);
+        $this->assertTrue($activeUser->branches()->where('branch_id', $branch->id)->exists());
+    }
+
     public function test_branch_details_allow_managing_users_from_branch_screen(): void
     {
         $admin = $this->createAdminUser([
@@ -371,6 +456,24 @@ class AdminAccessTest extends TestCase
             'name' => 'Branch Managed User Updated',
             'branch_id' => $branch->id,
         ]);
+    }
+
+    public function test_owner_cannot_open_operational_branch_routes_even_with_permissions(): void
+    {
+        $user = $this->createOwnerUser([
+            'employee.branches.show',
+        ]);
+
+        $branch = Branch::create([
+            'name' => ['ar' => 'فرع ممنوع', 'en' => 'Restricted Branch'],
+            'email' => 'restricted-branch@example.com',
+            'phone' => '333333333',
+        ]);
+
+        $response = $this->actingAs($user, 'admin-web')->get(route('admin.branches.show', $branch->id, false));
+
+        $response->assertRedirect(route('admin.home', [], false));
+        $response->assertSessionHas('warning');
     }
 
     public function test_authorized_admin_can_update_login_mode_setting(): void
@@ -569,7 +672,15 @@ class AdminAccessTest extends TestCase
     /**
      * @param  array<int, string>  $permissions
      */
-    private function createAdminUser(array $permissions = []): User
+    private function createOwnerUser(array $permissions = []): User
+    {
+        return $this->createAdminUser($permissions, true);
+    }
+
+    /**
+     * @param  array<int, string>  $permissions
+     */
+    private function createAdminUser(array $permissions = [], bool $isOwner = false): User
     {
         $branch = Branch::create([
             'name' => ['ar' => 'الفرع الرئيسي', 'en' => 'Main Branch'],
@@ -582,19 +693,17 @@ class AdminAccessTest extends TestCase
         ]);
 
         foreach ($permissions as $permissionName) {
-            $permission = Permission::create([
-                'name' => $permissionName,
-                'guard_name' => 'admin-web',
-            ]);
+            $permission = Permission::findOrCreate($permissionName, 'admin-web');
 
             $role->givePermissionTo($permission);
         }
 
         $user = User::create([
             'name' => 'Admin User',
-            'email' => 'admin@example.com',
+            'email' => $isOwner ? 'owner@example.com' : 'admin@example.com',
             'password' => Hash::make('secret123'),
             'branch_id' => $branch->id,
+            'is_admin' => $isOwner,
             'status' => true,
             'profile_pic' => 'default.png',
         ]);

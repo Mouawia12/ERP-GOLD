@@ -7,6 +7,7 @@ use App\Models\BankAccount;
 use App\Models\Branch;
 use App\Models\FinancialVoucher;
 use App\Models\FinancialYear;
+use App\Models\Permission;
 use App\Models\Shift;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Mcamara\LaravelLocalization\Middleware\LaravelLocalizationRedirectFilter;
 use Mcamara\LaravelLocalization\Middleware\LocaleSessionRedirect;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class ShiftWorkflowFeatureTest extends TestCase
@@ -23,6 +25,8 @@ class ShiftWorkflowFeatureTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         $this->withoutMiddleware([
             LaravelLocalizationRedirectFilter::class,
@@ -355,7 +359,8 @@ class ShiftWorkflowFeatureTest extends TestCase
     public function test_admin_can_filter_shift_history_by_user_and_status(): void
     {
         $branch = $this->createBranch('فرع الإدارة');
-        $admin = $this->createUser($branch, 'admin-shift@example.com', true);
+        $admin = $this->createUser($branch, 'admin-shift@example.com');
+        $admin->givePermissionTo(Permission::findOrCreate('employee.users.show', 'admin-web'));
         $firstUser = $this->createUser($branch, 'admin-filter-user-1@example.com');
         $secondUser = $this->createUser($branch, 'admin-filter-user-2@example.com');
 

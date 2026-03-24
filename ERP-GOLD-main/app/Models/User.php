@@ -15,6 +15,7 @@ class User extends Authenticatable implements JWTSubject
     use HasRoles, HasApiTokens, HasFactory, Notifiable;
 
     protected $guarded = ['id'];
+    protected string $guard_name = 'admin-web';
 
     protected static function booted(): void
     {
@@ -56,6 +57,11 @@ class User extends Authenticatable implements JWTSubject
         return $this->belongsTo(Branch::class, 'branch_id', 'id');
     }
 
+    public function subscriber()
+    {
+        return $this->belongsTo(Subscriber::class);
+    }
+
     public function branches()
     {
         return $this->belongsToMany(Branch::class, 'branch_user', 'user_id', 'branch_id')
@@ -86,6 +92,16 @@ class User extends Authenticatable implements JWTSubject
     public function isOperationalUser(): bool
     {
         return ! $this->isOwner();
+    }
+
+    public function belongsToSubscriber(): bool
+    {
+        return filled($this->subscriber_id);
+    }
+
+    protected function getDefaultGuardName(): string
+    {
+        return 'admin-web';
     }
 
     /**

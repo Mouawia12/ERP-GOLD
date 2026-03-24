@@ -12,6 +12,11 @@ class Branch extends Model
     protected $guarded = ['id'];
     protected $translatable = ['name'];
 
+    public function subscriber()
+    {
+        return $this->belongsTo(Subscriber::class);
+    }
+
     public function zatca_settings()
     {
         return $this->hasOne(BranchZatcaSetting::class, 'branch_id', 'id');
@@ -36,6 +41,14 @@ class Branch extends Model
     {
         return $this->belongsToMany(User::class, 'branch_user', 'branch_id', 'user_id')
             ->withPivot(['is_default', 'is_active'])
+            ->withTimestamps();
+    }
+
+    public function activeAssignedUsers()
+    {
+        return $this->belongsToMany(User::class, 'branch_user', 'branch_id', 'user_id')
+            ->withPivot(['is_default', 'is_active'])
+            ->where('branch_user.is_active', true)
             ->withTimestamps();
     }
 
