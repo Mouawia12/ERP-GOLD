@@ -56,6 +56,50 @@ class AdminSidebarBuilder
 
         return $this->filterSections($user, [
             [
+                'icon' => 'fa fa-sitemap',
+                'label' => 'إدارة المشترك',
+                'active_patterns' => [
+                    'admin.branches.*',
+                    'admin.users.*',
+                ],
+                'items' => [
+                    [
+                        'label' => 'قائمة الفروع',
+                        'route' => 'admin.branches.index',
+                        'permission' => 'employee.branches.show',
+                        'active_patterns' => [
+                            'admin.branches.index',
+                            'admin.branches.show',
+                            'admin.branches.edit',
+                            'admin.branches.zatca',
+                            'admin.branches.zatca.update',
+                        ],
+                    ],
+                    [
+                        'label' => 'إضافة فرع',
+                        'route' => 'admin.branches.create',
+                        'permission' => 'employee.branches.add',
+                        'active_patterns' => ['admin.branches.create'],
+                    ],
+                    [
+                        'label' => 'قائمة المستخدمين',
+                        'route' => 'admin.users.index',
+                        'permission' => 'employee.users.show',
+                        'active_patterns' => [
+                            'admin.users.index',
+                            'admin.users.show',
+                            'admin.users.edit',
+                        ],
+                    ],
+                    [
+                        'label' => 'إضافة مستخدم',
+                        'route' => 'admin.users.create',
+                        'permission' => 'employee.users.add',
+                        'active_patterns' => ['admin.users.create'],
+                    ],
+                ],
+            ],
+            [
                 'icon' => 'fa fa-cogs',
                 'label' => 'إعدادات الإدارة',
                 'active_patterns' => [

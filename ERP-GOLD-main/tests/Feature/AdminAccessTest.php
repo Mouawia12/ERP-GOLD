@@ -100,7 +100,9 @@ class AdminAccessTest extends TestCase
     {
         $user = $this->createAdminUser([
             'employee.branches.show',
-            'employee.user_permissions.show',
+            'employee.branches.add',
+            'employee.users.show',
+            'employee.users.add',
             'employee.system_settings.show',
             'employee.simplified_tax_invoices.show',
         ]);
@@ -109,6 +111,11 @@ class AdminAccessTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('المبيعات الضريبية المبسطة');
+        $response->assertSee('إدارة المشترك');
+        $response->assertSee('قائمة الفروع');
+        $response->assertSee('إضافة فرع');
+        $response->assertSee('قائمة المستخدمين');
+        $response->assertSee('إضافة مستخدم');
         $response->assertSee('إعدادات الإدارة');
         $response->assertSee('إعدادات تسجيل الدخول');
         $response->assertDontSee('إدارة المشتركين');
