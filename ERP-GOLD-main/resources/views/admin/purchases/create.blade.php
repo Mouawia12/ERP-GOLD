@@ -64,6 +64,7 @@
                                             </div>  
                                         </div>
                                         <div class="card-body">
+                                        <div class="response_container"></div>
                                         <div class="row">
                                     <div class="col-3">
                                         <div class="form-group">
@@ -517,6 +518,7 @@
             });
         });
         $(document).on('click', '#purchase_btn', function () {
+            var button = $(this);
             var rows = $('#sTable tbody tr').length;
             var supplierId = $('#supplier_id').val();
             var netTotal = $('#net_total').val();
@@ -531,7 +533,13 @@
                 return;
             }
 
-            openPurchasePaymentModal(netTotal, $('#branch_id').val());
+            if (Number(netTotal || 0) <= 0) {
+                alert('إجمالي الفاتورة يجب أن يكون أكبر من صفر.');
+                return;
+            }
+
+            button.prop('disabled', true).text('جاري تجهيز الدفع...');
+            openPurchasePaymentModal(netTotal, $('#branch_id').val(), button);
         });
         $(document).on('click', '#purchase_payment_btn', function () {
             var thisme = $('#purchases_form');
@@ -573,6 +581,8 @@
                         jqXHR.responseJSON.errors.forEach(function(error) {
                             errors += error + "\n";
                         });
+                    } else if (jqXHR.responseJSON && jqXHR.responseJSON.message) {
+                        errors = jqXHR.responseJSON.message;
                     } else {
                         errors = 'تعذر حفظ الفاتورة.';
                     }
@@ -674,12 +684,41 @@
         return 'حدث خطأ أثناء حفظ بيانات المورد.';
     }
 
-    function openPurchasePaymentModal(net_total, branch_id) {
+    function extractAjaxErrors(xhr, fallbackMessage) {
+        if (xhr.responseJSON && Array.isArray(xhr.responseJSON.errors) && xhr.responseJSON.errors.length) {
+            return xhr.responseJSON.errors.join('\n');
+        }
+
+        if (xhr.responseJSON && xhr.responseJSON.message) {
+            return xhr.responseJSON.message;
+        }
+
+        if (xhr.responseText) {
+            return xhr.responseText;
+        }
+
+        return fallbackMessage;
+    }
+
+    function openPurchasePaymentModal(net_total, branch_id, triggerButton) {
         let url = "{{ route('purchases.payments') }}";
-        $.post(url, { document_type: 'purchase', net_after_discount: net_total, branch_id: branch_id }, function(data) {
-            $(".show_modal1").html(data);
-            refreshPurchasePaymentSummary();
-            $('#paymentsModal').modal({backdrop: 'static', keyboard: false}, 'show');
+        $.ajax({
+            type: 'post',
+            url: url,
+            data: { document_type: 'purchase', net_after_discount: net_total, branch_id: branch_id },
+            success: function(data) {
+                $(".show_modal1").html(data);
+                refreshPurchasePaymentSummary();
+                $('#paymentsModal').modal({backdrop: 'static', keyboard: false}, 'show');
+            },
+            error: function(xhr) {
+                alert(extractAjaxErrors(xhr, 'تعذر فتح نافذة الدفع.'));
+            },
+            complete: function() {
+                if (triggerButton && triggerButton.length) {
+                    triggerButton.prop('disabled', false).text('حفظ ودفع');
+                }
+            }
         });
     }
 
