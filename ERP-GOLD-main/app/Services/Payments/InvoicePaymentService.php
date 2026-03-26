@@ -168,9 +168,7 @@ class InvoicePaymentService
                     : ($line['ledger_account_id'] ?: $fallbackBankAccountId);
 
                 if (! $accountId) {
-                    throw ValidationException::withMessages([
-                        'payment_lines' => ['لا يوجد حساب محاسبي مربوط بوسيلة الدفع غير النقدية.'],
-                    ]);
+                    $this->throwMissingLedgerAccountValidation($line['method_type'] ?? null);
                 }
 
                 return [
@@ -199,9 +197,7 @@ class InvoicePaymentService
                     : ($line['ledger_account_id'] ?: $fallbackBankAccountId);
 
                 if (! $accountId) {
-                    throw ValidationException::withMessages([
-                        'payment_lines' => ['لا يوجد حساب محاسبي مربوط بوسيلة الدفع غير النقدية.'],
-                    ]);
+                    $this->throwMissingLedgerAccountValidation($line['method_type'] ?? null);
                 }
 
                 return [
@@ -315,5 +311,16 @@ class InvoicePaymentService
             'bank_account_name' => null,
             'ledger_account_id' => null,
         ]]);
+    }
+
+    private function throwMissingLedgerAccountValidation(?string $methodType): never
+    {
+        $message = $methodType === 'cash'
+            ? 'لا يوجد حساب صندوق/خزينة نقدية مربوط بإعدادات الحسابات لهذا الفرع.'
+            : 'لا يوجد حساب محاسبي مربوط بوسيلة الدفع غير النقدية.';
+
+        throw ValidationException::withMessages([
+            'payment_lines' => [$message],
+        ]);
     }
 }
