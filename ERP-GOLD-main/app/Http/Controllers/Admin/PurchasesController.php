@@ -488,8 +488,8 @@ class PurchasesController extends Controller
             } else {
                 return response()->json([
                     'status' => false,
-                    'message' => __('main.nodetails')
-                ]);
+                    'errors' => [__('main.nodetails')],
+                ], 422);
             }
         } catch (ValidationException $ex) {
             DB::rollBack();
@@ -502,7 +502,7 @@ class PurchasesController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => $ex->getMessage()
-            ]);
+            ], 500);
         }
     }
 

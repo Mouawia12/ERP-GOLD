@@ -74,13 +74,16 @@
     </div>
 </div>
 
-<script>
-    window.currentPurchaseBankAccounts = @json($bankAccounts->map(function ($bankAccount) {
+@php
+    $purchaseBankAccounts = $bankAccounts->map(function ($bankAccount) {
         return [
             'id' => $bankAccount->id,
             'name' => $bankAccount->display_name,
             'supports_credit_card' => (bool) $bankAccount->supports_credit_card,
             'supports_bank_transfer' => (bool) $bankAccount->supports_bank_transfer,
         ];
-    })->values());
+    })->values();
+@endphp
+<script>
+    window.currentPurchaseBankAccounts = @json($purchaseBankAccounts);
 </script>

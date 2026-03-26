@@ -565,6 +565,11 @@
                     $('#loader').show();
                 },
                 success: function(result) {
+                    if (result.status === false) {
+                        alert(result.message || 'تعذر حفظ الفاتورة.');
+                        return;
+                    }
+
                     alert(result.message);
                     setTimeout(function() {
                         suggestionItems = {};
