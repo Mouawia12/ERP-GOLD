@@ -283,13 +283,20 @@ class PurchasesController extends Controller
                 foreach ($request->unit_id as $key => $unit_id) {
                     $unit = ItemUnit::find($request->unit_id[$key]);
 
-                    $lineTotalWeight = $request->weight[$key];
-                    $lineTotalLaborCost = $request->item_total_labor_cost[$key];
+                    $lineTotalWeight = round((float) ($request->weight[$key] ?? 0), 3);
+                    if ($lineTotalWeight <= 0) {
+                        return response()->json([
+                            'status' => false,
+                            'errors' => ['وزن الصنف يجب أن يكون أكبر من صفر لكل سطر في الفاتورة.'],
+                        ], 422);
+                    }
+
+                    $lineTotalLaborCost = round((float) ($request->item_total_labor_cost[$key] ?? 0), 2);
                     $laborTotal += $lineTotalLaborCost;
                     $unitLaborCost = $lineTotalLaborCost / $lineTotalWeight;
 
                     if ($purchaseType == 'normal') {
-                        $lineTotalCost = $request->item_total_cost[$key];
+                        $lineTotalCost = round((float) ($request->item_total_cost[$key] ?? 0), 2);
                         $totalCost += $lineTotalCost;
 
                         $lineTotal = $lineTotalCost + $lineTotalLaborCost;
@@ -301,12 +308,26 @@ class PurchasesController extends Controller
                         if ($purchaseType == 'discount_from_scrap') {
                             $goldCaratType = GoldCaratType::where('key', 'scrap')->first();
                             $scapAccount = Account::find($accountSetting->stock_account_scrap);
-                            $unitCost = $scapAccount->closingBalance($financialYear->from, $financialYear->to) / $goldCaratType->getStock();
+                            $stockBalance = (float) $goldCaratType->getStock();
+                            if ($stockBalance <= 0) {
+                                return response()->json([
+                                    'status' => false,
+                                    'errors' => ['لا يمكن تنفيذ خصم من خامة السكراب لأن المخزون الحالي يساوي صفر.'],
+                                ], 422);
+                            }
+                            $unitCost = $scapAccount->closingBalance($financialYear->from, $financialYear->to) / $stockBalance;
                             $discountFromScraptotal += $unitCost * $lineTotalWeight;
                         } else {
                             $goldCaratType = GoldCaratType::where('key', 'pure')->first();
                             $pureAccount = Account::find($accountSetting->stock_account_pure);
-                            $unitCost = $pureAccount->closingBalance($financialYear->from, $financialYear->to) / $goldCaratType->getStock();
+                            $stockBalance = (float) $goldCaratType->getStock();
+                            if ($stockBalance <= 0) {
+                                return response()->json([
+                                    'status' => false,
+                                    'errors' => ['لا يمكن تنفيذ خصم من خامة الذهب الصافي لأن المخزون الحالي يساوي صفر.'],
+                                ], 422);
+                            }
+                            $unitCost = $pureAccount->closingBalance($financialYear->from, $financialYear->to) / $stockBalance;
                             $discountFromPuretotal += $unitCost * $lineTotalWeight;
                         }
                         $lineTotalCost = $unitCost * $lineTotalWeight;
@@ -318,7 +339,7 @@ class PurchasesController extends Controller
                     $item = $unit->item;
                     $taxData = $this->resolvePurchaseTaxData($item, $caratType);
                     $taxRate = $taxData['rate'];
-                    $unitTaxAmount = ($lineTotal * $taxRate / 100) / $request->weight[$key];
+                    $unitTaxAmount = ($lineTotal * $taxRate / 100) / $lineTotalWeight;
 
                     $linesTotal += $lineTotal;
 
@@ -328,7 +349,7 @@ class PurchasesController extends Controller
                     $lineTotalAfterDiscount = $lineTotal - $lineDiscount;
                     $linesTotalAfterDiscount += $lineTotalAfterDiscount;
 
-                    $lineTax = $unitTaxAmount * $request->weight[$key];
+                    $lineTax = $unitTaxAmount * $lineTotalWeight;
                     $linesTax += $lineTax;
 
                     $lineNetTotal = $lineTotalAfterDiscount + $lineTax;
@@ -391,7 +412,14 @@ class PurchasesController extends Controller
                     if ($actualBalance < 0) {
                         $actualBalance = 0;
                     }
-                    $averageCost = (($item->defaultUnit->average_cost_per_gram * $actualBalance) + ($unitCost * $request->weight[$key])) / ($actualBalance + $request->weight[$key]);
+                    $newBalance = $actualBalance + $lineTotalWeight;
+                    if ($newBalance <= 0) {
+                        return response()->json([
+                            'status' => false,
+                            'errors' => ['تعذر تحديث متوسط التكلفة لأن الرصيد الناتج للصنف غير صالح.'],
+                        ], 422);
+                    }
+                    $averageCost = (($item->defaultUnit->average_cost_per_gram * $actualBalance) + ($unitCost * $lineTotalWeight)) / $newBalance;
 
                     $item->defaultUnit()->update(['initial_cost_per_gram' => $unitCost, 'average_cost_per_gram' => $averageCost, 'current_cost_per_gram' => $unitCost]);
 
