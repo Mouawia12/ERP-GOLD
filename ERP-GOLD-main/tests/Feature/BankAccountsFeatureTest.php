@@ -115,6 +115,46 @@ class BankAccountsFeatureTest extends TestCase
         $response->assertSee('البنك الأهلي');
     }
 
+    public function test_account_settings_index_handles_missing_linked_accounts_without_server_error(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.accounts.show',
+        ]);
+
+        $branch = Branch::create([
+            'name' => ['ar' => 'فرع الإعدادات', 'en' => 'Settings Branch'],
+            'phone' => '444444444',
+        ]);
+
+        $salesAccount = $this->createAccount('حساب المبيعات', '7100');
+
+        DB::table('account_settings')->insert([
+            'branch_id' => $branch->id,
+            'sales_account' => $salesAccount->id,
+            'safe_account' => null,
+            'sales_tax_account' => null,
+            'purchase_tax_account' => null,
+            'profit_account' => null,
+            'reverse_profit_account' => null,
+            'bank_account' => null,
+            'made_account' => null,
+            'clients_account' => null,
+            'suppliers_account' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('accounts.settings.index', [], false));
+
+        $response->assertOk();
+        $response->assertSee('الروابط المحاسبية');
+        $response->assertSee('فرع الإعدادات');
+        $response->assertSee('حساب المبيعات');
+        $response->assertSee('غير محدد');
+    }
+
     private function createAdminUser(array $permissions = []): User
     {
         $branch = Branch::create([

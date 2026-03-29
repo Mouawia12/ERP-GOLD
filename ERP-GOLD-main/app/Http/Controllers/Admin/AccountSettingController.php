@@ -20,19 +20,44 @@ class AccountSettingController extends Controller
     public function index()
     {
         $accounts = AccountSetting::all();
+        $branchesById = Branch::query()->get()->keyBy('id');
+        $accountIds = $accounts->flatMap(function ($accountSetting) {
+            return [
+                $accountSetting->safe_account,
+                $accountSetting->sales_account,
+                $accountSetting->return_sales_account,
+                $accountSetting->sales_discount_account,
+                $accountSetting->sales_tax_account,
+                $accountSetting->purchase_tax_account,
+                $accountSetting->cost_account,
+                $accountSetting->profit_account,
+                $accountSetting->reverse_profit_account,
+                $accountSetting->bank_account,
+                $accountSetting->made_account,
+                $accountSetting->clients_account,
+                $accountSetting->suppliers_account,
+            ];
+        })->filter()->unique()->values();
+        $accountsById = Account::query()
+            ->whereIn('id', $accountIds)
+            ->get()
+            ->keyBy('id');
+
         foreach ($accounts as $account) {
-            $account->branch_name = Branch::find($account->branch_id)->name;
-            $account->safe_account_name = Account::find($account->safe_account)->name;
-            $account->sales_account_name = Account::find($account->sales_account)->name;
-            $account->return_sales_account_name = Account::find($account->return_sales_account)->name;
-            $account->sales_tax_account_name = Account::find($account->sales_tax_account)->name;
-            $account->purchase_tax_account_name = Account::find($account->purchase_tax_account)->name;
-            $account->profit_account_name = Account::find($account->profit_account)->name;
-            $account->reverse_profit_account_name = Account::find($account->reverse_profit_account)->name;
-            $account->bank_account_name = Account::find($account->bank_account)->name;
-            $account->made_account_name = Account::find($account->made_account)->name;
-            $account->clients_account_name = Account::find($account->clients_account)->name;
-            $account->suppliers_account_name = Account::find($account->suppliers_account)->name;
+            $account->branch_name = $branchesById->get($account->branch_id)?->name ?? 'غير محدد';
+            $account->safe_account_name = $accountsById->get($account->safe_account)?->name ?? 'غير محدد';
+            $account->sales_account_name = $accountsById->get($account->sales_account)?->name ?? 'غير محدد';
+            $account->return_sales_account_name = $accountsById->get($account->return_sales_account)?->name ?? 'غير محدد';
+            $account->sales_discount_account_name = $accountsById->get($account->sales_discount_account)?->name ?? 'غير محدد';
+            $account->sales_tax_account_name = $accountsById->get($account->sales_tax_account)?->name ?? 'غير محدد';
+            $account->purchase_tax_account_name = $accountsById->get($account->purchase_tax_account)?->name ?? 'غير محدد';
+            $account->cost_account_name = $accountsById->get($account->cost_account)?->name ?? 'غير محدد';
+            $account->profit_account_name = $accountsById->get($account->profit_account)?->name ?? 'غير محدد';
+            $account->reverse_profit_account_name = $accountsById->get($account->reverse_profit_account)?->name ?? 'غير محدد';
+            $account->bank_account_name = $accountsById->get($account->bank_account)?->name ?? 'غير محدد';
+            $account->made_account_name = $accountsById->get($account->made_account)?->name ?? 'غير محدد';
+            $account->clients_account_name = $accountsById->get($account->clients_account)?->name ?? 'غير محدد';
+            $account->suppliers_account_name = $accountsById->get($account->suppliers_account)?->name ?? 'غير محدد';
         }
 
         return view('admin.accounts.settings', compact('accounts'));
