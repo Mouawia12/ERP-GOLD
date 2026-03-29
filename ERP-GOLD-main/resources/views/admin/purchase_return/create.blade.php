@@ -232,18 +232,21 @@
             <input id="local" value="{{ Config::get('app.locale') }}" hidden>
         </div>
     </div>
+@php
+    $purchaseReturnBankAccountsPayload = $bankAccounts->map(function ($bankAccount) {
+        return [
+            'id' => $bankAccount->id,
+            'name' => $bankAccount->display_name,
+            'supports_credit_card' => (bool) $bankAccount->supports_credit_card,
+            'supports_bank_transfer' => (bool) $bankAccount->supports_bank_transfer,
+        ];
+    })->values();
+@endphp
 @endsection
 <script src="{{ asset('assets/js/jquery.min.js') }}"></script>
 <script type="text/javascript">
     $(document).ready(function () {
-        window.currentPurchaseReturnBankAccounts = @json($bankAccounts->map(function ($bankAccount) {
-            return [
-                'id' => $bankAccount->id,
-                'name' => $bankAccount->display_name,
-                'supports_credit_card' => (bool) $bankAccount->supports_credit_card,
-                'supports_bank_transfer' => (bool) $bankAccount->supports_bank_transfer,
-            ];
-        })->values());
+        window.currentPurchaseReturnBankAccounts = {{ Illuminate\Support\Js::from($purchaseReturnBankAccountsPayload) }};
 
         var cashWasEditedManually = false;
 

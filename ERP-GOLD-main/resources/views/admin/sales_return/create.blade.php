@@ -308,19 +308,22 @@
 </div>
 <!-- End of Page Wrapper -->
   
+@php
+    $salesReturnBankAccountsPayload = $bankAccounts->map(function ($bankAccount) {
+        return [
+            'id' => $bankAccount->id,
+            'name' => $bankAccount->display_name,
+            'supports_credit_card' => (bool) $bankAccount->supports_credit_card,
+            'supports_bank_transfer' => (bool) $bankAccount->supports_bank_transfer,
+        ];
+    })->values();
+@endphp
 @endsection
 <script src="{{asset('assets/js/jquery.min.js')}}"></script>
 
 <script type="text/javascript">
     $(document).ready(function () {
-        window.currentSalesReturnBankAccounts = @json($bankAccounts->map(function ($bankAccount) {
-            return [
-                'id' => $bankAccount->id,
-                'name' => $bankAccount->display_name,
-                'supports_credit_card' => (bool) $bankAccount->supports_credit_card,
-                'supports_bank_transfer' => (bool) $bankAccount->supports_bank_transfer,
-            ];
-        })->values());
+        window.currentSalesReturnBankAccounts = {{ Illuminate\Support\Js::from($salesReturnBankAccountsPayload) }};
 
         var cashWasEditedManually = false;
 

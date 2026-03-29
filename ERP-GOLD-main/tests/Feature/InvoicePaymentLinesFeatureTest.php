@@ -596,6 +596,64 @@ class InvoicePaymentLinesFeatureTest extends TestCase
         $printResponse->assertSee('5010101010');
     }
 
+    public function test_sales_return_create_page_loads_successfully_with_bank_accounts_payload(): void
+    {
+        $branch = $this->createBranch('فرع صفحة مرتجع البيع');
+        $user = $this->createUser($branch, 'sales-return-create-page@example.com');
+        $this->createFinancialYear();
+        $this->createWarehouse($branch);
+        [$customerId, $supplierId] = $this->createTradingParties();
+        [$itemUnitId] = $this->createInventoryFixture($branch);
+        $this->createBranchAccountSettings($branch, $customerId, $supplierId);
+
+        $bankLedgerAccount = $this->createAccount('حساب مرتجع البيع', '8401');
+        BankAccount::create([
+            'branch_id' => $branch->id,
+            'ledger_account_id' => $bankLedgerAccount->id,
+            'account_name' => 'بنك مرتجع البيع',
+            'bank_name' => 'مصرف المرتجعات',
+            'terminal_name' => 'SR-CREATE-1',
+            'supports_credit_card' => true,
+            'supports_bank_transfer' => true,
+            'is_default' => true,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($user, 'admin-web')
+            ->post(route('admin.shifts.store', [], false), [
+                'branch_id' => $branch->id,
+                'opening_cash' => 0,
+            ])
+            ->assertRedirect(route('admin.shifts.index', [], false));
+
+        $saleResponse = $this->actingAs($user, 'admin-web')
+            ->postJson(route('sales.store', ['type' => 'simplified'], false), [
+                'type' => 'simplified',
+                'bill_date' => '2026-03-23 10:00:00',
+                'branch_id' => $branch->id,
+                'customer_id' => $customerId,
+                'cash' => 115,
+                'payment_lines' => [],
+                'unit_id' => [$itemUnitId],
+                'quantity' => [1],
+                'weight' => [1],
+                'gram_price' => [100],
+                'discount' => [0],
+                'no_metal' => [0],
+            ]);
+
+        $saleResponse->assertOk()->assertJson(['status' => true]);
+
+        $saleInvoice = Invoice::query()->where('type', 'sale')->firstOrFail();
+
+        $response = $this->actingAs($user, 'admin-web')
+            ->get(route('sales_return.create', ['type' => 'simplified', 'id' => $saleInvoice->id], false));
+
+        $response->assertOk();
+        $response->assertSee('window.currentSalesReturnBankAccounts', false);
+        $response->assertSee('SR-CREATE-1');
+    }
+
     public function test_purchase_return_store_supports_receipt_payment_lines_and_increases_shift_expected_cash_by_cash_refund(): void
     {
         $branch = $this->createBranch('فرع مردود الشراء');
@@ -738,6 +796,65 @@ class InvoicePaymentLinesFeatureTest extends TestCase
         $printResponse->assertSee('بنك مردود الشراء');
         $printResponse->assertSee('PUR-RET-REF-1');
         $printResponse->assertSee('6010101010');
+    }
+
+    public function test_purchase_return_create_page_loads_successfully_with_bank_accounts_payload(): void
+    {
+        $branch = $this->createBranch('فرع صفحة مردود الشراء');
+        $user = $this->createUser($branch, 'purchase-return-create-page@example.com');
+        $this->createFinancialYear();
+        $this->createWarehouse($branch);
+        [$customerId, $supplierId] = $this->createTradingParties();
+        [$itemUnitId, $caratId] = $this->createInventoryFixture($branch);
+        $this->createBranchAccountSettings($branch, $customerId, $supplierId);
+
+        $bankLedgerAccount = $this->createAccount('حساب مردود الشراء', '8451');
+        BankAccount::create([
+            'branch_id' => $branch->id,
+            'ledger_account_id' => $bankLedgerAccount->id,
+            'account_name' => 'بنك مردود الشراء',
+            'bank_name' => 'مصرف مردود الشراء',
+            'terminal_name' => 'PR-CREATE-1',
+            'supports_credit_card' => true,
+            'supports_bank_transfer' => true,
+            'is_default' => true,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($user, 'admin-web')
+            ->post(route('admin.shifts.store', [], false), [
+                'branch_id' => $branch->id,
+                'opening_cash' => 0,
+            ])
+            ->assertRedirect(route('admin.shifts.index', [], false));
+
+        $purchaseResponse = $this->actingAs($user, 'admin-web')
+            ->postJson(route('purchases.store', [], false), [
+                'bill_date' => '2026-03-23 11:00:00',
+                'branch_id' => $branch->id,
+                'carat_type' => 'crafted',
+                'purchase_type' => 'normal',
+                'supplier_id' => $supplierId,
+                'cash' => 115,
+                'payment_lines' => [],
+                'unit_id' => [$itemUnitId],
+                'carats_id' => [$caratId],
+                'weight' => [1],
+                'item_total_cost' => [100],
+                'item_total_labor_cost' => [0],
+                'discount' => [0],
+            ]);
+
+        $purchaseResponse->assertOk()->assertJson(['status' => true]);
+
+        $purchaseInvoice = Invoice::query()->where('type', 'purchase')->firstOrFail();
+
+        $response = $this->actingAs($user, 'admin-web')
+            ->get(route('purchase_return.create', ['id' => $purchaseInvoice->id], false));
+
+        $response->assertOk();
+        $response->assertSee('window.currentPurchaseReturnBankAccounts', false);
+        $response->assertSee('PR-CREATE-1');
     }
 
     private function createBranch(string $name): Branch
