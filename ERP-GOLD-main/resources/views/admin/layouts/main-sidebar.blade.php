@@ -9,9 +9,81 @@
         ::-webkit-scrollbar-track {background: #eee !important;}
         ::-webkit-scrollbar-thumb {background: #949eb7 !important;}
 	    .main-sidemenu{margin-top:10px !important; height:98% !important;}
-	    .app-sidebar{width:260px;}
+	    .app-sidebar{width:300px;}
+        .app-content{
+            margin-right:300px;
+        }
+        .main-footer{
+            margin-right:300px;
+        }
 	    .app-sidebar__user{padding-bottom:20px;}
-	    .side-menu__label{color:#666;font-size:13px;font-weight:600;padding-top:5%;}
+	    .side-menu__label{
+            color:#666;
+            font-size:13px;
+            font-weight:600;
+            padding-top:0;
+            line-height:1.45;
+            white-space:normal;
+            flex:1 1 auto;
+        }
+        .side-menu__item{
+            display:flex !important;
+            align-items:center;
+            gap:10px;
+            min-height:48px;
+            padding:12px 16px !important;
+            border-radius:12px;
+        }
+        .side-menu__item .angle{
+            margin-right:auto;
+            padding-right:6px;
+        }
+        .slide-menu{
+            padding:6px 0 10px !important;
+        }
+        .slide-item{
+            display:block;
+            white-space:normal;
+            line-height:1.45;
+            padding:10px 16px 10px 18px !important;
+            min-height:42px;
+        }
+        .side-menu .slide{
+            margin-bottom:4px;
+        }
+        .side-menu .slide.is-expanded > .slide-menu{
+            display:block;
+        }
+        @media (min-width: 768px) {
+            .app.sidebar-mini.sidenav-toggled-open .app-sidebar{
+                width:300px;
+            }
+            .app.sidebar-mini.sidenav-toggled-open .side-menu .slide .side-menu__item{
+                padding:12px 16px !important;
+                border-radius:12px;
+            }
+            .app.sidebar-mini.sidenav-toggled-open .slide-menu{
+                padding:6px 0 10px !important;
+            }
+        }
+        @media (max-width: 991.98px) {
+            .app-sidebar{
+                width:320px;
+            }
+            .app-content,
+            .main-footer{
+                margin-right:0;
+            }
+        }
+        @media (max-width: 767.98px) {
+            .app .app-sidebar{
+                right:-320px;
+            }
+            .app.sidenav-toggled .app-sidebar{
+                right:0;
+                width:320px;
+            }
+        }
         .main-header {height: 50px !important;}
         .main-profile-menu.show .dropdown-menu {top: 50px !important;}
         .app-sidebar__brand-logo{
@@ -401,8 +473,14 @@
                 </ul>
             </li>  
             @canany(['employee.accounts.add','employee.accounts.show','employee.accounts.edit','employee.accounts.delete'])                 
-                <li class="slide">
-                    <a class="side-menu__item" data-toggle="slide" href="#">
+                @php
+                    $accountingSectionActive = request()->routeIs(
+                        'accounts.*',
+                        'accounts.settings.*'
+                    );
+                @endphp
+                <li class="slide {{ $accountingSectionActive ? 'is-expanded' : '' }}">
+                    <a class="side-menu__item {{ $accountingSectionActive ? 'active' : '' }}" data-toggle="slide" href="#">
                         <i class="fa fa-usd side-menu__icon"></i>
                         <span class="side-menu__label">
                         {{__('main.accounting')}}
@@ -444,8 +522,23 @@
                 </li> 
             @endcan   
             @can('employee.inventory_reports.show')                  
-                <li class="slide">
-                    <a class="side-menu__item" data-toggle="slide" href="#">
+                @php
+                    $inventoryReportsSectionActive = request()->routeIs(
+                        'reports.items.list',
+                        'reports.items.list.search',
+                        'reports.sold_items_report.*',
+                        'reports.sales_report.*',
+                        'reports.sales_total_report.*',
+                        'reports.sales_return_total_report.*',
+                        'reports.purchases_report.*',
+                        'reports.purchases_total_report.*',
+                        'reports.daily_carat_report.*',
+                        'reports.gold_stock.*',
+                        'stock_settlements.*'
+                    );
+                @endphp
+                <li class="slide {{ $inventoryReportsSectionActive ? 'is-expanded' : '' }}">
+                    <a class="side-menu__item {{ $inventoryReportsSectionActive ? 'active' : '' }}" data-toggle="slide" href="#">
                         <i class="fa fa-copy side-menu__icon"></i>
                         <span class="side-menu__label">
                          تقارير المخزون
@@ -514,8 +607,17 @@
                 </li>     
             @endcan  
             @can('employee.accounting_reports.show')                  
-                <li class="slide">
-                    <a class="side-menu__item" data-toggle="slide" href="#">
+                @php
+                    $accountingReportsSectionActive = request()->routeIs(
+                        'trail_balance.*',
+                        'income_statement.*',
+                        'balance_sheet.*',
+                        'account_statement.*',
+                        'tax.declaration.*'
+                    );
+                @endphp
+                <li class="slide {{ $accountingReportsSectionActive ? 'is-expanded' : '' }}">
+                    <a class="side-menu__item {{ $accountingReportsSectionActive ? 'active' : '' }}" data-toggle="slide" href="#">
                         <i class="fa fa-copy side-menu__icon"></i>
                         <span class="side-menu__label">
                         التقارير المحاسبية
