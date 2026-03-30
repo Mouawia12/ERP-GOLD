@@ -335,6 +335,67 @@ class AdminAccessTest extends TestCase
         $response->assertSee('Branch User Two');
     }
 
+    public function test_branch_creation_rejects_duplicate_tax_number_and_commercial_register(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.branches.add',
+        ]);
+
+        Branch::create($this->branchFormData([
+            'name' => ['ar' => 'الفرع الأصلي', 'en' => 'Original Branch'],
+            'email' => 'original-branch@example.com',
+            'commercial_register' => '1234567890',
+            'tax_number' => '123456789012345',
+        ]));
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->from(route('admin.branches.create', [], false))
+            ->post(route('admin.branches.store', [], false), $this->branchRequestData([
+                'name' => 'فرع مكرر',
+                'email' => 'duplicate-branch@example.com',
+                'commercial_register' => '1234567890',
+                'tax_number' => '123456789012345',
+            ]));
+
+        $response->assertRedirect(route('admin.branches.create', [], false));
+        $response->assertSessionHasErrors(['commercial_register', 'tax_number']);
+    }
+
+    public function test_branch_update_rejects_duplicate_tax_number_and_commercial_register(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.branches.edit',
+        ]);
+
+        $originalBranch = Branch::create($this->branchFormData([
+            'name' => ['ar' => 'الفرع الأصلي', 'en' => 'Original Branch'],
+            'email' => 'original-update@example.com',
+            'commercial_register' => '1234567890',
+            'tax_number' => '123456789012345',
+        ]));
+
+        $branchToUpdate = Branch::create($this->branchFormData([
+            'name' => ['ar' => 'الفرع الثاني', 'en' => 'Second Branch'],
+            'email' => 'second-update@example.com',
+            'commercial_register' => '0987654321',
+            'tax_number' => '543210987654321',
+        ]));
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->from(route('admin.branches.edit', $branchToUpdate->id, false))
+            ->patch(route('admin.branches.update', $branchToUpdate->id, false), $this->branchRequestData([
+                'name' => 'الفرع الثاني بعد التعديل',
+                'email' => 'second-update@example.com',
+                'commercial_register' => $originalBranch->commercial_register,
+                'tax_number' => $originalBranch->tax_number,
+            ]));
+
+        $response->assertRedirect(route('admin.branches.edit', $branchToUpdate->id, false));
+        $response->assertSessionHasErrors(['commercial_register', 'tax_number']);
+    }
+
     public function test_branch_index_counts_only_active_assigned_users(): void
     {
         $admin = $this->createAdminUser([
@@ -725,5 +786,42 @@ class AdminAccessTest extends TestCase
         $user->assignRole($role);
 
         return $user;
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function branchFormData(array $overrides = []): array
+    {
+        return array_merge([
+            'name' => ['ar' => 'فرع افتراضي', 'en' => 'Default Branch'],
+            'email' => 'branch-'.uniqid().'@example.com',
+            'phone' => '0500000000',
+            'commercial_register' => '1111222233',
+            'tax_number' => '111122223333444',
+            'street_name' => 'شارع الملك',
+            'building_number' => '1234',
+            'plot_identification' => '5678',
+            'country' => 'السعودية',
+            'region' => 'الرياض',
+            'city' => 'الرياض',
+            'district' => 'الملز',
+            'postal_code' => '12345',
+            'short_address' => 'الرياض - الملز',
+            'status' => true,
+        ], $overrides);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function branchRequestData(array $overrides = []): array
+    {
+        $base = $this->branchFormData();
+        $base['name'] = $base['name']['ar'];
+
+        return array_merge($base, $overrides);
     }
 }

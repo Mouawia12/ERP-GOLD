@@ -55,8 +55,24 @@ class BranchController extends Controller
             'name' => 'required|string',
             'email' => 'required|email',
             'phone' => 'required|string',
-            'commercial_register' => 'required|digits:10',
-            'tax_number' => 'required|digits:15',
+            'commercial_register' => [
+                'required',
+                'digits:10',
+                Rule::unique('branches', 'commercial_register')->where(function ($query) use ($subscriber) {
+                    return filled($subscriber?->id)
+                        ? $query->where('subscriber_id', $subscriber->id)
+                        : $query;
+                }),
+            ],
+            'tax_number' => [
+                'required',
+                'digits:15',
+                Rule::unique('branches', 'tax_number')->where(function ($query) use ($subscriber) {
+                    return filled($subscriber?->id)
+                        ? $query->where('subscriber_id', $subscriber->id)
+                        : $query;
+                }),
+            ],
             'street_name' => 'required|string',
             'building_number' => 'required|digits:4',
             'plot_identification' => 'required|digits:4',
@@ -75,10 +91,12 @@ class BranchController extends Controller
             'commercial_register' => [
                 'required' => __('dashboard.tax_settings.validations.commercial_register_required'),
                 'digits' => __('dashboard.tax_settings.validations.commercial_register_digits', ['digits' => 10]),
+                'unique' => 'السجل التجاري مستخدم مسبقًا لهذا المشترك.',
             ],
             'tax_number' => [
                 'required' => __('dashboard.tax_settings.validations.tax_number_required'),
                 'digits' => __('dashboard.tax_settings.validations.tax_number_digits', ['digits' => 15]),
+                'unique' => 'الرقم الضريبي مستخدم مسبقًا لهذا المشترك.',
             ],
             'street_name.required' => __('dashboard.tax_settings.validations.street_name_required'),
             'building_number' => [
@@ -110,7 +128,6 @@ class BranchController extends Controller
                 ->route('admin.branches.index')
                 ->with('success', 'تم اضافة فرع بنجاح');
         } catch (\Exception $e) {
-            dd($e);
             DB::rollBack();
             return redirect()
                 ->back()
@@ -230,8 +247,28 @@ class BranchController extends Controller
             'name' => 'required|string',
             'email' => 'required|email',
             'phone' => 'required|string',
-            'commercial_register' => 'required|digits:10',
-            'tax_number' => 'required|digits:15',
+            'commercial_register' => [
+                'required',
+                'digits:10',
+                Rule::unique('branches', 'commercial_register')
+                    ->ignore($branch->id)
+                    ->where(function ($query) use ($subscriber) {
+                        return filled($subscriber?->id)
+                            ? $query->where('subscriber_id', $subscriber->id)
+                            : $query;
+                    }),
+            ],
+            'tax_number' => [
+                'required',
+                'digits:15',
+                Rule::unique('branches', 'tax_number')
+                    ->ignore($branch->id)
+                    ->where(function ($query) use ($subscriber) {
+                        return filled($subscriber?->id)
+                            ? $query->where('subscriber_id', $subscriber->id)
+                            : $query;
+                    }),
+            ],
             'street_name' => 'required|string',
             'building_number' => 'required|digits:4',
             'plot_identification' => 'required|digits:4',
@@ -250,10 +287,12 @@ class BranchController extends Controller
             'commercial_register' => [
                 'required' => __('dashboard.tax_settings.validations.commercial_register_required'),
                 'digits' => __('dashboard.tax_settings.validations.commercial_register_digits', ['digits' => 10]),
+                'unique' => 'السجل التجاري مستخدم مسبقًا لهذا المشترك.',
             ],
             'tax_number' => [
                 'required' => __('dashboard.tax_settings.validations.tax_number_required'),
                 'digits' => __('dashboard.tax_settings.validations.tax_number_digits', ['digits' => 15]),
+                'unique' => 'الرقم الضريبي مستخدم مسبقًا لهذا المشترك.',
             ],
             'street_name.required' => __('dashboard.tax_settings.validations.street_name_required'),
             'building_number' => [
@@ -287,7 +326,6 @@ class BranchController extends Controller
                 ->route('admin.branches.index')
                 ->with('success', 'تم تعديل بيانات الفرع بنجاح');
         } catch (\Exception $e) {
-            dd($e);
             DB::rollBack();
             return redirect()
                 ->back()

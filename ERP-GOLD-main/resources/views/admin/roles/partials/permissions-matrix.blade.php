@@ -60,14 +60,19 @@
 
     .switch input {
         opacity: 0;
-        width: 0;
-        height: 0;
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 2;
+        cursor: pointer;
+        margin: 0;
     }
 
     .slider {
         position: absolute;
-        cursor: pointer;
-        top: 5px;
+        pointer-events: none;
+        top: 0;
         left: 0;
         right: 0;
         bottom: 0;
@@ -186,7 +191,6 @@
     </div>
 @endforeach
 
-<script src="{{ asset('assets/js/jquery.min.js') }}"></script>
 <script>
     $(document).ready(function () {
         const permissionScope = @json($permissionScope);

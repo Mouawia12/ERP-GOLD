@@ -205,6 +205,41 @@ class GoldPriceManagementFeatureTest extends TestCase
         $response->assertSee('259.58');
     }
 
+    public function test_stock_market_sync_can_redirect_back_to_stock_market_page(): void
+    {
+        Config::set('services.gold_api.key', 'test-gold-api-key');
+        Config::set('services.gold_api.base_url', 'https://fake-gold.example');
+
+        Http::fake([
+            'https://fake-gold.example/api/XAU/USD' => Http::response([
+                'timestamp' => '2026-03-22T21:30:00.000Z',
+                'metal' => 'XAU',
+                'currency' => 'USD',
+                'price' => 3021.10,
+                'price_gram_14k' => 56.42,
+                'price_gram_18k' => 72.10,
+                'price_gram_21k' => 84.11,
+                'price_gram_22k' => 88.32,
+                'price_gram_24k' => 96.14,
+            ], 200),
+        ]);
+
+        $admin = $this->createAdminUser([
+            'employee.gold_prices.show',
+            'employee.gold_prices.edit',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('updatePrices', [], false), [
+                'currency' => 'USD',
+                'redirect_to' => 'stock_market',
+            ]);
+
+        $response->assertRedirect(route('gold.stock.market.prices', [], false));
+        $response->assertSessionHas('success');
+    }
+
     /**
      * @param  array<int, string>  $permissions
      */

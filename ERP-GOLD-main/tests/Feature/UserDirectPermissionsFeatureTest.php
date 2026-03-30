@@ -49,6 +49,7 @@ class UserDirectPermissionsFeatureTest extends TestCase
         $createResponse->assertSee('user-direct-permissions-search', false);
         $createResponse->assertSee('direct_permissions[]', false);
         $createResponse->assertSee('employee.users.show');
+        $createResponse->assertSee('بدون دور - صلاحيات مباشرة فقط');
 
         $editResponse = $this
             ->actingAs($admin, 'admin-web')
@@ -58,6 +59,7 @@ class UserDirectPermissionsFeatureTest extends TestCase
         $editResponse->assertSee('صلاحيات مباشرة للمستخدم');
         $editResponse->assertSee('user-direct-permissions-check-all', false);
         $editResponse->assertSee('employee.users.show');
+        $editResponse->assertSee('بدون دور - صلاحيات مباشرة فقط');
     }
 
     public function test_admin_can_assign_direct_permissions_to_user_and_show_page_displays_effective_permissions(): void
@@ -165,6 +167,54 @@ class UserDirectPermissionsFeatureTest extends TestCase
         $showResponse->assertOk();
         $showResponse->assertSee('تغيير الصلاحيات المباشرة');
         $showResponse->assertSee('employee.accounts.show');
+    }
+
+    public function test_admin_can_create_user_with_direct_permissions_only_without_role(): void
+    {
+        $directPermission = Permission::findOrCreate('employee.accounts.show', 'admin-web');
+        $admin = $this->createAdminUser([
+            'employee.users.add',
+        ]);
+        $targetBranch = $this->createBranch('فرع التخصيص', 'Assignment Branch', 'assignment@example.com');
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('admin.users.store', [], false), [
+                'name' => 'Direct Only User',
+                'email' => 'direct-only-user@example.com',
+                'role_id' => '',
+                'branch_id' => $targetBranch->id,
+                'branch_ids' => [$targetBranch->id],
+                'password' => 'secret123',
+                'confirm-password' => 'secret123',
+                'direct_permissions' => [
+                    $directPermission->name,
+                ],
+            ]);
+
+        $response->assertRedirect(route('admin.users.index', [], false));
+        $response->assertSessionHasNoErrors();
+
+        $managedUser = User::query()
+            ->where('email', 'direct-only-user@example.com')
+            ->with('roles')
+            ->firstOrFail();
+
+        $this->assertCount(0, $managedUser->roles);
+        $this->assertTrue($managedUser->hasDirectPermission($directPermission));
+        $this->assertSame(
+            ['employee.accounts.show'],
+            $managedUser->getAllPermissions()->pluck('name')->sort()->values()->all(),
+        );
+
+        $homeResponse = $this
+            ->actingAs($managedUser, 'admin-web')
+            ->get(route('admin.home', [], false));
+
+        $homeResponse->assertOk();
+        $homeResponse->assertSee('الحسابات العامة');
+        $homeResponse->assertDontSee('تقارير المخزون');
+        $homeResponse->assertDontSee('التقارير المحاسبية');
     }
 
     /**

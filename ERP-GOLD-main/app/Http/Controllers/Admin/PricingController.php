@@ -62,17 +62,22 @@ class PricingController extends Controller
     {
         $validated = $request->validate([
             'currency' => ['nullable', 'in:SAR,USD'],
+            'redirect_to' => ['nullable', 'in:prices,stock_market'],
         ]);
+
+        $redirectRoute = ($validated['redirect_to'] ?? null) === 'stock_market'
+            ? 'gold.stock.market.prices'
+            : 'prices';
 
         try {
             $this->goldPriceSyncService->syncFromRemote($validated['currency'] ?? 'SAR', auth('admin-web')->id());
 
             return redirect()
-                ->route('prices')
+                ->route($redirectRoute)
                 ->with('success', 'تم تحديث أسعار الذهب من الخدمة الخارجية بنجاح.');
         } catch (RuntimeException $exception) {
             return redirect()
-                ->route('prices')
+                ->route($redirectRoute)
                 ->with('error', $exception->getMessage());
         }
     }

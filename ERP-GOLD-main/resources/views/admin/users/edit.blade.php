@@ -61,6 +61,9 @@
                                 <label>الصلاحية</label>
                                 <select data-live-search="true" data-style="btn-dark" title="اختر الصلاحية"
                                         class="form-control selectpicker" name="role_id" id="role_id">
+                                    <option value="" @selected(blank(old('role_id', $userRole[0] ?? null)))>
+                                        بدون دور - صلاحيات مباشرة فقط
+                                    </option>
                                     @foreach ($roles as $role)
                                         <option
                                             value="{{ $role->id }}"
@@ -70,6 +73,7 @@
                                         </option>
                                     @endforeach
                                 </select>
+                                <small class="text-muted d-block mt-1">يمكن إزالة الدور والاعتماد على الصلاحيات المباشرة فقط.</small>
                             </div>
                         </div>
 

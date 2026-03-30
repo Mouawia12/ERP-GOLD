@@ -29,6 +29,7 @@
                             <form method="POST" action="{{ route('updatePrices') }}" class="mb-0">
                                 @csrf
                                 <input type="hidden" name="currency" value="USD">
+                                <input type="hidden" name="redirect_to" value="stock_market">
                                 <button type="submit" class="btn btn-sm btn-outline-primary shadow-sm" style="border-radius: 10px;">
                                     تحديث Snapshot الدولار
                                 </button>
@@ -36,6 +37,7 @@
                             <form method="POST" action="{{ route('updatePrices') }}" class="mb-0">
                                 @csrf
                                 <input type="hidden" name="currency" value="SAR">
+                                <input type="hidden" name="redirect_to" value="stock_market">
                                 <button type="submit" class="btn btn-sm btn-primary shadow-sm" style="border-radius: 10px;">
                                     تحديث Snapshot الريال
                                 </button>

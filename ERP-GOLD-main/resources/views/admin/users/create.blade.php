@@ -61,13 +61,17 @@
                             <div class="parsley-input col-md-4 mg-t-20 mg-md-t-0" id="roleWrapper">
                                 <label class="form-label">الصلاحية</label>
                                 <select data-live-search="true" data-style="btn-dark" title="اختر الصلاحية"
-                                        class="form-control selectpicker" required id="role_id" name="role_id">
+                                        class="form-control selectpicker" id="role_id" name="role_id">
+                                    <option value="" @selected(old('role_id') === null || old('role_id') === '')>
+                                        بدون دور - صلاحيات مباشرة فقط
+                                    </option>
                                     @foreach ($roles as $role)
                                         <option value="{{ $role->id }}" @selected(old('role_id') == $role->id)>
                                             {{ $role->name }}
                                         </option>
                                     @endforeach
                                 </select>
+                                <small class="text-muted d-block mt-1">اترك الدور فارغًا إذا أردت تقييد المستخدم بصلاحيات مباشرة فقط.</small>
                             </div>
                         </div>
 

@@ -159,6 +159,69 @@ class BranchDataIsolationFeatureTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_sales_list_accepts_branch_and_date_filters_without_leaking_other_records(): void
+    {
+        $financialYear = $this->createFinancialYear();
+        $ownBranch = $this->createBranch('فرع فلاتر المبيعات');
+        $foreignBranch = $this->createBranch('فرع خارجي لفلاتر المبيعات');
+        $customerId = $this->createParty('customer', 'عميل فلاتر المبيعات', '0551999999');
+
+        $user = $this->createUser($ownBranch, 'sales-filters-user@example.com', [
+            'employee.simplified_tax_invoices.show',
+        ]);
+        $foreignUser = $this->createUser($foreignBranch, 'sales-filters-foreign@example.com');
+
+        $matchingInvoice = $this->createInvoice($financialYear, $ownBranch, $user, $customerId, 'sale', [
+            'sale_type' => 'simplified',
+            'date' => '2026-03-25',
+            'time' => '09:15:00',
+        ]);
+        $otherDateInvoice = $this->createInvoice($financialYear, $ownBranch, $user, $customerId, 'sale', [
+            'sale_type' => 'simplified',
+            'date' => '2026-03-20',
+            'time' => '09:20:00',
+        ]);
+        $foreignInvoice = $this->createInvoice($financialYear, $foreignBranch, $foreignUser, $customerId, 'sale', [
+            'sale_type' => 'simplified',
+            'date' => '2026-03-25',
+            'time' => '11:30:00',
+        ]);
+
+        $htmlResponse = $this->actingAs($user, 'admin-web')
+            ->get(route('sales.index', [
+                'type' => 'simplified',
+                'branch_id' => $ownBranch->id,
+                'date_from' => '2026-03-25',
+                'date_to' => '2026-03-25',
+            ], false));
+
+        $htmlResponse->assertOk();
+        $htmlResponse->assertSee('name="branch_id"', false);
+        $htmlResponse->assertSee('name="date_from"', false);
+        $htmlResponse->assertSee('name="date_to"', false);
+
+        $ajaxResponse = $this->withHeaders([
+            'X-Requested-With' => 'XMLHttpRequest',
+        ])->actingAs($user, 'admin-web')
+            ->get(route('sales.index', [
+                'type' => 'simplified',
+                'branch_id' => $ownBranch->id,
+                'date_from' => '2026-03-25',
+                'date_to' => '2026-03-25',
+            ], false));
+
+        $ajaxResponse->assertOk();
+        $ajaxResponse->assertJsonFragment([
+            'bill_number' => $matchingInvoice->bill_number,
+        ]);
+        $ajaxResponse->assertJsonMissing([
+            'bill_number' => $otherDateInvoice->bill_number,
+        ]);
+        $ajaxResponse->assertJsonMissing([
+            'bill_number' => $foreignInvoice->bill_number,
+        ]);
+    }
+
     public function test_branch_user_financial_vouchers_are_scoped_to_his_branch(): void
     {
         $financialYear = $this->createFinancialYear();

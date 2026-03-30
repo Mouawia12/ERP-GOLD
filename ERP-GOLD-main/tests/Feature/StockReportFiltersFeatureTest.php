@@ -197,6 +197,7 @@ class StockReportFiltersFeatureTest extends TestCase
         $response->assertSee('عيار 21');
         $response->assertSee('920');
         $response->assertSee('8');
+        $response->assertSee('الفرع: ' . $admin->branch->name);
     }
 
     public function test_purchases_total_report_respects_user_time_and_invoice_number_filters(): void

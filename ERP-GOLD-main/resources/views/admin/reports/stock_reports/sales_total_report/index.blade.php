@@ -30,8 +30,8 @@
                                 <h4  class="alert alert-primary text-center">
                                     {{__('main.sales_total_report')}}
                                 </h4>
-                                @if(isset($branch))
-                                <h5 class="text-center"> [ {{$branch->name}} ] </h5>
+                                @if(isset($branch) && $branch)
+                                <h5 class="text-center"> [ الفرع: {{$branch->name}} ] </h5>
                                 @else
                                 <h5 class="text-center"> [ جميع الفروع ] </h5>
                                 @endif
@@ -200,5 +200,4 @@
         document.title = "{{__('main.sales_total_report')}}";
     });
 </script>
-
 

@@ -39,11 +39,23 @@ class SalesController extends Controller
     {
         $currentUser = $request->user('admin-web');
         $type = $request->type;
+
+        $validated = $request->validate([
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+        ]);
+
         $query = Invoice::query()
             ->where('type', 'sale')
             ->where('sale_type', $type);
 
         $this->branchAccessService->scopeToAccessibleBranch($query, $currentUser);
+
+        $query
+            ->when(filled($validated['branch_id'] ?? null), fn ($builder) => $builder->where('branch_id', (int) $validated['branch_id']))
+            ->when(filled($validated['date_from'] ?? null), fn ($builder) => $builder->whereDate('date', '>=', $validated['date_from']))
+            ->when(filled($validated['date_to'] ?? null), fn ($builder) => $builder->whereDate('date', '<=', $validated['date_to']));
 
         $data = $query->orderBy('id', 'DESC')->get();
 
@@ -83,7 +95,9 @@ class SalesController extends Controller
                 ->make(true);
         }
 
-        return view('admin.sales.index', compact('data', 'type'));
+        $branches = $this->branchAccessService->visibleBranches($currentUser);
+
+        return view('admin.sales.index', compact('data', 'type', 'branches'));
     }
 
     public function create($type)

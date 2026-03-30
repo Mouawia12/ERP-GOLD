@@ -73,7 +73,7 @@ class UsersController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:users,name',
             'email' => 'required|email|max:255|unique:users,email',
-            'role_id' => 'required|exists:roles,id',
+            'role_id' => 'nullable|exists:roles,id',
             'branch_id' => 'required|exists:branches,id',
             'branch_ids' => 'required|array|min:1',
             'branch_ids.*' => 'integer|exists:branches,id',
@@ -103,8 +103,10 @@ class UsersController extends Controller
             'profile_pic' => 'default.png',
         ]);
 
-        $role = Role::findOrFail($validated['role_id']);
-        $user->assignRole($role);
+        if (! empty($validated['role_id'])) {
+            $role = Role::findOrFail($validated['role_id']);
+            $user->assignRole($role);
+        }
         $user->syncPermissions($validated['direct_permissions'] ?? []);
         $this->branchContextService->syncUserBranches($user, $assignedBranchIds, (int) $validated['branch_id']);
 
@@ -130,7 +132,7 @@ class UsersController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:users,name,' . $user->id,
             'email' => 'required|email|max:255|unique:users,email,' . $user->id,
-            'role_id' => 'required|exists:roles,id',
+            'role_id' => 'nullable|exists:roles,id',
             'branch_id' => 'required|exists:branches,id',
             'branch_ids' => 'required|array|min:1',
             'branch_ids.*' => 'integer|exists:branches,id',
@@ -165,8 +167,12 @@ class UsersController extends Controller
 
         $user->update($payload);
         $this->branchContextService->syncUserBranches($user, $assignedBranchIds, (int) $validated['branch_id']);
-        $role = Role::findOrFail($validated['role_id']);
-        $user->syncRoles([$role]);
+        if (! empty($validated['role_id'])) {
+            $role = Role::findOrFail($validated['role_id']);
+            $user->syncRoles([$role]);
+        } else {
+            $user->syncRoles([]);
+        }
         $user->syncPermissions($validated['direct_permissions'] ?? []);
         $this->writeAuditLogs(
             $request->user('admin-web'),
