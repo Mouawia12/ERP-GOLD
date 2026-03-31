@@ -335,7 +335,7 @@ class AdminAccessTest extends TestCase
         $response->assertSee('Branch User Two');
     }
 
-    public function test_branch_creation_rejects_duplicate_tax_number_and_commercial_register(): void
+    public function test_branch_creation_allows_duplicate_tax_number_and_commercial_register_when_name_differs(): void
     {
         $admin = $this->createAdminUser([
             'employee.branches.add',
@@ -352,17 +352,49 @@ class AdminAccessTest extends TestCase
             ->actingAs($admin, 'admin-web')
             ->from(route('admin.branches.create', [], false))
             ->post(route('admin.branches.store', [], false), $this->branchRequestData([
-                'name' => 'فرع مكرر',
+                'name' => 'فرع جديد 2',
                 'email' => 'duplicate-branch@example.com',
                 'commercial_register' => '1234567890',
                 'tax_number' => '123456789012345',
             ]));
 
-        $response->assertRedirect(route('admin.branches.create', [], false));
-        $response->assertSessionHasErrors(['commercial_register', 'tax_number']);
+        $response->assertRedirect(route('admin.branches.index', [], false));
+        $response->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('branches', [
+            'email' => 'duplicate-branch@example.com',
+            'commercial_register' => '1234567890',
+            'tax_number' => '123456789012345',
+        ]);
     }
 
-    public function test_branch_update_rejects_duplicate_tax_number_and_commercial_register(): void
+    public function test_branch_creation_rejects_duplicate_branch_name_for_same_subscriber(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.branches.add',
+        ]);
+
+        Branch::create($this->branchFormData([
+            'name' => ['ar' => 'الفرع الأصلي', 'en' => 'Original Branch'],
+            'email' => 'original-duplicate-name@example.com',
+            'commercial_register' => '1234567890',
+            'tax_number' => '123456789012345',
+        ]));
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->from(route('admin.branches.create', [], false))
+            ->post(route('admin.branches.store', [], false), $this->branchRequestData([
+                'name' => 'الفرع الأصلي',
+                'email' => 'duplicate-name@example.com',
+                'commercial_register' => '0987654321',
+                'tax_number' => '543210987654321',
+            ]));
+
+        $response->assertRedirect(route('admin.branches.create', [], false));
+        $response->assertSessionHasErrors(['name']);
+    }
+
+    public function test_branch_update_rejects_duplicate_branch_name_for_same_subscriber(): void
     {
         $admin = $this->createAdminUser([
             'employee.branches.edit',
@@ -386,14 +418,14 @@ class AdminAccessTest extends TestCase
             ->actingAs($admin, 'admin-web')
             ->from(route('admin.branches.edit', $branchToUpdate->id, false))
             ->patch(route('admin.branches.update', $branchToUpdate->id, false), $this->branchRequestData([
-                'name' => 'الفرع الثاني بعد التعديل',
+                'name' => 'الفرع الأصلي',
                 'email' => 'second-update@example.com',
                 'commercial_register' => $originalBranch->commercial_register,
                 'tax_number' => $originalBranch->tax_number,
             ]));
 
         $response->assertRedirect(route('admin.branches.edit', $branchToUpdate->id, false));
-        $response->assertSessionHasErrors(['commercial_register', 'tax_number']);
+        $response->assertSessionHasErrors(['name']);
     }
 
     public function test_branch_index_counts_only_active_assigned_users(): void

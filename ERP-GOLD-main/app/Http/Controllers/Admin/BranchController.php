@@ -10,7 +10,6 @@ use App\Models\Subscriber;
 use App\Services\Zatca\OnBoarding;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class BranchController extends Controller
@@ -52,27 +51,27 @@ class BranchController extends Controller
         $this->ensureSubscriberCanAddBranch($subscriber);
 
         $validated = $this->validate($request, [
-            'name' => 'required|string',
+            'name' => [
+                'required',
+                'string',
+                function ($attribute, $value, $fail) use ($subscriber) {
+                    $duplicateExists = Branch::query()
+                        ->when(
+                            filled($subscriber?->id),
+                            fn ($query) => $query->where('subscriber_id', $subscriber->id)
+                        )
+                        ->get()
+                        ->contains(fn (Branch $branch) => trim((string) $branch->name) === trim((string) $value));
+
+                    if ($duplicateExists) {
+                        $fail('اسم الفرع مستخدم مسبقًا لهذا المشترك.');
+                    }
+                },
+            ],
             'email' => 'required|email',
             'phone' => 'required|string',
-            'commercial_register' => [
-                'required',
-                'digits:10',
-                Rule::unique('branches', 'commercial_register')->where(function ($query) use ($subscriber) {
-                    return filled($subscriber?->id)
-                        ? $query->where('subscriber_id', $subscriber->id)
-                        : $query;
-                }),
-            ],
-            'tax_number' => [
-                'required',
-                'digits:15',
-                Rule::unique('branches', 'tax_number')->where(function ($query) use ($subscriber) {
-                    return filled($subscriber?->id)
-                        ? $query->where('subscriber_id', $subscriber->id)
-                        : $query;
-                }),
-            ],
+            'commercial_register' => 'required|digits:10',
+            'tax_number' => 'required|digits:15',
             'street_name' => 'required|string',
             'building_number' => 'required|digits:4',
             'plot_identification' => 'required|digits:4',
@@ -84,6 +83,7 @@ class BranchController extends Controller
             'short_address' => 'required|string',
         ], [
             'name.required' => __('dashboard.tax_settings.validations.name_required'),
+            'name.unique' => 'اسم الفرع مستخدم مسبقًا لهذا المشترك.',
             'email' => [
                 'required' => __('dashboard.tax_settings.validations.email_required'),
                 'email' => __('dashboard.tax_settings.validations.email_email'),
@@ -91,12 +91,10 @@ class BranchController extends Controller
             'commercial_register' => [
                 'required' => __('dashboard.tax_settings.validations.commercial_register_required'),
                 'digits' => __('dashboard.tax_settings.validations.commercial_register_digits', ['digits' => 10]),
-                'unique' => 'السجل التجاري مستخدم مسبقًا لهذا المشترك.',
             ],
             'tax_number' => [
                 'required' => __('dashboard.tax_settings.validations.tax_number_required'),
                 'digits' => __('dashboard.tax_settings.validations.tax_number_digits', ['digits' => 15]),
-                'unique' => 'الرقم الضريبي مستخدم مسبقًا لهذا المشترك.',
             ],
             'street_name.required' => __('dashboard.tax_settings.validations.street_name_required'),
             'building_number' => [
@@ -244,31 +242,28 @@ class BranchController extends Controller
         $this->ensureBranchBelongsToSubscriber($subscriber?->id, $branch);
 
         $validated = $this->validate($request, [
-            'name' => 'required|string',
+            'name' => [
+                'required',
+                'string',
+                function ($attribute, $value, $fail) use ($subscriber, $branch) {
+                    $duplicateExists = Branch::query()
+                        ->whereKeyNot($branch->id)
+                        ->when(
+                            filled($subscriber?->id),
+                            fn ($query) => $query->where('subscriber_id', $subscriber->id)
+                        )
+                        ->get()
+                        ->contains(fn (Branch $candidate) => trim((string) $candidate->name) === trim((string) $value));
+
+                    if ($duplicateExists) {
+                        $fail('اسم الفرع مستخدم مسبقًا لهذا المشترك.');
+                    }
+                },
+            ],
             'email' => 'required|email',
             'phone' => 'required|string',
-            'commercial_register' => [
-                'required',
-                'digits:10',
-                Rule::unique('branches', 'commercial_register')
-                    ->ignore($branch->id)
-                    ->where(function ($query) use ($subscriber) {
-                        return filled($subscriber?->id)
-                            ? $query->where('subscriber_id', $subscriber->id)
-                            : $query;
-                    }),
-            ],
-            'tax_number' => [
-                'required',
-                'digits:15',
-                Rule::unique('branches', 'tax_number')
-                    ->ignore($branch->id)
-                    ->where(function ($query) use ($subscriber) {
-                        return filled($subscriber?->id)
-                            ? $query->where('subscriber_id', $subscriber->id)
-                            : $query;
-                    }),
-            ],
+            'commercial_register' => 'required|digits:10',
+            'tax_number' => 'required|digits:15',
             'street_name' => 'required|string',
             'building_number' => 'required|digits:4',
             'plot_identification' => 'required|digits:4',
@@ -280,6 +275,7 @@ class BranchController extends Controller
             'short_address' => 'required|string',
         ], [
             'name.required' => __('dashboard.tax_settings.validations.name_required'),
+            'name.unique' => 'اسم الفرع مستخدم مسبقًا لهذا المشترك.',
             'email' => [
                 'required' => __('dashboard.tax_settings.validations.email_required'),
                 'email' => __('dashboard.tax_settings.validations.email_email'),
@@ -287,12 +283,10 @@ class BranchController extends Controller
             'commercial_register' => [
                 'required' => __('dashboard.tax_settings.validations.commercial_register_required'),
                 'digits' => __('dashboard.tax_settings.validations.commercial_register_digits', ['digits' => 10]),
-                'unique' => 'السجل التجاري مستخدم مسبقًا لهذا المشترك.',
             ],
             'tax_number' => [
                 'required' => __('dashboard.tax_settings.validations.tax_number_required'),
                 'digits' => __('dashboard.tax_settings.validations.tax_number_digits', ['digits' => 15]),
-                'unique' => 'الرقم الضريبي مستخدم مسبقًا لهذا المشترك.',
             ],
             'street_name.required' => __('dashboard.tax_settings.validations.street_name_required'),
             'building_number' => [
