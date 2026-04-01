@@ -27,30 +27,48 @@
     }
 
     .app-sidebar__toggle {
+        position: fixed;
+        top: 10px;
+        right: calc(var(--erp-sidebar-expanded, 300px) + 14px);
         display: flex;
         align-items: center;
         justify-content: center;
-        margin-inline-start: 14px;
-        z-index: 20;
+        margin: 0;
+        z-index: 1040;
+        transition: right .28s ease, transform .2s ease;
     }
 
     .app-sidebar__toggle a {
+        position: relative;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 44px;
-        height: 44px;
+        width: 52px;
+        height: 52px;
+        border-radius: 18px;
+        border: 1px solid rgba(161, 182, 219, 0.68);
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(229, 238, 255, 0.98) 100%);
+        color: #2f4c79 !important;
+        box-shadow: 0 18px 36px rgba(20, 49, 92, 0.18);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease, border-color .2s ease;
+        text-decoration: none !important;
+    }
+
+    .app-sidebar__toggle a::after {
+        content: "";
+        position: absolute;
+        inset: 4px;
         border-radius: 14px;
-        border: 1px solid #d9e5f6;
-        background: linear-gradient(135deg, #eef5ff 0%, #dfeafe 100%);
-        color: #36527d !important;
-        box-shadow: 0 12px 24px rgba(20, 49, 92, 0.12);
-        transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease;
+        border: 1px solid rgba(255, 255, 255, 0.82);
+        pointer-events: none;
     }
 
     .app-sidebar__toggle a:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 14px 28px rgba(20, 49, 92, 0.16);
+        transform: translateY(-1px) scale(1.02);
+        box-shadow: 0 20px 40px rgba(20, 49, 92, 0.22);
+        border-color: rgba(122, 155, 214, 0.92);
     }
 
     .app-sidebar__toggle .open-toggle {
@@ -93,8 +111,19 @@
 
     .app-sidebar__toggle .header-icon,
     .app-sidebar__toggle .header-icons {
-        font-size: 20px;
+        position: relative;
+        z-index: 1;
+        font-size: 22px;
         line-height: 1;
+    }
+
+    body.app:not(.sidenav-toggled) .app-sidebar__toggle,
+    body.app.sidenav-toggled.sidenav-toggled-open .app-sidebar__toggle {
+        right: calc(var(--erp-sidebar-expanded, 300px) + 14px);
+    }
+
+    body.app.sidenav-toggled:not(.sidenav-toggled-open) .app-sidebar__toggle {
+        right: calc(var(--erp-sidebar-collapsed, 88px) + 14px);
     }
 
     @media (max-width: 991.98px) {
@@ -103,7 +132,21 @@
         }
 
         .app-sidebar__toggle {
-            margin-inline-start: 8px;
+            top: 8px;
+            right: 12px !important;
+        }
+
+        .app-sidebar__toggle a {
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+        }
+    }
+
+    @media (max-width: 575.98px) {
+        .app-sidebar__toggle {
+            top: 6px;
+            right: 8px !important;
         }
     }
 </style>
