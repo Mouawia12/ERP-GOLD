@@ -80,6 +80,9 @@
             padding:18px;
             margin-bottom:18px;
         }
+        .invoice-create-page .invoice-section-card > .row{
+            row-gap:4px;
+        }
         .invoice-create-page .invoice-section-title{
             display:flex;
             align-items:center;
@@ -139,17 +142,74 @@
             height:42px !important;
         }
         .invoice-create-page .custom-control.custom-switch{
-            padding:10px 44px 10px 12px;
+            display:block;
+            margin:0;
+            padding:0;
+            border:0;
+            background:transparent;
+            min-height:auto;
+        }
+        .invoice-create-page .invoice-switch-card{
+            margin-top:10px;
+            padding:11px 14px;
             border:1px dashed var(--invoice-border-strong);
-            border-radius:14px;
+            border-radius:16px;
             background:#fff;
-            min-height:46px;
+        }
+        .invoice-create-page .custom-switch .custom-control-label{
+            display:flex;
+            align-items:center;
+            width:100%;
+            min-height:24px;
+            margin:0;
+            padding:0 56px 0 0;
+            font-size:13px;
+            font-weight:700;
+            line-height:1.45;
+            color:var(--invoice-title);
+            cursor:pointer;
+        }
+        .invoice-create-page .custom-switch .custom-control-label::before{
+            top:50%;
+            right:0;
+            left:auto;
+            width:42px;
+            height:22px;
+            border-radius:999px;
+            border:1px solid #c9d8ec;
+            background:#e4edf8;
+            box-shadow:none;
+            transform:translateY(-50%);
+        }
+        .invoice-create-page .custom-switch .custom-control-label::after{
+            top:50%;
+            right:3px;
+            left:auto;
+            width:16px;
+            height:16px;
+            border-radius:999px;
+            background:#7c8fad;
+            transform:translateY(-50%);
+        }
+        .invoice-create-page .custom-switch .custom-control-input:checked ~ .custom-control-label::before{
+            background:#4f7cf3;
+            border-color:#4f7cf3;
+        }
+        .invoice-create-page .custom-switch .custom-control-input:checked ~ .custom-control-label::after{
+            background:#fff;
+            transform:translate(-20px, -50%);
+        }
+        .invoice-create-page .invoice-option-stack{
+            display:flex;
+            flex-direction:column;
+            gap:10px;
         }
         .invoice-create-page .invoice-quick-action{
             border-radius:12px;
             padding:10px 12px;
             font-size:13px;
             font-weight:700;
+            min-height:46px;
         }
         .invoice-create-page .invoice-search-card .well{
             background:transparent;
@@ -375,7 +435,7 @@
                                                                 </option>
                                                             @endforeach
                                                         </select>
-                                                        <div class="custom-control custom-switch text-right mt-2">
+                                                        <div class="custom-control custom-switch invoice-switch-card text-right mt-2">
                                                             <input type="checkbox" class="custom-control-input" id="cash_party_only_toggle">
                                                             <label class="custom-control-label" for="cash_party_only_toggle">
                                                                 عرض العملاء النقديين فقط
@@ -383,39 +443,41 @@
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div class="col-md-3">
+                                                <div class="col-lg-4 col-md-6">
                                                     <div class="form-group">
                                                         <label > {{ __('main.bill_client_phone') }}  
                                                         </label>
                                                         <input class="form-control text-right" name="bill_client_phone">
                                                     </div>
                                                 </div>
-                                                <div class="col-md-3">
+                                                <div class="col-lg-4 col-md-6">
                                                     <div class="form-group">
                                                         <label>رقم هوية العميل</label>
                                                         <input class="form-control text-right" name="bill_client_identity_number" autocomplete="off">
                                                     </div>
                                                 </div>
-                                                <div class="col-md-3">
+                                                <div class="col-lg-4 col-md-6">
                                                     <div class="form-group">
                                                         <label >
                                                             {{ __('main.bill_client_name') }} 
                                                         </label>
                                                       <input class="form-control text-right" name="bill_client_name" autocomplete="off">
                                                       @can('employee.customers.add')
-                                                          <button
-                                                              type="button"
-                                                              class="btn btn-outline-primary btn-block mt-2 invoice-quick-action"
-                                                              id="quick_save_customer_btn"
-                                                              data-url="{{ route('customers.quick-store', ['type' => 'customer']) }}"
-                                                          >
-                                                              حفظ الاسم الحالي كعميل
-                                                          </button>
-                                                          <div class="custom-control custom-switch text-right mt-2">
-                                                              <input type="checkbox" class="custom-control-input" id="quick_save_customer_is_cash_party">
-                                                              <label class="custom-control-label" for="quick_save_customer_is_cash_party">
-                                                                  حفظه كطرف نقدي
-                                                              </label>
+                                                          <div class="invoice-option-stack">
+                                                              <button
+                                                                  type="button"
+                                                                  class="btn btn-outline-primary btn-block invoice-quick-action"
+                                                                  id="quick_save_customer_btn"
+                                                                  data-url="{{ route('customers.quick-store', ['type' => 'customer']) }}"
+                                                              >
+                                                                  حفظ الاسم الحالي كعميل
+                                                              </button>
+                                                              <div class="custom-control custom-switch invoice-switch-card text-right">
+                                                                  <input type="checkbox" class="custom-control-input" id="quick_save_customer_is_cash_party">
+                                                                  <label class="custom-control-label" for="quick_save_customer_is_cash_party">
+                                                                      حفظه كطرف نقدي
+                                                                  </label>
+                                                              </div>
                                                           </div>
                                                       @endcan
                                                     </div>
