@@ -2,10 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\Account;
 use App\Models\Branch;
+use App\Models\Customer;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\Subscriber;
 use App\Models\User;
+use App\Services\Accounts\SubscriberChartProvisioner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -192,6 +196,104 @@ class AccountsTreeFeatureTest extends TestCase
         ]);
     }
 
+    public function test_subscriber_admin_only_sees_his_own_account_tree(): void
+    {
+        $subscriber = Subscriber::create([
+            'name' => 'مشترك الشجرة',
+            'login_email' => 'tree-subscriber@example.com',
+            'status' => true,
+        ]);
+        $otherSubscriber = Subscriber::create([
+            'name' => 'مشترك شجرة آخر',
+            'login_email' => 'other-tree-subscriber@example.com',
+            'status' => true,
+        ]);
+
+        $admin = $this->createSubscriberAdminUser($subscriber, [
+            'employee.accounts.show',
+        ]);
+
+        app(SubscriberChartProvisioner::class)->ensureProvisioned($subscriber);
+        app(SubscriberChartProvisioner::class)->ensureProvisioned($otherSubscriber);
+
+        Account::withoutGlobalScopes()->create([
+            'subscriber_id' => $subscriber->id,
+            'name' => ['ar' => 'حساب خاص بالمشترك', 'en' => 'Subscriber Private Account'],
+            'code' => '610001',
+            'account_type' => 'expenses',
+            'transfer_side' => 'income_statement',
+        ]);
+        Account::withoutGlobalScopes()->create([
+            'subscriber_id' => $otherSubscriber->id,
+            'name' => ['ar' => 'حساب خاص بمشترك آخر', 'en' => 'Foreign Private Account'],
+            'code' => '610001',
+            'account_type' => 'expenses',
+            'transfer_side' => 'income_statement',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('accounts.index', [], false));
+
+        $expectedTotalAccounts = Account::query()->count();
+        $expectedRootAccounts = Account::query()->whereNull('parent_account_id')->count();
+
+        $response->assertOk();
+        $response->assertSee('حساب خاص بالمشترك');
+        $response->assertDontSee('حساب خاص بمشترك آخر');
+        $response->assertViewHas('stats', function (array $stats) use ($expectedTotalAccounts, $expectedRootAccounts) {
+            return $stats['total_accounts'] === $expectedTotalAccounts
+                && $stats['root_accounts'] === $expectedRootAccounts;
+        });
+    }
+
+    public function test_customer_account_is_created_under_current_subscriber_tree_only(): void
+    {
+        $subscriber = Subscriber::create([
+            'name' => 'مشترك العملاء',
+            'login_email' => 'customers-subscriber@example.com',
+            'status' => true,
+        ]);
+        $otherSubscriber = Subscriber::create([
+            'name' => 'مشترك موردين آخر',
+            'login_email' => 'other-customers-subscriber@example.com',
+            'status' => true,
+        ]);
+
+        $admin = $this->createSubscriberAdminUser($subscriber, [
+            'employee.customers.add',
+        ]);
+
+        $subscriberBranch = Branch::query()->where('subscriber_id', $subscriber->id)->firstOrFail();
+        $otherBranch = Branch::create([
+            'subscriber_id' => $otherSubscriber->id,
+            'name' => ['ar' => 'فرع خارجي', 'en' => 'Foreign Branch'],
+            'phone' => '333222111',
+        ]);
+
+        $provisioner = app(SubscriberChartProvisioner::class);
+        $provisioner->ensureBranchAccountSettings($subscriber, $subscriberBranch);
+        $provisioner->ensureBranchAccountSettings($otherSubscriber, $otherBranch);
+
+        $customer = $this
+            ->actingAs($admin, 'admin-web')
+            ->createCustomerForTest('عميل الشجرة', 'customer');
+
+        $customerAccount = Account::withoutGlobalScopes()->findOrFail($customer->account_id);
+        $subscriberCustomersControl = Account::withoutGlobalScopes()
+            ->where('subscriber_id', $subscriber->id)
+            ->where('code', '1107')
+            ->firstOrFail();
+        $foreignCustomersControl = Account::withoutGlobalScopes()
+            ->where('subscriber_id', $otherSubscriber->id)
+            ->where('code', '1107')
+            ->firstOrFail();
+
+        $this->assertSame($subscriber->id, (int) $customerAccount->subscriber_id);
+        $this->assertSame($subscriberCustomersControl->id, (int) $customerAccount->parent_account_id);
+        $this->assertNotSame($foreignCustomersControl->id, (int) $customerAccount->parent_account_id);
+    }
+
     /**
      * @param  array<int, string>  $permissions
      */
@@ -221,6 +323,38 @@ class AccountsTreeFeatureTest extends TestCase
             'email' => 'admin@example.com',
             'password' => Hash::make('secret123'),
             'branch_id' => $branch->id,
+            'status' => true,
+            'profile_pic' => 'default.png',
+        ]);
+
+        $user->assignRole($role);
+
+        return $user;
+    }
+
+    private function createSubscriberAdminUser(Subscriber $subscriber, array $permissions = []): User
+    {
+        $branch = Branch::create([
+            'subscriber_id' => $subscriber->id,
+            'name' => ['ar' => 'فرع المشترك', 'en' => 'Subscriber Branch'],
+            'phone' => '888888888',
+        ]);
+
+        $role = Role::create([
+            'name' => ['ar' => 'مدير مشترك للشجرة', 'en' => 'Tree Subscriber Admin'],
+            'guard_name' => 'admin-web',
+        ]);
+
+        foreach ($permissions as $permissionName) {
+            $role->givePermissionTo(Permission::findOrCreate($permissionName, 'admin-web'));
+        }
+
+        $user = User::create([
+            'name' => 'Tree Subscriber Admin',
+            'email' => 'tree-admin-'.uniqid().'@example.com',
+            'password' => Hash::make('secret123'),
+            'branch_id' => $branch->id,
+            'subscriber_id' => $subscriber->id,
             'status' => true,
             'profile_pic' => 'default.png',
         ]);
@@ -261,5 +395,14 @@ class AccountsTreeFeatureTest extends TestCase
         ], [
             'name' => json_encode($attributes['name'] ?? ['ar' => 'حساب', 'en' => 'Account'], JSON_UNESCAPED_UNICODE),
         ], collect($attributes)->except('name')->all()));
+    }
+
+    private function createCustomerForTest(string $name, string $type): Customer
+    {
+        return Customer::create([
+            'name' => $name,
+            'phone' => '05'.random_int(10000000, 99999999),
+            'type' => $type,
+        ]);
     }
 }

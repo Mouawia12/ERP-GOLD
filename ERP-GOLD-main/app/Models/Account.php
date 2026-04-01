@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToSubscriberScope;
 use App\Traits\HasTranslations;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,6 +13,7 @@ class Account extends Model
 {
     use HasFactory;
     use HasTranslations;
+    use BelongsToSubscriberScope;
 
     public $translatable = ['name'];
     protected $guarded = ['id'];

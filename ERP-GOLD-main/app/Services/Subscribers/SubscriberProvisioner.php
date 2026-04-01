@@ -9,6 +9,7 @@ use App\Models\Role;
 use App\Models\Subscriber;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\Accounts\SubscriberChartProvisioner;
 use App\Services\Branches\BranchContextService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -17,6 +18,7 @@ class SubscriberProvisioner
 {
     public function __construct(
         private readonly BranchContextService $branchContextService,
+        private readonly SubscriberChartProvisioner $subscriberChartProvisioner,
     ) {
     }
 
@@ -82,9 +84,7 @@ class SubscriberProvisioner
                 'branch_id' => $branch->id,
             ]);
 
-            AccountSetting::query()->firstOrCreate([
-                'branch_id' => $branch->id,
-            ], []);
+            $this->subscriberChartProvisioner->ensureBranchAccountSettings($subscriber, $branch);
 
             $subscriber->update([
                 'admin_user_id' => $adminUser->id,

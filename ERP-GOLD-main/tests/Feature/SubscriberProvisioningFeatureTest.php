@@ -98,6 +98,19 @@ class SubscriberProvisioningFeatureTest extends TestCase
         ]);
         $this->assertDatabaseHas('account_settings', [
             'branch_id' => $branch->id,
+            'subscriber_id' => $subscriber->id,
+        ]);
+        $this->assertDatabaseHas('accounts', [
+            'subscriber_id' => $subscriber->id,
+            'code' => '1107',
+        ]);
+        $this->assertDatabaseHas('accounts', [
+            'subscriber_id' => $subscriber->id,
+            'code' => '2101',
+        ]);
+        $this->assertDatabaseHas('accounts', [
+            'subscriber_id' => $subscriber->id,
+            'code' => '410101',
         ]);
     }
 

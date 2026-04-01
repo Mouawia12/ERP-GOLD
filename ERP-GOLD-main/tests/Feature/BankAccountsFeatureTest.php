@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\Branch;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\Subscriber;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -155,6 +156,56 @@ class BankAccountsFeatureTest extends TestCase
         $response->assertSee('غير محدد');
     }
 
+    public function test_subscriber_admin_only_sees_his_own_branches_and_accounts_in_bank_account_forms(): void
+    {
+        $subscriber = Subscriber::create([
+            'name' => 'مشترك البنوك',
+            'login_email' => 'bank-subscriber@example.com',
+            'status' => true,
+        ]);
+        $otherSubscriber = Subscriber::create([
+            'name' => 'مشترك آخر',
+            'login_email' => 'other-bank-subscriber@example.com',
+            'status' => true,
+        ]);
+
+        $admin = $this->createSubscriberAdminUser($subscriber, [
+            'employee.system_settings.show',
+        ]);
+
+        $ownBranch = Branch::create([
+            'subscriber_id' => $subscriber->id,
+            'name' => ['ar' => 'فرع المشترك', 'en' => 'Subscriber Branch'],
+            'phone' => '222222222',
+        ]);
+        $foreignBranch = Branch::create([
+            'subscriber_id' => $otherSubscriber->id,
+            'name' => ['ar' => 'فرع مشترك آخر', 'en' => 'Foreign Branch'],
+            'phone' => '333333333',
+        ]);
+
+        $ownAccount = Account::create([
+            'subscriber_id' => $subscriber->id,
+            'name' => ['ar' => 'بنك المشترك', 'en' => 'Subscriber Bank'],
+            'code' => '110201',
+        ]);
+        $foreignAccount = Account::withoutGlobalScopes()->create([
+            'subscriber_id' => $otherSubscriber->id,
+            'name' => ['ar' => 'بنك مشترك آخر', 'en' => 'Foreign Bank'],
+            'code' => '110201',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('admin.system-settings.bank-accounts.create', [], false));
+
+        $response->assertOk();
+        $response->assertSee('فرع المشترك');
+        $response->assertDontSee('فرع مشترك آخر');
+        $response->assertSee('بنك المشترك');
+        $response->assertDontSee('بنك مشترك آخر');
+    }
+
     private function createAdminUser(array $permissions = []): User
     {
         $branch = Branch::create([
@@ -179,6 +230,38 @@ class BankAccountsFeatureTest extends TestCase
         $user = User::create([
             'name' => 'Bank Admin',
             'email' => 'bank-admin-'.uniqid().'@example.com',
+            'password' => Hash::make('secret123'),
+            'branch_id' => $branch->id,
+            'status' => true,
+            'profile_pic' => 'default.png',
+        ]);
+
+        $user->assignRole($role);
+
+        return $user;
+    }
+
+    private function createSubscriberAdminUser(Subscriber $subscriber, array $permissions = []): User
+    {
+        $branch = Branch::create([
+            'subscriber_id' => $subscriber->id,
+            'name' => ['ar' => 'فرع المشترك الرئيسي', 'en' => 'Subscriber Main Branch'],
+            'phone' => '777777777',
+        ]);
+
+        $role = Role::create([
+            'name' => ['ar' => 'مدير مشترك بنوك', 'en' => 'Bank Subscriber Admin'],
+            'guard_name' => 'admin-web',
+        ]);
+
+        foreach ($permissions as $permissionName) {
+            $role->givePermissionTo(Permission::findOrCreate($permissionName, 'admin-web'));
+        }
+
+        $user = User::create([
+            'subscriber_id' => $subscriber->id,
+            'name' => 'Subscriber Bank Admin',
+            'email' => 'subscriber-bank-admin-'.uniqid().'@example.com',
             'password' => Hash::make('secret123'),
             'branch_id' => $branch->id,
             'status' => true,

@@ -34,7 +34,7 @@ class BankAccountController extends Controller
     {
         return view('admin.settings.bank_accounts.create', [
             'bankAccount' => new BankAccount(),
-            'branches' => Branch::query()->orderBy('id')->get(),
+            'branches' => $this->branchesQuery()->orderBy('id')->get(),
             'accounts' => Account::query()->whereDoesntHave('childrens')->orderBy('code')->get(),
         ]);
     }
@@ -53,7 +53,7 @@ class BankAccountController extends Controller
     {
         return view('admin.settings.bank_accounts.edit', [
             'bankAccount' => $bankAccount,
-            'branches' => Branch::query()->orderBy('id')->get(),
+            'branches' => $this->branchesQuery()->orderBy('id')->get(),
             'accounts' => Account::query()->whereDoesntHave('childrens')->orderBy('code')->get(),
         ]);
     }
@@ -73,7 +73,7 @@ class BankAccountController extends Controller
      */
     private function validatedData(Request $request): array
     {
-        return $request->validate([
+        $payload = $request->validate([
             'branch_id' => 'required|exists:branches,id',
             'ledger_account_id' => 'required|exists:accounts,id',
             'account_name' => 'required|string|max:255',
@@ -92,6 +92,20 @@ class BankAccountController extends Controller
             'is_default' => $request->boolean('is_default'),
             'is_active' => $request->boolean('is_active', true),
         ];
+
+        abort_unless(
+            $this->branchesQuery()->whereKey($payload['branch_id'])->exists(),
+            403,
+            'لا يمكنك اختيار فرع يخص مشتركًا آخر.'
+        );
+
+        abort_unless(
+            Account::query()->whereKey($payload['ledger_account_id'])->exists(),
+            403,
+            'لا يمكنك اختيار حساب محاسبي يخص مشتركًا آخر.'
+        );
+
+        return $payload;
     }
 
     private function synchronizeBranchDefaultBankAccount(BankAccount $bankAccount): void
@@ -117,5 +131,15 @@ class BankAccountController extends Controller
                 'bank_account' => $branchDefault->ledger_account_id,
             ]);
         }
+    }
+
+    private function branchesQuery()
+    {
+        $user = request()->user('admin-web');
+
+        return Branch::query()->when(
+            filled($user?->subscriber_id),
+            fn ($query) => $query->where('subscriber_id', $user->subscriber_id)
+        );
     }
 }

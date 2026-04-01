@@ -7,6 +7,7 @@ use App\Models\AccountSetting;
 use App\Models\AccountsTree;
 use App\Models\Branch;
 use App\Models\Subscriber;
+use App\Services\Accounts\SubscriberChartProvisioner;
 use App\Services\Zatca\OnBoarding;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,9 @@ use Illuminate\Validation\ValidationException;
 
 class BranchController extends Controller
 {
-    public function __construct()
+    public function __construct(
+        private readonly SubscriberChartProvisioner $subscriberChartProvisioner,
+    )
     {
         $this->middleware('permission:employee.branches.show', ['only' => ['index', 'show']]);
         $this->middleware('permission:employee.branches.add', ['only' => ['create', 'store']]);
@@ -117,10 +120,13 @@ class BranchController extends Controller
         ]);
         try {
             DB::beginTransaction();
-            Branch::create([
+            $branch = Branch::create([
                 ...$validated,
                 'subscriber_id' => $subscriber?->id,
             ]);
+            if ($branch && $subscriber) {
+                $this->subscriberChartProvisioner->ensureBranchAccountSettings($subscriber, $branch);
+            }
             DB::commit();
             return redirect()
                 ->route('admin.branches.index')
