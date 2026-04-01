@@ -39,9 +39,242 @@
             padding:5px 10px;
             cursor:pointer;
         }
+        .invoice-create-page{
+            --invoice-surface:#ffffff;
+            --invoice-soft:#f7faff;
+            --invoice-border:#e1eaf6;
+            --invoice-border-strong:#d7e3f4;
+            --invoice-title:#31496f;
+            --invoice-muted:#5c6d89;
+        }
+        .invoice-create-page .invoice-primary-card,
+        .invoice-create-page .invoice-summary-card{
+            border:1px solid var(--invoice-border);
+            border-radius:24px;
+            overflow:hidden;
+            box-shadow:0 20px 44px rgba(20, 49, 92, 0.08);
+            background:var(--invoice-surface);
+        }
+        .invoice-create-page .invoice-primary-card .card-header,
+        .invoice-create-page .invoice-summary-card .card-header{
+            background:transparent;
+            border-bottom:0;
+            padding:22px 22px 0;
+        }
+        .invoice-create-page .invoice-panel-title{
+            margin:0;
+            padding:16px 18px;
+            border-radius:18px;
+            background:linear-gradient(135deg,#edf3ff 0%, #dfeafe 100%);
+            color:var(--invoice-title);
+            font-size:28px;
+            font-weight:700;
+        }
+        .invoice-create-page .invoice-card-body{
+            padding:22px;
+        }
+        .invoice-create-page .invoice-section-card{
+            border:1px solid var(--invoice-border);
+            background:var(--invoice-soft);
+            border-radius:20px;
+            padding:18px;
+            margin-bottom:18px;
+        }
+        .invoice-create-page .invoice-section-title{
+            display:flex;
+            align-items:center;
+            gap:8px;
+            margin-bottom:16px;
+            font-size:15px;
+            font-weight:700;
+            color:var(--invoice-title);
+        }
+        .invoice-create-page .invoice-section-title::before{
+            content:"";
+            width:10px;
+            height:10px;
+            border-radius:999px;
+            background:#8fb4ef;
+        }
+        .invoice-create-page .form-group{
+            margin-bottom:14px;
+        }
+        .invoice-create-page .form-group > label{
+            display:block;
+            margin-bottom:7px;
+            font-size:13px;
+            font-weight:700;
+            color:var(--invoice-muted);
+        }
+        .invoice-create-page .form-control,
+        .invoice-create-page .select2-container--default .select2-selection--single{
+            min-height:44px;
+            border:1px solid var(--invoice-border-strong) !important;
+            border-radius:14px !important;
+            background:#fff !important;
+            box-shadow:none !important;
+        }
+        .invoice-create-page textarea.form-control{
+            min-height:92px;
+            padding-top:10px;
+            resize:vertical;
+        }
+        .invoice-create-page input.form-control:not([readonly]):not([type="datetime-local"]):not([type="number"]),
+        .invoice-create-page textarea.form-control{
+            text-align:right;
+        }
+        .invoice-create-page input[readonly],
+        .invoice-create-page input[type="datetime-local"]{
+            text-align:center;
+        }
+        .invoice-create-page .select2-container{
+            width:100% !important;
+        }
+        .invoice-create-page .select2-selection__rendered{
+            line-height:42px !important;
+            padding-right:12px !important;
+            text-align:right !important;
+        }
+        .invoice-create-page .select2-selection__arrow{
+            height:42px !important;
+        }
+        .invoice-create-page .custom-control.custom-switch{
+            padding:10px 44px 10px 12px;
+            border:1px dashed var(--invoice-border-strong);
+            border-radius:14px;
+            background:#fff;
+            min-height:46px;
+        }
+        .invoice-create-page .invoice-quick-action{
+            border-radius:12px;
+            padding:10px 12px;
+            font-size:13px;
+            font-weight:700;
+        }
+        .invoice-create-page .invoice-search-card .well{
+            background:transparent;
+            border:0;
+            padding:0;
+            margin-bottom:0;
+        }
+        .invoice-create-page .invoice-search-card .input-group{
+            border:1px solid var(--invoice-border-strong);
+            border-radius:16px;
+            overflow:hidden;
+            background:#fff;
+            box-shadow:0 12px 24px rgba(20, 60, 118, 0.06);
+        }
+        .invoice-create-page .invoice-search-card .input-group-addon{
+            min-width:72px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            background:linear-gradient(135deg,#eef4ff 0%, #dfeafe 100%);
+            color:#40608f;
+        }
+        .invoice-create-page .invoice-search-card .input-group .form-control{
+            border:0 !important;
+        }
+        .invoice-create-page ul#products_suggestions{
+            margin-top:12px;
+            border:1px solid var(--invoice-border-strong);
+            border-radius:14px;
+            background:#fff;
+            box-shadow:0 18px 36px rgba(19, 58, 108, 0.08);
+        }
+        .invoice-create-page ul#products_suggestions:empty{
+            display:none !important;
+        }
+        .invoice-create-page ul#products_suggestions li{
+            padding:11px 14px;
+            border-bottom:1px solid #eef3fb;
+        }
+        .invoice-create-page ul#products_suggestions li:last-child{
+            border-bottom:0;
+        }
+        .invoice-create-page .invoice-table-card{
+            margin-bottom:0;
+            border-radius:18px;
+            overflow:hidden;
+            border:1px solid var(--invoice-border);
+            box-shadow:none;
+        }
+        .invoice-create-page .invoice-table-card .card-header{
+            padding:0;
+            border-bottom:0;
+            background:transparent;
+        }
+        .invoice-create-page .invoice-table-card .alert{
+            margin:0;
+            border-radius:0;
+            background:#eef8fb;
+            color:#31556a;
+        }
+        .invoice-create-page #sTable thead th{
+            background:#f3f7ff;
+            color:#4d6288;
+            font-weight:700;
+            vertical-align:middle;
+        }
+        .invoice-create-page .invoice-summary-card{
+            position:sticky;
+            top:78px;
+        }
+        .invoice-create-page .invoice-summary-card .card-body{
+            padding:18px;
+        }
+        .invoice-create-page .invoice-summary-card .card-body > .row{
+            margin:0 0 10px !important;
+            align-items:center;
+            padding:12px 14px;
+            border-radius:16px;
+            border:1px solid var(--invoice-border);
+            background:var(--invoice-soft);
+        }
+        .invoice-create-page .invoice-summary-card .card-body > .row.invoice-summary-actions,
+        .invoice-create-page .invoice-summary-card .card-body > .row[hidden]{
+            padding:0;
+            border:0;
+            background:transparent;
+        }
+        .invoice-create-page .invoice-summary-card label{
+            display:block;
+            margin:0;
+            font-size:13px;
+            font-weight:700;
+            color:var(--invoice-muted);
+            float:none !important;
+            text-align:right !important;
+        }
+        .invoice-create-page .invoice-summary-card .form-control{
+            text-align:center;
+        }
+        .invoice-create-page .invoice-pay-button{
+            min-height:48px;
+            border-radius:14px;
+            font-size:15px;
+            font-weight:700;
+        }
+        @media (max-width: 1199.98px){
+            .invoice-create-page .invoice-summary-card{
+                position:static;
+            }
+        }
+        @media (max-width: 991.98px){
+            .invoice-create-page .invoice-card-body{
+                padding:16px;
+            }
+            .invoice-create-page .invoice-section-card{
+                padding:14px;
+            }
+            .invoice-create-page .invoice-panel-title{
+                font-size:22px;
+                padding:14px 16px;
+            }
+        }
     </style>
 
-    <div class="row row-sm">
+    <div class="row row-sm invoice-create-page invoice-purchases-page">
         <div class="col-xl-12"> 
                 <div class="card-body px-0 pt-0 pb-2">
                     <div class="tab-content" id="myTabContent">
@@ -53,20 +286,23 @@
                                 <input type="hidden" name="user_id" value="{{Auth::user()->id}}"/>
                                 <input type="hidden" name="uuid" id="uuid" value=""/>
                                 <div class="row">
-                                    <div class="card shadow mb-4 col-9">
+                                    <div class="col-xl-9 col-lg-8 mb-4">
+                                    <div class="card shadow invoice-primary-card h-100">
                                         <div class="card-header py-3">
                                             <div class="row">
                                                <div class="col-12"> 
-                                                    <h4  class="alert alert-primary text-center">
+                                                    <h4  class="alert alert-primary text-center invoice-panel-title">
                                                     {{__('main.purchases_add')}}
                                                     </h4> 
                                                 </div> 
                                             </div>  
                                         </div>
-                                        <div class="card-body">
+                                        <div class="card-body invoice-card-body">
                                         <div class="response_container"></div>
+                                        <div class="invoice-section-card">
+                                        <div class="invoice-section-title">بيانات الفاتورة والمورد</div>
                                         <div class="row">
-                                    <div class="col-3">
+                                    <div class="col-lg-3 col-md-6">
                                         <div class="form-group">
                                             <label>{{ __('main.bill_no') }} <span style="color:red;">*</span> </label>
                                             <input type="text"  id="bill_number" name="bill_number"
@@ -74,14 +310,14 @@
                                             />
                                         </div>
                                     </div>
-                                    <div class="col-3">
+                                    <div class="col-lg-3 col-md-6">
                                         <div class="form-group">
                                             <label>{{ __('main.date') }} <span style="color:red;">*</span> </label>
                                             <input type="datetime-local"  id="date" name="bill_date"
                                                    class="form-control"/>     
                                         </div>
                                     </div>
-                                    <div class="col-6">
+                                    <div class="col-lg-6 col-md-12">
                                         <div class="form-group">
                                             <label class="d-block">
                                                  الفرع <span style="color:red;">*</span> 
@@ -103,7 +339,7 @@
                                         </div>
                                     </div>
                    
-                                    <div class="col-3">
+                                    <div class="col-lg-3 col-md-6">
                                        <div class="form-group">
                                            <label style="float: right;">{{ __('main.gold_carat_type') }} <span
                                                    style="color:red; ">*</span>
@@ -118,7 +354,7 @@
                                        </div>
                                     </div>
 
-                                    <div class="col-3" id="purchase_type_section">
+                                    <div class="col-lg-3 col-md-6" id="purchase_type_section">
                                        <div class="form-group">
                                            <label style="float: right;">{{ __('main.purchase_type') }} <span
                                                    style="color:red; ">*</span>
@@ -133,7 +369,7 @@
                                            </select>
                                        </div>
                                     </div>
-                                    <div class="col-3">
+                                    <div class="col-lg-3 col-md-6">
                                         <div class="form-group">
                                             <label>{{ __('main.supplier_bill_number') }}</label>
                                             <input type="text"  id="supplier_bill_number" name="supplier_bill_number"
@@ -141,7 +377,7 @@
                                             />
                                         </div>
                                     </div> 
-                                    <div class="col-3">
+                                    <div class="col-lg-3 col-md-6">
                                         <div class="form-group">
                                             <label>{{ __('main.supplier') }} <span style="color:red;">*</span> </label>
                                             <select id="supplier_id" name="supplier_id" class="js-example-basic-single w-100" required="">
@@ -166,7 +402,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="col-3">
+                                    <div class="col-lg-3 col-md-6">
                                         <div class="form-group">
                                             <label>اسم المورد في الفاتورة</label>
                                             <input
@@ -178,7 +414,7 @@
                                             @can('employee.suppliers.add')
                                                 <button
                                                     type="button"
-                                                    class="btn btn-outline-primary btn-block mt-2"
+                                                    class="btn btn-outline-primary btn-block mt-2 invoice-quick-action"
                                                     id="quick_save_supplier_btn"
                                                     data-url="{{ route('customers.quick-store', ['type' => 'supplier']) }}"
                                                 >
@@ -193,7 +429,7 @@
                                             @endcan
                                         </div>
                                     </div>
-                                    <div class="col-3">
+                                    <div class="col-lg-3 col-md-6">
                                         <div class="form-group">
                                             <label>رقم هاتف المورد</label>
                                             <input
@@ -214,7 +450,7 @@
                                             >
                                         </div>
                                     </div>
-                                    <div class="col-6">
+                                    <div class="col-12">
                                         <div class="form-group">
                                             <label>{{ __('main.notes') }}</label>
                                             <textarea
@@ -226,18 +462,10 @@
                                             >{{ old('notes') }}</textarea>
                                         </div>
                                     </div>
-                                    <div class="col-6">
-                                        <div class="form-group">
-                                            <label>الشروط الافتراضية</label>
-                                            <div class="alert alert-light border mb-0" style="white-space: pre-line;">
-                                                {{ $defaultInvoiceTerms ?: 'لا توجد شروط افتراضية معرفة لهذه الصفحة حتى الآن.' }}
-                                            </div>
-                                            <small class="text-muted d-block mt-2">
-                                                تُطبّق هذه الشروط تلقائيًا على فاتورة الشراء من شاشة الإعدادات، ولا يلزم اختيارها يدويًا هنا.
-                                            </small>
-                                        </div>
-                                    </div>
                                 </div>
+                                </div>
+                                            <div class="invoice-section-card invoice-search-card">
+                                            <div class="invoice-section-title">البحث عن الأصناف</div>
                                             <div class="row"> 
                                                     <div class="col-md-12 " id="sticker">
                                                         <div class="well well-sm" @if(Config::get('app.locale') == 'ar')style="direction: rtl;" @endif>
@@ -255,9 +483,10 @@
                                                         </div>
                                                     </div>  
                                                 </div>
+                                                </div>
                                                 <div class="row">
                                                     <div class="col-md-12">
-                                                        <div class="card mb-4">
+                                                        <div class="card mb-4 invoice-table-card">
                                                            <div class="card-header pb-0">
                                                                 <h4   class="alert alert-info text-center">
                                                                     <i class="fa fa-shopping-cart" aria-hidden="true"></i> 
@@ -294,9 +523,11 @@
                                                 </div>
                                         </div>
                                     </div>
-                                    <div class="card shadow mb-4 col-3">
+                                    </div>
+                                    <div class="col-xl-3 col-lg-4 mb-4">
+                                    <div class="card shadow invoice-summary-card">
                                         <div class="card-header py-3">
-                                            <h5 class="alert alert-info text-center">{{__('main.purchase_invoice_total')}}</h6>
+                                            <h5 class="alert alert-info text-center invoice-panel-title">{{__('main.purchase_invoice_total')}}</h6>
                                         </div>
                                         <div class="card-body ">
                                             <div class="row" style="align-items: center; margin-bottom: 10px;">
@@ -356,7 +587,7 @@
                                                 </div>
                                             </div>
                                             <hr class="sidebar-divider d-none d-md-block">
-                                            <div class="row" style="align-items: baseline; margin-bottom: 10px;">
+                                            <div class="row invoice-summary-actions" style="align-items: baseline; margin-bottom: 10px;">
                                                 <div class="col-12">
                                                     <div class="form-group">
                                                         <label
@@ -367,7 +598,7 @@
                                                 @canany(['employee.purchase_invoices.add'])
                                                 <div class="col-md-12 text-center"> 
                                                     <button type="button" 
-                                                        class="btn btn-md btn-info w-100" 
+                                                        class="btn btn-md btn-info w-100 invoice-pay-button" 
                                                         id="purchase_btn" 
                                                         value="{{__('main.pay')}}">
                                                         حفظ ودفع
@@ -391,6 +622,7 @@
                                            
                                         </div>
                                     </div> 
+                                    </div>
                                 </div> 
                             </form>
                         </div>  

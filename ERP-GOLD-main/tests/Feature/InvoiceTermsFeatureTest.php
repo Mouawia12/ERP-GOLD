@@ -32,7 +32,7 @@ class InvoiceTermsFeatureTest extends TestCase
         ]);
     }
 
-    public function test_sales_create_page_uses_context_specific_default_invoice_terms_without_manual_selector(): void
+    public function test_sales_create_page_hides_default_invoice_terms_ui_while_service_keeps_context_defaults(): void
     {
         SystemSetting::putValue('invoice_terms_templates', json_encode([
             [
@@ -69,9 +69,8 @@ class InvoiceTermsFeatureTest extends TestCase
             ->get(route('sales.create', ['type' => 'simplified'], false));
 
         $simplifiedResponse->assertOk();
-        $simplifiedResponse->assertSee('الشروط الافتراضية');
-        $simplifiedResponse->assertSee('الاستبدال خلال 3 أيام');
-        $simplifiedResponse->assertSee('مع الفاتورة الأصلية');
+        $simplifiedResponse->assertDontSee('الشروط الافتراضية');
+        $simplifiedResponse->assertDontSee('الاستبدال خلال 3 أيام');
         $simplifiedResponse->assertDontSee('قالب الشروط');
         $simplifiedResponse->assertDontSee('name="invoice_terms"', false);
 
@@ -80,12 +79,22 @@ class InvoiceTermsFeatureTest extends TestCase
             ->get(route('sales.create', ['type' => 'standard'], false));
 
         $standardResponse->assertOk();
-        $standardResponse->assertSee('تعتمد الفاتورة على بيانات العميل الضريبية');
-        $standardResponse->assertSee('ولا يتم التعديل إلا بالمراجعة');
+        $standardResponse->assertDontSee('الشروط الافتراضية');
+        $standardResponse->assertDontSee('تعتمد الفاتورة على بيانات العميل الضريبية');
         $standardResponse->assertDontSee('الاستبدال خلال 3 أيام');
+
+        $service = app(InvoiceTermsService::class);
+        $this->assertSame(
+            "الاستبدال خلال 3 أيام\nمع الفاتورة الأصلية",
+            $service->defaultTerms(InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED),
+        );
+        $this->assertSame(
+            "تعتمد الفاتورة على بيانات العميل الضريبية\nولا يتم التعديل إلا بالمراجعة",
+            $service->defaultTerms(InvoiceTermsService::CONTEXT_SALES_STANDARD),
+        );
     }
 
-    public function test_purchases_create_page_uses_context_specific_default_invoice_terms_without_manual_selector(): void
+    public function test_purchases_create_page_hides_default_invoice_terms_ui_while_service_keeps_context_default(): void
     {
         SystemSetting::putValue('invoice_terms_templates', json_encode([
             [
@@ -107,14 +116,19 @@ class InvoiceTermsFeatureTest extends TestCase
             ->get(route('purchases.create', [], false));
 
         $response->assertOk();
-        $response->assertSee('الشروط الافتراضية');
-        $response->assertSee('الشراء النهائي بعد الفحص');
-        $response->assertSee('ولا يقبل الإلغاء');
+        $response->assertDontSee('الشروط الافتراضية');
+        $response->assertDontSee('الشراء النهائي بعد الفحص');
         $response->assertDontSee('قالب الشروط');
         $response->assertDontSee('name="invoice_terms"', false);
+
+        $service = app(InvoiceTermsService::class);
+        $this->assertSame(
+            "الشراء النهائي بعد الفحص\nولا يقبل الإلغاء",
+            $service->defaultTerms(InvoiceTermsService::CONTEXT_PURCHASES),
+        );
     }
 
-    public function test_legacy_invoice_terms_configuration_still_prefills_new_invoice_pages(): void
+    public function test_legacy_invoice_terms_configuration_still_resolves_defaults_for_all_contexts(): void
     {
         SystemSetting::putValue('default_invoice_terms', "شروط قديمة ما زالت فعالة\nحتى يعاد تعريفها");
         SystemSetting::putValue('invoice_terms_templates', json_encode([
@@ -125,17 +139,20 @@ class InvoiceTermsFeatureTest extends TestCase
             ],
         ], JSON_UNESCAPED_UNICODE));
         SystemSetting::putValue('default_invoice_terms_template_key', 'legacy-retail');
-        $admin = $this->createAdminUser([
-            'employee.simplified_tax_invoices.add',
-        ]);
+        $service = app(InvoiceTermsService::class);
 
-        $response = $this
-            ->actingAs($admin, 'admin-web')
-            ->get(route('sales.create', ['type' => 'simplified'], false));
-
-        $response->assertOk();
-        $response->assertSee('شروط قديمة ما زالت فعالة');
-        $response->assertSee('حتى يعاد تعريفها');
+        $this->assertSame(
+            "شروط قديمة ما زالت فعالة\nحتى يعاد تعريفها",
+            $service->defaultTerms(InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED),
+        );
+        $this->assertSame(
+            "شروط قديمة ما زالت فعالة\nحتى يعاد تعريفها",
+            $service->defaultTerms(InvoiceTermsService::CONTEXT_SALES_STANDARD),
+        );
+        $this->assertSame(
+            "شروط قديمة ما زالت فعالة\nحتى يعاد تعريفها",
+            $service->defaultTerms(InvoiceTermsService::CONTEXT_PURCHASES),
+        );
     }
 
     public function test_invoice_terms_settings_page_exposes_modal_based_management_interface(): void
