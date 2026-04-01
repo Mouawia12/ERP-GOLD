@@ -8,6 +8,7 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Models\SystemSetting;
 use App\Models\User;
+use App\Services\Invoices\InvoiceTermsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -31,49 +32,72 @@ class InvoiceTermsFeatureTest extends TestCase
         ]);
     }
 
-    public function test_sales_create_page_prefills_default_invoice_terms(): void
+    public function test_sales_create_page_uses_context_specific_default_invoice_terms_without_manual_selector(): void
     {
-        SystemSetting::putValue('default_invoice_terms', "الاستبدال خلال 3 أيام\nمع الفاتورة الأصلية");
         SystemSetting::putValue('invoice_terms_templates', json_encode([
             [
                 'key' => 'retail-exchange',
+                'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
                 'title' => 'استبدال وبيع تجزئة',
                 'content' => "الاستبدال خلال 3 أيام\nمع الفاتورة الأصلية",
             ],
             [
-                'key' => 'cash-party',
-                'title' => 'عميل نقدي',
-                'content' => "يلتزم العميل بالمراجعة قبل المغادرة",
+                'key' => 'company-sales',
+                'context' => InvoiceTermsService::CONTEXT_SALES_STANDARD,
+                'title' => 'بيع شركات',
+                'content' => "تعتمد الفاتورة على بيانات العميل الضريبية\nولا يتم التعديل إلا بالمراجعة",
+            ],
+            [
+                'key' => 'purchase-supplier',
+                'context' => InvoiceTermsService::CONTEXT_PURCHASES,
+                'title' => 'شراء مورد',
+                'content' => "يعتمد الوزن بعد الفحص",
             ],
         ], JSON_UNESCAPED_UNICODE));
-        SystemSetting::putValue('default_invoice_terms_template_key', 'retail-exchange');
+        SystemSetting::putValue('default_invoice_terms_template_keys', json_encode([
+            InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED => 'retail-exchange',
+            InvoiceTermsService::CONTEXT_SALES_STANDARD => 'company-sales',
+            InvoiceTermsService::CONTEXT_PURCHASES => 'purchase-supplier',
+        ], JSON_UNESCAPED_UNICODE));
         $admin = $this->createAdminUser([
             'employee.simplified_tax_invoices.add',
+            'employee.tax_invoices.add',
         ]);
 
-        $response = $this
+        $simplifiedResponse = $this
             ->actingAs($admin, 'admin-web')
             ->get(route('sales.create', ['type' => 'simplified'], false));
 
-        $response->assertOk();
-        $response->assertSee('شروط الفاتورة');
-        $response->assertSee('قالب الشروط');
-        $response->assertSee('استبدال وبيع تجزئة');
-        $response->assertSee('الاستبدال خلال 3 أيام');
-        $response->assertSee('مع الفاتورة الأصلية');
+        $simplifiedResponse->assertOk();
+        $simplifiedResponse->assertSee('الشروط الافتراضية');
+        $simplifiedResponse->assertSee('الاستبدال خلال 3 أيام');
+        $simplifiedResponse->assertSee('مع الفاتورة الأصلية');
+        $simplifiedResponse->assertDontSee('قالب الشروط');
+        $simplifiedResponse->assertDontSee('name="invoice_terms"', false);
+
+        $standardResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('sales.create', ['type' => 'standard'], false));
+
+        $standardResponse->assertOk();
+        $standardResponse->assertSee('تعتمد الفاتورة على بيانات العميل الضريبية');
+        $standardResponse->assertSee('ولا يتم التعديل إلا بالمراجعة');
+        $standardResponse->assertDontSee('الاستبدال خلال 3 أيام');
     }
 
-    public function test_purchases_create_page_prefills_default_invoice_terms(): void
+    public function test_purchases_create_page_uses_context_specific_default_invoice_terms_without_manual_selector(): void
     {
-        SystemSetting::putValue('default_invoice_terms', "الشراء النهائي بعد الفحص\nولا يقبل الإلغاء");
         SystemSetting::putValue('invoice_terms_templates', json_encode([
             [
                 'key' => 'supplier-standard',
+                'context' => InvoiceTermsService::CONTEXT_PURCHASES,
                 'title' => 'مورد قياسي',
                 'content' => "الشراء النهائي بعد الفحص\nولا يقبل الإلغاء",
             ],
         ], JSON_UNESCAPED_UNICODE));
-        SystemSetting::putValue('default_invoice_terms_template_key', 'supplier-standard');
+        SystemSetting::putValue('default_invoice_terms_template_keys', json_encode([
+            InvoiceTermsService::CONTEXT_PURCHASES => 'supplier-standard',
+        ], JSON_UNESCAPED_UNICODE));
         $admin = $this->createAdminUser([
             'employee.purchase_invoices.add',
         ]);
@@ -83,11 +107,55 @@ class InvoiceTermsFeatureTest extends TestCase
             ->get(route('purchases.create', [], false));
 
         $response->assertOk();
-        $response->assertSee('شروط الفاتورة');
-        $response->assertSee('قالب الشروط');
-        $response->assertSee('مورد قياسي');
+        $response->assertSee('الشروط الافتراضية');
         $response->assertSee('الشراء النهائي بعد الفحص');
         $response->assertSee('ولا يقبل الإلغاء');
+        $response->assertDontSee('قالب الشروط');
+        $response->assertDontSee('name="invoice_terms"', false);
+    }
+
+    public function test_legacy_invoice_terms_configuration_still_prefills_new_invoice_pages(): void
+    {
+        SystemSetting::putValue('default_invoice_terms', "شروط قديمة ما زالت فعالة\nحتى يعاد تعريفها");
+        SystemSetting::putValue('invoice_terms_templates', json_encode([
+            [
+                'key' => 'legacy-retail',
+                'title' => 'بيع قديم',
+                'content' => "بيع قديم\nنص احتياطي",
+            ],
+        ], JSON_UNESCAPED_UNICODE));
+        SystemSetting::putValue('default_invoice_terms_template_key', 'legacy-retail');
+        $admin = $this->createAdminUser([
+            'employee.simplified_tax_invoices.add',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('sales.create', ['type' => 'simplified'], false));
+
+        $response->assertOk();
+        $response->assertSee('شروط قديمة ما زالت فعالة');
+        $response->assertSee('حتى يعاد تعريفها');
+    }
+
+    public function test_invoice_terms_settings_page_exposes_modal_based_management_interface(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.system_settings.show',
+            'employee.system_settings.edit',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('admin.system-settings.invoice-terms.edit', [], false));
+
+        $response->assertOk();
+        $response->assertSee('إضافة شروط جديدة');
+        $response->assertSee('invoice-terms-template-modal', false);
+        $response->assertSee('الصفحة التابعة لها');
+        $response->assertSee('فواتير البيع المبسطة');
+        $response->assertSee('فواتير مبيعات الشركات');
+        $response->assertSee('فواتير المشتريات');
     }
 
     public function test_sales_print_page_uses_saved_invoice_terms_snapshot_even_after_setting_changes(): void

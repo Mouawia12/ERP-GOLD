@@ -199,26 +199,13 @@
                                                 </div>
                                                 <div class="col-md-6">
                                                     <div class="form-group">
-                                                        <label>قالب الشروط</label>
-                                                        <select id="invoice_terms_template_selector" class="form-control mb-2">
-                                                            @foreach($invoiceTermTemplates as $template)
-                                                                <option
-                                                                    value="{{ $template['key'] }}"
-                                                                    @selected(($defaultInvoiceTermsTemplateKey ?? null) === $template['key'])
-                                                                >
-                                                                    {{ $template['title'] }}
-                                                                </option>
-                                                            @endforeach
-                                                        </select>
-                                                        <label>شروط الفاتورة</label>
-                                                        <textarea
-                                                            name="invoice_terms"
-                                                            id="invoice_terms"
-                                                            rows="2"
-                                                            placeholder="اكتب شروط الفاتورة"
-                                                            class="form-control"
-                                                            style="width: 100%"
-                                                        >{{ old('invoice_terms', $defaultInvoiceTerms) }}</textarea>
+                                                        <label>الشروط الافتراضية</label>
+                                                        <div class="alert alert-light border mb-0" style="white-space: pre-line;">
+                                                            {{ $defaultInvoiceTerms ?: 'لا توجد شروط افتراضية معرفة لهذه الصفحة حتى الآن.' }}
+                                                        </div>
+                                                        <small class="text-muted d-block mt-2">
+                                                            تُطبّق هذه الشروط تلقائيًا على الفاتورة من شاشة الإعدادات، ولا يلزم اختيارها يدويًا هنا.
+                                                        </small>
                                                     </div>
                                                 </div>
                                             </div>
@@ -550,7 +537,6 @@
                 var bill_client_name = $('input[name="bill_client_name"]').val();
                 var bill_client_identity_number = $('input[name="bill_client_identity_number"]').val();
                 var notes = $('textarea[name="notes"]').val();
-                var invoice_terms = $('textarea[name="invoice_terms"]').val();
                 $.ajax({
                     type: 'post',
                     url: url,
@@ -567,7 +553,6 @@
                         visa: visa,
                         payment_lines: paymentLines,
                         notes: notes,
-                        invoice_terms: invoice_terms,
                         unit_id: getFormValuesForKey('unit_id'),
                         carats_id: getFormValuesForKey('carats_id'),
                         weight: getFormValuesForKey('weight'),
@@ -1266,23 +1251,5 @@ function calcTotals(updateLineNetTotal = true){
 
 
 </script> 
-<script>
-    (function () {
-        const selector = document.getElementById('invoice_terms_template_selector');
-        const textarea = document.getElementById('invoice_terms');
-        const templates = @json($invoiceTermTemplates);
-
-        if (!selector || !textarea) {
-            return;
-        }
-
-        selector.addEventListener('change', function () {
-            const selected = templates.find((template) => template.key === this.value);
-            if (selected) {
-                textarea.value = selected.content;
-            }
-        });
-    })();
-</script>
 @endsection 
  

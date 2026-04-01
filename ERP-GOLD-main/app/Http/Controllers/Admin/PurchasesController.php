@@ -105,9 +105,7 @@ class PurchasesController extends Controller
             'customers' => $customers,
             'branches' => $branches,
             'caratTypes' => $caratTypes,
-            'defaultInvoiceTerms' => $this->invoiceTermsService->defaultTerms(),
-            'invoiceTermTemplates' => $this->invoiceTermsService->templates(),
-            'defaultInvoiceTermsTemplateKey' => $this->invoiceTermsService->defaultTemplateKey(),
+            'defaultInvoiceTerms' => $this->invoiceTermsService->defaultTerms(InvoiceTermsService::CONTEXT_PURCHASES),
         ]);
     }
 
@@ -454,6 +452,7 @@ class PurchasesController extends Controller
                     'notes' => $request->notes ?? '',
                     'invoice_terms' => $this->invoiceTermsService->resolveSnapshot(
                         $request->input('invoice_terms'),
+                        InvoiceTermsService::CONTEXT_PURCHASES,
                         array_key_exists('invoice_terms', $request->all())
                     ),
                     'date' => Carbon::parse($request->bill_date)->format('Y-m-d'),
@@ -486,6 +485,7 @@ class PurchasesController extends Controller
                         'notes' => $request->notes ?? '',
                         'invoice_terms' => $this->invoiceTermsService->resolveSnapshot(
                             $request->input('invoice_terms'),
+                            InvoiceTermsService::CONTEXT_PURCHASES,
                             array_key_exists('invoice_terms', $request->all())
                         ),
                         'date' => Carbon::parse($request->bill_date)->format('Y-m-d'),

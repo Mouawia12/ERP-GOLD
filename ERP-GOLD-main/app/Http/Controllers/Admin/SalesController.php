@@ -104,6 +104,7 @@ class SalesController extends Controller
     public function create($type)
     {
         $currentUser = Auth::guard('admin-web')->user();
+        $invoiceTermsContext = $this->invoiceTermsService->salesContext((string) $type);
         $customers = Customer::when($type == 'simplified', function ($query) {
             return $query->where('tax_number', null);
         })->where('type', '=', 'customer')->get();
@@ -119,9 +120,7 @@ class SalesController extends Controller
             'customers' => $customers,
             'branches' => $branches,
             'caratTypes' => $caratTypes,
-            'defaultInvoiceTerms' => $this->invoiceTermsService->defaultTerms(),
-            'invoiceTermTemplates' => $this->invoiceTermsService->templates(),
-            'defaultInvoiceTermsTemplateKey' => $this->invoiceTermsService->defaultTemplateKey(),
+            'defaultInvoiceTerms' => $this->invoiceTermsService->defaultTerms($invoiceTermsContext),
         ]);
     }
 
@@ -272,6 +271,7 @@ class SalesController extends Controller
                     'notes' => $request->notes ?? '',
                     'invoice_terms' => $this->invoiceTermsService->resolveSnapshot(
                         $request->input('invoice_terms'),
+                        $this->invoiceTermsService->salesContext((string) $request->type),
                         array_key_exists('invoice_terms', $request->all())
                     ),
                     'date' => Carbon::parse($request->bill_date)->format('Y-m-d'),

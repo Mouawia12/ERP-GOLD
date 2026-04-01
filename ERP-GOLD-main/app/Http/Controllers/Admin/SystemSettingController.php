@@ -47,21 +47,24 @@ class SystemSettingController extends Controller
     public function editInvoiceTerms(): View
     {
         return view('admin.settings.invoice_terms', [
-            'invoiceTerms' => $this->invoiceTermsService->defaultTerms(),
+            'invoiceTermContexts' => $this->invoiceTermsService->contexts(),
             'invoiceTermTemplates' => $this->invoiceTermsService->templates(),
-            'defaultInvoiceTermsTemplateKey' => $this->invoiceTermsService->defaultTemplateKey(),
+            'defaultInvoiceTermsTemplateKeys' => $this->invoiceTermsService->defaultTemplateKeys(),
         ]);
     }
 
     public function updateInvoiceTerms(Request $request): RedirectResponse
     {
+        $allowedContexts = implode(',', collect($this->invoiceTermsService->contexts())->pluck('key')->all());
+
         $validated = $request->validate([
-            'invoice_terms' => 'nullable|string|max:5000',
-            'default_template_key' => 'nullable|string|max:100',
             'templates' => 'nullable|array',
             'templates.*.key' => 'nullable|string|max:100',
             'templates.*.title' => 'nullable|string|max:255',
             'templates.*.content' => 'nullable|string|max:5000',
+            'templates.*.context' => 'nullable|string|in:' . $allowedContexts,
+            'default_template_keys' => 'nullable|array',
+            'default_template_keys.*' => 'nullable|string|max:100',
         ]);
 
         $templates = collect($validated['templates'] ?? [])
@@ -69,29 +72,14 @@ class SystemSettingController extends Controller
                 'key' => $template['key'] ?? null,
                 'title' => $template['title'] ?? null,
                 'content' => $template['content'] ?? null,
+                'context' => $template['context'] ?? null,
             ])
             ->all();
 
-        if (! blank($validated['invoice_terms'] ?? null) && ! blank($validated['default_template_key'] ?? null)) {
-            $templates = collect($templates)
-                ->map(function (array $template) use ($validated) {
-                    if (($template['key'] ?? null) === $validated['default_template_key']) {
-                        $template['content'] = $validated['invoice_terms'];
-                    }
-
-                    return $template;
-                })
-                ->all();
-        }
-
         $this->invoiceTermsService->setTemplates(
             $templates,
-            $validated['default_template_key'] ?? null,
+            $validated['default_template_keys'] ?? [],
         );
-
-        if (! blank($validated['invoice_terms'] ?? null) && blank($validated['default_template_key'] ?? null)) {
-            $this->invoiceTermsService->setDefaultTerms($validated['invoice_terms']);
-        }
 
         return redirect()
             ->route('admin.system-settings.invoice-terms.edit')

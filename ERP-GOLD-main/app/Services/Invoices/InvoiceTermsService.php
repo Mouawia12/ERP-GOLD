@@ -8,93 +8,139 @@ class InvoiceTermsService
 {
     public const SETTING_KEY = 'default_invoice_terms';
     public const TEMPLATES_KEY = 'invoice_terms_templates';
-    public const DEFAULT_TEMPLATE_KEY = 'default_invoice_terms_template_key';
+    public const LEGACY_DEFAULT_TEMPLATE_KEY = 'default_invoice_terms_template_key';
+    public const DEFAULT_TEMPLATE_KEYS = 'default_invoice_terms_template_keys';
+
+    public const CONTEXT_SALES_SIMPLIFIED = 'sales_simplified';
+    public const CONTEXT_SALES_STANDARD = 'sales_standard';
+    public const CONTEXT_PURCHASES = 'purchases';
 
     /**
-     * @return array<int, array{key: string, title: string, content: string}>
+     * @return array<int, array{key: string, title: string}>
      */
-    public function templates(): array
+    public function contexts(): array
     {
-        $stored = json_decode((string) SystemSetting::getValue(self::TEMPLATES_KEY, ''), true);
+        return [
+            [
+                'key' => self::CONTEXT_SALES_SIMPLIFIED,
+                'title' => 'فواتير البيع المبسطة',
+            ],
+            [
+                'key' => self::CONTEXT_SALES_STANDARD,
+                'title' => 'فواتير مبيعات الشركات',
+            ],
+            [
+                'key' => self::CONTEXT_PURCHASES,
+                'title' => 'فواتير المشتريات',
+            ],
+        ];
+    }
 
-        if (! is_array($stored) || empty($stored)) {
-            return $this->defaultTemplates();
+    public function salesContext(string $saleType): string
+    {
+        return $saleType === 'standard'
+            ? self::CONTEXT_SALES_STANDARD
+            : self::CONTEXT_SALES_SIMPLIFIED;
+    }
+
+    /**
+     * @return array<int, array{key: string, title: string, content: string, context: string}>
+     */
+    public function templates(?string $context = null): array
+    {
+        $templates = $this->normalizedStoredTemplates();
+
+        if ($templates === []) {
+            $templates = $this->defaultTemplates();
         }
 
-        $templates = collect($stored)
-            ->map(function ($template, $index) {
-                $title = trim((string) ($template['title'] ?? ''));
-                $content = $this->normalize((string) ($template['content'] ?? ''));
-                $key = $this->sanitizeKey((string) ($template['key'] ?? $title ?: 'template-' . ($index + 1)));
-                $key = $key !== '' ? $key : 'template-' . ($index + 1);
+        $templates = $this->mergeFallbackTemplates($templates);
 
-                if ($title === '' || $content === '' || $key === '') {
-                    return null;
-                }
-
-                return [
-                    'key' => $key,
-                    'title' => $title,
-                    'content' => $content,
-                ];
-            })
-            ->filter()
-            ->unique('key')
-            ->values()
-            ->all();
-
-        return $templates !== [] ? $templates : $this->defaultTemplates();
-    }
-
-    public function defaultTemplateKey(): string
-    {
-        $templates = $this->templates();
-        $defaultKey = $this->sanitizeKey((string) SystemSetting::getValue(self::DEFAULT_TEMPLATE_KEY, ''));
-        $keys = collect($templates)->pluck('key')->all();
-
-        return in_array($defaultKey, $keys, true) ? $defaultKey : $templates[0]['key'];
-    }
-
-    /**
-     * @return array{key: string, title: string, content: string}
-     */
-    public function defaultTemplate(): array
-    {
-        $defaultKey = $this->defaultTemplateKey();
-
-        return collect($this->templates())
-            ->firstWhere('key', $defaultKey) ?? $this->defaultTemplates()[0];
-    }
-
-    public function defaultTerms(): string
-    {
-        $storedDefault = $this->normalize(SystemSetting::getValue(self::SETTING_KEY, ''));
-
-        if ($storedDefault !== '') {
-            return $storedDefault;
+        if ($context === null) {
+            return $templates;
         }
 
-        return $this->defaultTemplate()['content'];
-    }
-
-    public function setDefaultTerms(?string $terms): void
-    {
-        SystemSetting::putValue(self::SETTING_KEY, $this->normalize($terms));
+        return array_values(array_filter(
+            $templates,
+            fn (array $template) => $template['context'] === $context,
+        ));
     }
 
     /**
-     * @param  array<int, array{key?: string|null, title?: string|null, content?: string|null}>  $templates
+     * @return array<string, string>
      */
-    public function setTemplates(array $templates, ?string $defaultTemplateKey = null): void
+    public function defaultTemplateKeys(): array
+    {
+        $stored = json_decode((string) SystemSetting::getValue(self::DEFAULT_TEMPLATE_KEYS, ''), true);
+        $stored = is_array($stored) ? $stored : [];
+        $templateKeys = collect($this->templates())->groupBy('context');
+        $legacyDefaultKey = $this->sanitizeKey((string) SystemSetting::getValue(self::LEGACY_DEFAULT_TEMPLATE_KEY, ''));
+        $resolved = [];
+
+        foreach ($this->contexts() as $context) {
+            $contextKey = $context['key'];
+            $contextTemplates = $templateKeys->get($contextKey, collect())->pluck('key')->all();
+            $candidate = $this->sanitizeKey((string) ($stored[$contextKey] ?? ''));
+
+            if (! in_array($candidate, $contextTemplates, true) && in_array($legacyDefaultKey, $contextTemplates, true)) {
+                $candidate = $legacyDefaultKey;
+            }
+
+            $resolved[$contextKey] = in_array($candidate, $contextTemplates, true)
+                ? $candidate
+                : ($contextTemplates[0] ?? '');
+        }
+
+        return $resolved;
+    }
+
+    public function defaultTemplateKey(string $context): string
+    {
+        return $this->defaultTemplateKeys()[$context] ?? '';
+    }
+
+    /**
+     * @return array{key: string, title: string, content: string, context: string}
+     */
+    public function defaultTemplate(string $context): array
+    {
+        $defaultKey = $this->defaultTemplateKey($context);
+        $template = collect($this->templates($context))->firstWhere('key', $defaultKey);
+
+        if (is_array($template)) {
+            return $template;
+        }
+
+        return collect($this->defaultTemplates())
+            ->firstWhere('context', $context) ?? $this->defaultTemplates()[0];
+    }
+
+    public function defaultTerms(string $context): string
+    {
+        $legacyTerms = $this->legacyDefaultTerms();
+
+        if ($legacyTerms !== '' && ! $this->hasScopedTemplates()) {
+            return $legacyTerms;
+        }
+
+        return $this->defaultTemplate($context)['content'];
+    }
+
+    /**
+     * @param  array<int, array{key?: string|null, title?: string|null, content?: string|null, context?: string|null}>  $templates
+     * @param  array<string, string|null>  $defaultTemplateKeys
+     */
+    public function setTemplates(array $templates, array $defaultTemplateKeys = []): void
     {
         $normalizedTemplates = collect($templates)
             ->map(function ($template, $index) {
+                $context = $this->normalizeContext((string) ($template['context'] ?? ''));
                 $title = trim((string) ($template['title'] ?? ''));
                 $content = $this->normalize((string) ($template['content'] ?? ''));
                 $key = $this->sanitizeKey((string) ($template['key'] ?? $title ?: 'template-' . ($index + 1)));
                 $key = $key !== '' ? $key : 'template-' . ($index + 1);
 
-                if ($title === '' || $content === '' || $key === '') {
+                if ($context === '' || $title === '' || $content === '' || $key === '') {
                     return null;
                 }
 
@@ -102,44 +148,51 @@ class InvoiceTermsService
                     'key' => $key,
                     'title' => $title,
                     'content' => $content,
+                    'context' => $context,
                 ];
             })
             ->filter()
-            ->unique('key')
-            ->values();
+            ->unique(fn (array $template) => $template['context'] . '|' . $template['key'])
+            ->values()
+            ->all();
 
-        if ($normalizedTemplates->isEmpty()) {
-            $normalizedTemplates = collect($this->defaultTemplates());
+        $normalizedTemplates = $this->mergeFallbackTemplates($normalizedTemplates);
+        $resolvedDefaultKeys = [];
+
+        foreach ($this->contexts() as $context) {
+            $contextKey = $context['key'];
+            $contextTemplates = array_values(array_filter(
+                $normalizedTemplates,
+                fn (array $template) => $template['context'] === $contextKey,
+            ));
+            $candidate = $this->sanitizeKey((string) ($defaultTemplateKeys[$contextKey] ?? ''));
+
+            $resolvedDefaultKeys[$contextKey] = collect($contextTemplates)
+                ->pluck('key')
+                ->contains($candidate)
+                    ? $candidate
+                    : ($contextTemplates[0]['key'] ?? '');
         }
 
-        $defaultKey = $this->sanitizeKey((string) $defaultTemplateKey);
-        if (! $normalizedTemplates->pluck('key')->contains($defaultKey)) {
-            $defaultKey = $normalizedTemplates->first()['key'];
-        }
+        SystemSetting::putValue(self::TEMPLATES_KEY, json_encode($normalizedTemplates, JSON_UNESCAPED_UNICODE));
+        SystemSetting::putValue(self::DEFAULT_TEMPLATE_KEYS, json_encode($resolvedDefaultKeys, JSON_UNESCAPED_UNICODE));
 
-        SystemSetting::putValue(self::TEMPLATES_KEY, json_encode($normalizedTemplates->all(), JSON_UNESCAPED_UNICODE));
-        SystemSetting::putValue(self::DEFAULT_TEMPLATE_KEY, $defaultKey);
-        SystemSetting::putValue(
-            self::SETTING_KEY,
-            (string) $normalizedTemplates->firstWhere('key', $defaultKey)['content']
-        );
+        $salesDefaultKey = $resolvedDefaultKeys[self::CONTEXT_SALES_SIMPLIFIED] ?? '';
+        $salesDefaultTemplate = collect($normalizedTemplates)->first(function (array $template) use ($salesDefaultKey) {
+            return $template['context'] === self::CONTEXT_SALES_SIMPLIFIED && $template['key'] === $salesDefaultKey;
+        });
+        $salesDefaultContent = is_array($salesDefaultTemplate)
+            ? $salesDefaultTemplate['content']
+            : $this->defaultTemplate(self::CONTEXT_SALES_SIMPLIFIED)['content'];
+
+        SystemSetting::putValue(self::LEGACY_DEFAULT_TEMPLATE_KEY, $salesDefaultKey);
+        SystemSetting::putValue(self::SETTING_KEY, $salesDefaultContent);
     }
 
-    public function templateContent(?string $templateKey): ?string
-    {
-        if (blank($templateKey)) {
-            return null;
-        }
-
-        $template = collect($this->templates())->firstWhere('key', $this->sanitizeKey((string) $templateKey));
-
-        return $template['content'] ?? null;
-    }
-
-    public function resolveSnapshot(?string $terms, bool $fieldProvided = true): ?string
+    public function resolveSnapshot(?string $terms, string $context, bool $fieldProvided = true): ?string
     {
         if (! $fieldProvided) {
-            return $this->emptyToNull($this->defaultTerms());
+            return $this->emptyToNull($this->defaultTerms($context));
         }
 
         return $this->emptyToNull($this->normalize($terms));
@@ -157,8 +210,83 @@ class InvoiceTermsService
         return $terms === '' ? null : $terms;
     }
 
+    private function sanitizeKey(string $key): string
+    {
+        $key = strtolower(trim($key));
+        $key = preg_replace('/[^a-z0-9\-_]+/', '-', $key) ?: '';
+
+        return trim($key, '-_');
+    }
+
+    private function normalizeContext(string $context): string
+    {
+        $allowed = collect($this->contexts())->pluck('key')->all();
+
+        return in_array($context, $allowed, true) ? $context : '';
+    }
+
     /**
-     * @return array<int, array{key: string, title: string, content: string}>
+     * @return array<int, array{key: string, title: string, content: string, context: string}>
+     */
+    private function normalizedStoredTemplates(): array
+    {
+        $stored = json_decode((string) SystemSetting::getValue(self::TEMPLATES_KEY, ''), true);
+
+        if (! is_array($stored) || $stored === []) {
+            return [];
+        }
+
+        return collect($stored)
+            ->map(function ($template, $index) {
+                $title = trim((string) ($template['title'] ?? ''));
+                $content = $this->normalize((string) ($template['content'] ?? ''));
+                $key = $this->sanitizeKey((string) ($template['key'] ?? $title ?: 'template-' . ($index + 1)));
+                $key = $key !== '' ? $key : 'template-' . ($index + 1);
+                $context = $this->normalizeContext((string) ($template['context'] ?? ''));
+
+                if ($context === '') {
+                    $context = $this->inferLegacyContext($template);
+                }
+
+                if ($title === '' || $content === '' || $key === '' || $context === '') {
+                    return null;
+                }
+
+                return [
+                    'key' => $key,
+                    'title' => $title,
+                    'content' => $content,
+                    'context' => $context,
+                ];
+            })
+            ->filter()
+            ->unique(fn (array $template) => $template['context'] . '|' . $template['key'])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int, array{key: string, title: string, content: string, context: string}>  $templates
+     * @return array<int, array{key: string, title: string, content: string, context: string}>
+     */
+    private function mergeFallbackTemplates(array $templates): array
+    {
+        $existingContexts = collect($templates)->pluck('context')->unique()->all();
+        $fallbackTemplates = [];
+
+        foreach ($this->contexts() as $context) {
+            if (in_array($context['key'], $existingContexts, true)) {
+                continue;
+            }
+
+            $fallbackTemplates = array_merge($fallbackTemplates, $this->fallbackTemplatesForContext($context['key']));
+        }
+
+        return array_values(array_merge($templates, $fallbackTemplates));
+    }
+
+    /**
+     * @return array<int, array{key: string, title: string, content: string, context: string}>
      */
     private function defaultTemplates(): array
     {
@@ -167,25 +295,85 @@ class InvoiceTermsService
                 'key' => 'retail-exchange',
                 'title' => 'استبدال وبيع تجزئة',
                 'content' => "يحق الاستبدال خلال 3 أيام مع إبراز الفاتورة الأصلية.\nلا تُقبل القطع المعدلة أو التالفة بعد الاستلام.",
+                'context' => self::CONTEXT_SALES_SIMPLIFIED,
+            ],
+            [
+                'key' => 'company-sales',
+                'title' => 'مبيعات شركات',
+                'content' => "يتم اعتماد الفاتورة بحسب البيانات الضريبية المسجلة للعميل.\nأي تعديل لاحق يتطلب الرجوع إلى الفاتورة الأصلية.",
+                'context' => self::CONTEXT_SALES_STANDARD,
             ],
             [
                 'key' => 'purchase-supplier',
                 'title' => 'شراء من مورد',
                 'content' => "يتم اعتماد الوزن بعد الفحص والمطابقة.\nأي فروقات لاحقة تُسوّى بحسب نتيجة الفحص النهائي.",
-            ],
-            [
-                'key' => 'cash-party',
-                'title' => 'عميل نقدي',
-                'content' => "تمت المعاملة نقدًا وفق البيانات المثبتة في الفاتورة.\nيلتزم العميل بمراجعة الوزن والقيمة قبل مغادرة الفرع.",
+                'context' => self::CONTEXT_PURCHASES,
             ],
         ];
     }
 
-    private function sanitizeKey(string $key): string
+    /**
+     * @return array<int, array{key: string, title: string, content: string, context: string}>
+     */
+    private function fallbackTemplatesForContext(string $context): array
     {
-        $key = strtolower(trim($key));
-        $key = preg_replace('/[^a-z0-9\-_]+/', '-', $key) ?: '';
+        $legacyTerms = $this->legacyDefaultTerms();
 
-        return trim($key, '-_');
+        if ($legacyTerms !== '') {
+            return [[
+                'key' => $context . '-default',
+                'title' => 'الشروط الافتراضية',
+                'content' => $legacyTerms,
+                'context' => $context,
+            ]];
+        }
+
+        return array_values(array_filter(
+            $this->defaultTemplates(),
+            fn (array $template) => $template['context'] === $context,
+        ));
+    }
+
+    private function hasScopedTemplates(): bool
+    {
+        $stored = json_decode((string) SystemSetting::getValue(self::TEMPLATES_KEY, ''), true);
+
+        if (! is_array($stored)) {
+            return false;
+        }
+
+        return collect($stored)
+            ->contains(fn ($template) => is_array($template) && $this->normalizeContext((string) ($template['context'] ?? '')) !== '');
+    }
+
+    private function legacyDefaultTerms(): string
+    {
+        return $this->normalize(SystemSetting::getValue(self::SETTING_KEY, ''));
+    }
+
+    /**
+     * @param  array<string, mixed>  $template
+     */
+    private function inferLegacyContext(array $template): string
+    {
+        $haystack = mb_strtolower(trim(implode(' ', [
+            (string) ($template['key'] ?? ''),
+            (string) ($template['title'] ?? ''),
+            (string) ($template['content'] ?? ''),
+        ])));
+
+        foreach (['purchase', 'supplier', 'vendor', 'شراء', 'مشتريات', 'مورد'] as $keyword) {
+            if (str_contains($haystack, $keyword)) {
+                return self::CONTEXT_PURCHASES;
+            }
+        }
+
+        foreach (['company', 'corporate', 'business', 'شركة', 'شركات'] as $keyword) {
+            if (str_contains($haystack, $keyword)) {
+                return self::CONTEXT_SALES_STANDARD;
+            }
+        }
+
+        return self::CONTEXT_SALES_SIMPLIFIED;
     }
 }

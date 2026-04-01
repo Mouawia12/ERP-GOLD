@@ -629,19 +629,30 @@ class AdminAccessTest extends TestCase
         $response = $this
             ->actingAs($admin, 'admin-web')
             ->patch(route('admin.system-settings.invoice-terms.update', [], false), [
-                'invoice_terms' => "يحق الاستبدال خلال 3 أيام\nمع إبراز الفاتورة الأصلية",
-                'default_template_key' => 'custom-retail',
                 'templates' => [
                     [
-                        'key' => 'custom-retail',
+                        'key' => 'sales-retail',
+                        'context' => 'sales_simplified',
                         'title' => 'بيع تجزئة',
                         'content' => "يحق الاستبدال خلال 3 أيام\nمع إبراز الفاتورة الأصلية",
                     ],
                     [
+                        'key' => 'sales-company',
+                        'context' => 'sales_standard',
+                        'title' => 'بيع شركات',
+                        'content' => "تعتمد الفاتورة على السجل الضريبي للعميل\nولا تقبل التعديلات اليدوية",
+                    ],
+                    [
                         'key' => 'supplier-standard',
+                        'context' => 'purchases',
                         'title' => 'مورد قياسي',
                         'content' => "يتم اعتماد الوزن بعد الفحص\nوالسداد حسب الاتفاق",
                     ],
+                ],
+                'default_template_keys' => [
+                    'sales_simplified' => 'sales-retail',
+                    'sales_standard' => 'sales-company',
+                    'purchases' => 'supplier-standard',
                 ],
             ]);
 
@@ -652,7 +663,10 @@ class AdminAccessTest extends TestCase
         ]);
         $this->assertDatabaseHas('system_settings', [
             'key' => 'default_invoice_terms_template_key',
-            'value' => 'custom-retail',
+            'value' => 'sales-retail',
+        ]);
+        $this->assertDatabaseHas('system_settings', [
+            'key' => 'default_invoice_terms_template_keys',
         ]);
         $this->assertDatabaseHas('system_settings', [
             'key' => 'invoice_terms_templates',

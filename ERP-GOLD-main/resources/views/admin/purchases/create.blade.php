@@ -228,25 +228,13 @@
                                     </div>
                                     <div class="col-6">
                                         <div class="form-group">
-                                            <label>قالب الشروط</label>
-                                            <select id="invoice_terms_template_selector" class="form-control mb-2">
-                                                @foreach($invoiceTermTemplates as $template)
-                                                    <option
-                                                        value="{{ $template['key'] }}"
-                                                        @selected(($defaultInvoiceTermsTemplateKey ?? null) === $template['key'])
-                                                    >
-                                                        {{ $template['title'] }}
-                                                    </option>
-                                                @endforeach
-                                            </select>
-                                            <label>شروط الفاتورة</label>
-                                            <textarea
-                                                name="invoice_terms"
-                                                id="invoice_terms"
-                                                rows="2"
-                                                class="form-control"
-                                                placeholder="اكتب شروط الفاتورة"
-                                            >{{ old('invoice_terms', $defaultInvoiceTerms) }}</textarea>
+                                            <label>الشروط الافتراضية</label>
+                                            <div class="alert alert-light border mb-0" style="white-space: pre-line;">
+                                                {{ $defaultInvoiceTerms ?: 'لا توجد شروط افتراضية معرفة لهذه الصفحة حتى الآن.' }}
+                                            </div>
+                                            <small class="text-muted d-block mt-2">
+                                                تُطبّق هذه الشروط تلقائيًا على فاتورة الشراء من شاشة الإعدادات، ولا يلزم اختيارها يدويًا هنا.
+                                            </small>
                                         </div>
                                     </div>
                                 </div>
@@ -1063,23 +1051,5 @@
         $("#net_total").val(net_total.toFixed(2));
     }
 </script> 
-<script>
-    (function () {
-        const selector = document.getElementById('invoice_terms_template_selector');
-        const textarea = document.getElementById('invoice_terms');
-        const templates = @json($invoiceTermTemplates);
-
-        if (!selector || !textarea) {
-            return;
-        }
-
-        selector.addEventListener('change', function () {
-            const selected = templates.find((template) => template.key === this.value);
-            if (selected) {
-                textarea.value = selected.content;
-            }
-        });
-    })();
-</script>
 @endsection 
  
