@@ -223,7 +223,17 @@
                                                 </div>
                                             </div>
                                             <div class="row"> 
-                                                    <div class="col-md-12 " id="sticker">
+                                                    <div class="col-md-3">
+                                                        <div class="form-group">
+                                                            <label>{{ __('main.gold_carat_type') }}</label>
+                                                            <select class="form-control" id="sales_carat_type">
+                                                                @foreach($caratTypes as $caratType)
+                                                                    <option value="{{ $caratType->key }}" @selected($caratType->key === 'crafted')>{{ $caratType->title }}</option>
+                                                                @endforeach
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-9 " id="sticker">
                                                         <div class="well well-sm" @if(Config::get('app.locale') == 'ar')style="direction: rtl;" @endif>
                                                             <div class="form-group">
                                                                 <div class="input-group wide-tip">
@@ -753,6 +763,15 @@
 
         });
 
+        $(document).on('change', '#sales_carat_type', function () {
+            suggestionItems = [];
+            $('#products_suggestions').empty();
+
+            if ($('#add_item').val()) {
+                searchProduct($('#add_item').val());
+            }
+        });
+
     });
 
     function is_numeric(mixed_var) {
@@ -766,13 +785,15 @@
 
     function searchProduct(code) {
         let branch_id = document.getElementById('branch_id').value; 
+        let carat_type = document.getElementById('sales_carat_type') ? document.getElementById('sales_carat_type').value : 'crafted';
         let url = "{{route('items.search')}}";
         $.ajax({
             type: 'post',
             url: url,
             data: {
                 code: code,
-                branch_id: branch_id
+                branch_id: branch_id,
+                carat_type: carat_type
             },
             dataType: 'json',
 

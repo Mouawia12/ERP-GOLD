@@ -43,6 +43,11 @@ class InvoicePartySnapshotFeatureTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        DB::table('gold_carat_types')->insert([
+            ['title' => 'مشغول', 'key' => 'crafted', 'created_at' => now(), 'updated_at' => now()],
+            ['title' => 'كسر', 'key' => 'scrap', 'created_at' => now(), 'updated_at' => now()],
+            ['title' => 'صافي', 'key' => 'pure', 'created_at' => now(), 'updated_at' => now()],
+        ]);
 
         $response = $this
             ->actingAs($admin, 'admin-web')
@@ -56,6 +61,11 @@ class InvoicePartySnapshotFeatureTest extends TestCase
         $response->assertSee('data-name="عميل الكاش"', false);
         $response->assertSee('data-phone="0500000001"', false);
         $response->assertSee('data-identity-number="1000000001"', false);
+        $response->assertSee('id="sales_carat_type"', false);
+        $response->assertSee('value="crafted"', false);
+        $response->assertSee('value="scrap"', false);
+        $response->assertSee('value="pure"', false);
+        $response->assertSee('selected', false);
     }
 
     public function test_purchases_create_page_exposes_supplier_snapshot_fields_and_party_data(): void

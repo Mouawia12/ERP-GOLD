@@ -323,6 +323,7 @@ class ItemController extends Controller
 
     public function search(Request $request)
     {
+        $caratType = $this->normalizeSalesCaratType($request->carat_type);
         $code = $request->code;
         if (empty($code)) {
             return response()->json([
@@ -339,22 +340,22 @@ class ItemController extends Controller
             'item.branchPublications' => function ($query) use ($branch_id) {
                 $query->where('branch_id', $branch_id)->where('is_active', true)->where('is_visible', true);
             },
-        ])->where(function ($query) use ($code, $branch_id) {
+        ])->where(function ($query) use ($code, $branch_id, $caratType) {
             $query
                 ->where('is_sold', 0)
-                ->where(function ($q) use ($branch_id, $code) {
+                ->where(function ($q) use ($branch_id, $code, $caratType) {
                     $q
-                        ->where(function ($q2) use ($branch_id, $code) {
+                        ->where(function ($q2) use ($branch_id, $code, $caratType) {
                             $q2
                                 ->where('barcode', 'like', '%' . $code . '%')
-                                ->whereHas('item', function ($q3) use ($branch_id) {
-                                    $this->constrainItemToBranchPublication($q3, $branch_id);
+                                ->whereHas('item', function ($q3) use ($branch_id, $caratType) {
+                                    $this->constrainSaleItemToBranchAndType($q3, $branch_id, $caratType);
                                 });
                         })
-                        ->orWhereHas('item', function ($q2) use ($branch_id, $code) {
+                        ->orWhereHas('item', function ($q2) use ($branch_id, $code, $caratType) {
                             $q2
                                 ->where('title', 'like', '%' . $code . '%');
-                            $this->constrainItemToBranchPublication($q2, $branch_id);
+                            $this->constrainSaleItemToBranchAndType($q2, $branch_id, $caratType);
                         });
                 });
         })->get();
@@ -512,6 +513,15 @@ class ItemController extends Controller
         return $query->publishedToBranch((int) $branchId);
     }
 
+    private function constrainSaleItemToBranchAndType($query, $branchId, string $caratType)
+    {
+        $this->constrainItemToBranchPublication($query, $branchId);
+
+        return $query->whereHas('goldCaratType', function ($caratTypeQuery) use ($caratType) {
+            $caratTypeQuery->where('key', $caratType);
+        });
+    }
+
     private function constrainPurchaseItemToBranchAndType($query, $branchId, $caratType)
     {
         $this->constrainItemToBranchPublication($query, $branchId);
@@ -523,6 +533,11 @@ class ItemController extends Controller
         return $query->whereHas('goldCaratType', function ($q4) use ($caratType) {
             $q4->where('key', $caratType);
         });
+    }
+
+    private function normalizeSalesCaratType(?string $caratType): string
+    {
+        return in_array($caratType, ['crafted', 'scrap', 'pure'], true) ? $caratType : 'crafted';
     }
 
     private function syncPublishedBranches(Item $item, Request $request, int $ownerBranchId, ?int $publisherUserId = null): void

@@ -6,6 +6,7 @@ use App\Models\BankAccount;
 use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\FinancialYear;
+use App\Models\GoldCaratType;
 use App\Models\Invoice;
 use App\Models\ItemUnit;
 use App\Models\Tax;
@@ -107,11 +108,17 @@ class SalesController extends Controller
             return $query->where('tax_number', null);
         })->where('type', '=', 'customer')->get();
         $branches = $this->branchAccessService->visibleBranches($currentUser);
+        $caratTypes = GoldCaratType::query()
+            ->whereIn('key', ['crafted', 'scrap', 'pure'])
+            ->get()
+            ->sortBy(fn (GoldCaratType $caratType) => array_search($caratType->key, ['crafted', 'scrap', 'pure'], true))
+            ->values();
 
         return view('admin.sales.create', [
             'type' => $type,
             'customers' => $customers,
             'branches' => $branches,
+            'caratTypes' => $caratTypes,
             'defaultInvoiceTerms' => $this->invoiceTermsService->defaultTerms(),
             'invoiceTermTemplates' => $this->invoiceTermsService->templates(),
             'defaultInvoiceTermsTemplateKey' => $this->invoiceTermsService->defaultTemplateKey(),

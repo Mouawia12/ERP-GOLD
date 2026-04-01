@@ -155,6 +155,71 @@ class ItemBranchPublicationFeatureTest extends TestCase
         $hiddenResponse->assertJsonCount(0, 'data');
     }
 
+    public function test_sales_search_filters_items_by_selected_gold_carat_type(): void
+    {
+        $ownerBranch = $this->createBranch('فرع الأصل');
+        $publishedBranch = $this->createBranch('فرع التصفية');
+        $admin = $this->createAdminUser([
+            'employee.items.add',
+        ], $ownerBranch, [$ownerBranch, $publishedBranch]);
+        [$categoryId, $caratId, $craftedTypeId] = $this->createCatalogLookups();
+        $scrapTypeId = $this->createGoldCaratType('كسر', 'scrap');
+
+        $craftedItem = $this->createPublishedGoldItem(
+            $admin,
+            $ownerBranch,
+            $publishedBranch,
+            $categoryId,
+            $caratId,
+            $craftedTypeId,
+            'فلتر بيع مشغول',
+            'Crafted Sales Filter'
+        );
+
+        $scrapItem = $this->createPublishedGoldItem(
+            $admin,
+            $ownerBranch,
+            $publishedBranch,
+            $categoryId,
+            $caratId,
+            $scrapTypeId,
+            'فلتر بيع كسر',
+            'Scrap Sales Filter'
+        );
+
+        $publishedBranchUser = $this->createRegularUser($publishedBranch, 'sales-type-filter@example.com');
+
+        $craftedResponse = $this
+            ->actingAs($publishedBranchUser, 'admin-web')
+            ->post(route('items.search', [], false), [
+                'branch_id' => $publishedBranch->id,
+                'carat_type' => 'crafted',
+                'code' => 'فلتر بيع',
+            ]);
+
+        $craftedResponse->assertOk();
+        $craftedResponse->assertJsonPath('status', true);
+        $craftedPayload = $craftedResponse->json('data');
+        $this->assertCount(1, $craftedPayload);
+        $this->assertStringContainsString('فلتر بيع مشغول', $craftedPayload[0]['item_name_without_break']);
+        $this->assertStringContainsString($craftedItem->defaultUnit->barcode, $craftedPayload[0]['item_name_without_break']);
+
+        $scrapResponse = $this
+            ->actingAs($publishedBranchUser, 'admin-web')
+            ->post(route('items.search', [], false), [
+                'branch_id' => $publishedBranch->id,
+                'carat_type' => 'scrap',
+                'code' => 'فلتر بيع',
+            ]);
+
+        $scrapResponse->assertOk();
+        $scrapResponse->assertJsonPath('status', true);
+        $scrapPayload = $scrapResponse->json('data');
+        $this->assertCount(1, $scrapPayload);
+        $this->assertStringContainsString('فلتر بيع كسر', $scrapPayload[0]['item_name_without_break']);
+        $this->assertStringContainsString($scrapItem->defaultUnit->barcode, $scrapPayload[0]['item_name_without_break']);
+    }
+
     private function createBranch(string $name): Branch
     {
         return Branch::create([
@@ -260,5 +325,48 @@ class ItemBranchPublicationFeatureTest extends TestCase
             'is_admin' => false,
             'profile_pic' => 'default.png',
         ]);
+    }
+
+    private function createGoldCaratType(string $title, string $key): int
+    {
+        return DB::table('gold_carat_types')->insertGetId([
+            'title' => $title,
+            'key' => $key,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function createPublishedGoldItem(
+        User $admin,
+        Branch $ownerBranch,
+        Branch $publishedBranch,
+        int $categoryId,
+        int $caratId,
+        int $caratTypeId,
+        string $nameAr,
+        string $nameEn
+    ): Item {
+        $this->actingAs($admin, 'admin-web')
+            ->post(route('items.store', [], false), [
+                'branch_id' => $ownerBranch->id,
+                'published_branch_ids' => [$publishedBranch->id],
+                'inventory_classification' => Item::CLASSIFICATION_GOLD,
+                'item_type' => $caratTypeId,
+                'carats_id' => $caratId,
+                'name_ar' => $nameAr,
+                'name_en' => $nameEn,
+                'category_id' => $categoryId,
+                'weight' => 2,
+                'cost_per_gram' => 350,
+                'labor_cost_per_gram' => 15,
+                'profit_margin_per_gram' => 20,
+            ], [
+                'Accept' => 'application/json',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', true);
+
+        return Item::query()->latest('id')->with('defaultUnit')->firstOrFail();
     }
 }
