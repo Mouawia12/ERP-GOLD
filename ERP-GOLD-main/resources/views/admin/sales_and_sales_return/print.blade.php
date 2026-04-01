@@ -36,7 +36,7 @@
             font-size: {{ $screenFontSize }} !important;
             font-weight: bold;
             margin: 0;
-            padding: 10px;
+            padding: 6px;
             page-break-before: avoid;
             page-break-after: avoid;
             page-break-inside: avoid;
@@ -45,7 +45,8 @@
         .invoice-print-sheet {
             width: 100%;
             max-width: {{ $sheetWidth }};
-            margin: 10px auto !important;
+            margin: 0 auto !important;
+            page-break-inside: avoid;
         }
 
         .no-print {
@@ -80,12 +81,12 @@
             border: 2px solid #eee;
             border-radius: 10px; 
             padding: 10px 12px;
-            margin-bottom: 14px;
+            margin-bottom: 8px;
         } 
 
         .invoice-title-box {
             display: inline-block;
-            padding: 6px 14px;
+            padding: 6px 12px;
             border-radius: 999px;
         }
 
@@ -121,9 +122,83 @@
         }
 
         .print-footer-section {
-            margin-top: 14px;
-            padding-top: 12px;
+            margin-top: 8px;
+            padding-top: 8px;
             border-top: 1px dashed #cbd5e1;
+        }
+
+        .invoice-header-grid,
+        .invoice-meta-grid {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .invoice-header-grid {
+            align-items: center;
+        }
+
+        .header-block,
+        .meta-block {
+            flex: 1 1 0;
+        }
+
+        .header-block.center,
+        .meta-block.center {
+            text-align: center;
+        }
+
+        .header-block.left,
+        .meta-block.left {
+            text-align: left;
+        }
+
+        .header-block.right,
+        .meta-block.right {
+            text-align: right;
+        }
+
+        .branch-meta-line,
+        .invoice-meta-line {
+            margin: 0 0 4px 0;
+            line-height: 1.45;
+        }
+
+        .invoice-meta-line:last-child,
+        .branch-meta-line:last-child {
+            margin-bottom: 0;
+        }
+
+        .invoice-meta-section {
+            margin-bottom: 8px;
+        }
+
+        .invoice-print-table {
+            table-layout: fixed;
+            margin-top: 6px !important;
+            page-break-inside: avoid;
+        }
+
+        .invoice-print-table th,
+        .invoice-print-table td {
+            padding: 4px 5px !important;
+            vertical-align: middle !important;
+            line-height: 1.35;
+            word-wrap: break-word;
+        }
+
+        .invoice-print-table thead th {
+            font-size: 0.92em;
+        }
+
+        .invoice-payment-breakdown p {
+            margin-bottom: 2px !important;
+            line-height: 1.35;
+        }
+
+        .signature-line {
+            min-height: 34px;
         }
     </style>
     <style type="text/css" media="print">
@@ -176,6 +251,22 @@
         .no-print {
             display: none;
         }
+
+        .print-header-section {
+            margin-bottom: 6px !important;
+            break-inside: avoid;
+        }
+
+        .invoice-meta-section,
+        .print-footer-section,
+        .invoice-print-table {
+            break-inside: avoid;
+        }
+
+        .invoice-print-table th,
+        .invoice-print-table td {
+            padding: 3px 4px !important;
+        }
     </style>
 </head>
 <body
@@ -194,69 +285,70 @@
 <div class="pos_details  justify-content-center text-center"> 
     <div class="invoice-print-sheet text-center">
         @if($printSettings['show_header'])
-        <header class="print-header-section" style="width: 100%; display: block; margin: auto; min-height: {{ $headerHeight }};">
-            <div class="row">
-                <div class="col-4 text-right">   
-                    <br> {{$invoice->branch->name}} 
-                    <br>  س.ت : {{$invoice->branch->tax_number}}
-                    <br>  ر.ض :  {{$invoice->branch->commercial_register}}
-                    <br>  تليفون :   {{$invoice->branch->phone}} 
+        <header class="print-header-section" style="width: 100%; display: block; margin: auto;">
+            <div class="invoice-header-grid">
+                <div class="header-block right">
+                    <p class="branch-meta-line">{{$invoice->branch->name}}</p>
+                    <p class="branch-meta-line">س.ت : {{$invoice->branch->tax_number ?: '---'}}</p>
+                    <p class="branch-meta-line">ر.ض : {{$invoice->branch->commercial_register ?: '---'}}</p>
+                    <p class="branch-meta-line">تليفون : {{$invoice->branch->phone ?: '---'}}</p>
                 </div> 
-                <div class="col-4 c"> 
+                <div class="header-block center"> 
                     <img src="{{ $brandLogoUrl }}" class="print-brand-logo">
                 </div> 
-                <div class="col-4 c">
+                <div class="header-block left">
                 </div>
             </div>
         </header>
         @endif
-        <div class="row" id="" style="direction:rtl">
-            <div class="col-4 text-right">
-                <h6 class="text-right mt-1" style="font-weight: bold;">
+        <div class="invoice-meta-section" style="direction:rtl">
+            <div class="invoice-meta-grid">
+            <div class="meta-block right">
+                <div class="invoice-meta-line">
                     رقم الفاتورة :
                     <span dir="ltr">
                         {{$invoice -> bill_number}}
                     </span>
-                </h6>
-                <h6 class="text-right mt-1" style="font-weight: bold;">
+                </div>
+                <div class="invoice-meta-line">
                     التاريخ :
                     <span dir="ltr">
                          {{\Carbon\Carbon::parse($invoice -> date) -> format('d- m -Y') }}
                     </span>
-                </h6>
-                <h6 class="text-right mt-1" style="font-weight: bold;"> 
+                </div>
+                <div class="invoice-meta-line"> 
                     الفرع :
                     <span dir="ltr">
                         {{$invoice -> branch->name}}
                     </span>
-                </h6>
+                </div>
                 @if($invoice->customerName)
-                <h6 class="text-right mt-1" style="font-weight: bold;">
+                <div class="invoice-meta-line">
                    {{__('main.bill_client_name')}} : 
                     <span dir="ltr">
                         {{$invoice->customerName}}
                     </span>
-                </h6>
+                </div>
                 @endif
                 @if($invoice->customerPhone)
-                <h6 class="text-right mt-1" style="font-weight: bold;">
+                <div class="invoice-meta-line">
                    {{__('main.bill_client_phone')}} : 
                     <span dir="ltr">
                         {{$invoice->customerPhone}}
                     </span>
-                </h6>
+                </div>
                 @endif
                 @if($invoice->customerIdentityNumber)
-                <h6 class="text-right mt-1" style="font-weight: bold;">
+                <div class="invoice-meta-line">
                    رقم الهوية :
                     <span dir="ltr">
                         {{$invoice->customerIdentityNumber}}
                     </span>
-                </h6>
+                </div>
                 @endif
             </div>
-            <div class="col-4 text-center">
-                <h4 class="text-center mt-1" style="font-weight: bold;">
+            <div class="meta-block center">
+                <h4 class="text-center mt-1 mb-0" style="font-weight: bold;">
                     <strong class="invoice-title-box"> 
                         @if($invoice->sale_type == 'standard')
                             @if($invoice->type == 'sale')
@@ -274,16 +366,16 @@
                     </strong> 
                 </h4>
             </div>
-            <div class="col-4 text-left">
-                <div class="visible-print text-left mt-1">
-					 <img src="{{$invoice->zatcaQrCode}}" class="invoice-print-qr" alt="QR Code"/>
-                    
+            <div class="meta-block left">
+                <div class="visible-print text-left">
+						 <img src="{{$invoice->zatcaQrCode}}" class="invoice-print-qr" alt="QR Code"/>
+	                    
                 </div>
             </div>
-            <div class="clearfix"> </div> 
+            </div>
         </div>
-         
-        <table style="width: 100% ; direction: rtl" class="table-bordered">
+	         
+	        <table style="width: 100% ; direction: rtl" class="table-bordered invoice-print-table">
             <thead>
             <tr> 
                 <th class="text-center " >وصف الصنف
@@ -334,16 +426,16 @@
             <tr>
                 <td class="text-center" colspan="2">{{round($invoice -> lines_total, 2)}}</td>
                 <td class="text-center" colspan="4"> الاجمالي قبل الضريبة   (Total Without Vat)</td>
-                <td class="text-center" colspan="3">
-                  <p class="mb-0">{{__('main.cash')}} :  {{ round((float) $invoice->cash_paid_total, 2) }}</p>
-                  <p class="mb-0">{{__('main.visa')}} :  {{ round((float) $invoice->credit_card_paid_total, 2) }}</p>
-                  <p class="mb-0">تحويل بنكي :  {{ round((float) $invoice->bank_transfer_paid_total, 2) }}</p>
-                  @foreach($invoice->payment_lines_breakdown as $paymentLine)
-                      @if($paymentLine['bank_account_name'])
-                          <p class="mb-0 small">
-                              {{ $paymentLine['method_label'] }} - {{ $paymentLine['bank_account_name'] }} :
-                              {{ number_format((float) $paymentLine['amount'], 2) }}
-                              @if($paymentLine['reference_no'])
+	                <td class="text-center invoice-payment-breakdown" colspan="3">
+	                  <p class="mb-0">{{__('main.cash')}} :  {{ round((float) $invoice->cash_paid_total, 2) }}</p>
+	                  <p class="mb-0">{{__('main.visa')}} :  {{ round((float) $invoice->credit_card_paid_total, 2) }}</p>
+	                  <p class="mb-0">تحويل بنكي :  {{ round((float) $invoice->bank_transfer_paid_total, 2) }}</p>
+	                  @foreach($invoice->payment_lines_breakdown as $paymentLine)
+	                      @if($paymentLine['bank_account_name'])
+	                          <p class="mb-0 small">
+	                              {{ $paymentLine['method_label'] }} - {{ $paymentLine['bank_account_name'] }} :
+	                              {{ number_format((float) $paymentLine['amount'], 2) }}
+	                              @if($paymentLine['reference_no'])
                                   ({{ $paymentLine['reference_no'] }})
                               @endif
                           </p>
@@ -377,11 +469,11 @@
         <div class="row print-footer-section" style="direction:rtl">
             <div class="col-6 text-center">
                 <span> اسم البائع</span> <br>
-                <span>{{$invoice->user->name}}</span>
+                <div class="signature-line">{{$invoice->user->name}}</div>
             </div>
             <div class="col-6 text-center">
                 <span>  مدير الفرع</span> <br>
-                <span>........</span>
+                <div class="signature-line">........</div>
             </div>
         </div>
         @endif
