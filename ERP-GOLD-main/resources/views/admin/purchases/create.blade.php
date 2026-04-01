@@ -713,6 +713,7 @@
             data: { document_type: 'purchase', net_after_discount: net_total, branch_id: branch_id },
             success: function(data) {
                 $(".show_modal1").html(data);
+                purchaseCashWasEditedManually = false;
                 refreshPurchasePaymentSummary();
                 $('#paymentsModal').modal({backdrop: 'static', keyboard: false}, 'show');
             },
@@ -726,6 +727,8 @@
             }
         });
     }
+
+    var purchaseCashWasEditedManually = false;
 
     function buildPurchaseBankAccountOptions(methodType, selectedId) {
         var options = '<option value="">حدد الحساب البنكي</option>';
@@ -803,12 +806,18 @@
             return;
         }
 
-        var cashValue = Number($('#purchase_cash').val() || 0);
         var paymentLines = collectPurchasePaymentLines();
         var nonCashTotal = paymentLines.reduce(function (sum, line) {
             return sum + Number(line.amount || 0);
         }, 0);
         var total = Number(moneyInput.value || 0);
+        var suggestedCashValue = Math.max(total - nonCashTotal, 0);
+
+        if (!purchaseCashWasEditedManually) {
+            $('#purchase_cash').val(suggestedCashValue.toFixed(2));
+        }
+
+        var cashValue = Number($('#purchase_cash').val() || 0);
         var remaining = (total - (cashValue + nonCashTotal)).toFixed(2);
 
         $('#purchase_payment_lines_total').text(nonCashTotal.toFixed(2));
@@ -830,6 +839,11 @@
         var row = $(this).closest('tr');
         row.find('.purchase-payment-line-bank-account').html(buildPurchaseBankAccountOptions($(this).val(), ''));
         refreshPurchasePaymentInputNames();
+        refreshPurchasePaymentSummary();
+    });
+
+    $(document).on('input', '#purchase_cash', function () {
+        purchaseCashWasEditedManually = true;
         refreshPurchasePaymentSummary();
     });
 

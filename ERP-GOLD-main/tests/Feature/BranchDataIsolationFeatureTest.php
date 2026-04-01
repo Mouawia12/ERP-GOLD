@@ -80,6 +80,9 @@ class BranchDataIsolationFeatureTest extends TestCase
         $createResponse->assertOk();
         $createResponse->assertSee('فرع البيع الأساسي');
         $createResponse->assertDontSee('فرع البيع الخارجي');
+        $createResponse->assertSee('salesCashWasEditedManually = false', false);
+        $createResponse->assertSee("if (!salesCashWasEditedManually)", false);
+        $createResponse->assertSee("$('#cash').val(suggestedCashValue.toFixed(2));", false);
 
         $this->actingAs($user, 'admin-web')
             ->get(route('sales.show', $foreignInvoice->id, false))
@@ -141,6 +144,9 @@ class BranchDataIsolationFeatureTest extends TestCase
         $createResponse->assertOk();
         $createResponse->assertSee('فرع الشراء الأساسي');
         $createResponse->assertDontSee('فرع الشراء الخارجي');
+        $createResponse->assertSee('purchaseCashWasEditedManually = false', false);
+        $createResponse->assertSee("if (!purchaseCashWasEditedManually)", false);
+        $createResponse->assertSee("$('#purchase_cash').val(suggestedCashValue.toFixed(2));", false);
 
         $this->actingAs($user, 'admin-web')
             ->get(route('purchases.show', $foreignInvoice->id, false))

@@ -817,10 +817,13 @@
     }
 
 
+    var salesCashWasEditedManually = false;
+
     function openPaymentModal(document_type, net_total, branch_id){
         let url = "{{ route('sales.payments')}}";
         $.post( url,{document_type: document_type, net_after_discount: net_total, branch_id: branch_id}, function( data ) {
             $(".show_modal1").html( data ); 
+            salesCashWasEditedManually = false;
             refreshPaymentSummary();
 
             $('#paymentsModal').modal({backdrop: 'static', keyboard: false} ,'show');
@@ -897,12 +900,18 @@
             return;
         }
 
-        var cashValue = Number($('#cash').val() || 0);
         var paymentLines = collectPaymentLines();
         var nonCashTotal = paymentLines.reduce(function (sum, line) {
             return sum + Number(line.amount || 0);
         }, 0);
         var total = Number(moneyInput.value || 0);
+        var suggestedCashValue = Math.max(total - nonCashTotal, 0);
+
+        if (!salesCashWasEditedManually) {
+            $('#cash').val(suggestedCashValue.toFixed(2));
+        }
+
+        var cashValue = Number($('#cash').val() || 0);
         var remaining = (total - (cashValue + nonCashTotal)).toFixed(2);
         var cardTotal = paymentLines
             .filter(function (line) { return line.method_type === 'credit_card'; })
@@ -926,6 +935,11 @@
     $(document).on('change', '.payment-line-method', function () {
         var row = $(this).closest('tr');
         row.find('.payment-line-bank-account').html(buildBankAccountOptions($(this).val(), ''));
+        refreshPaymentSummary();
+    });
+
+    $(document).on('input', '#cash', function () {
+        salesCashWasEditedManually = true;
         refreshPaymentSummary();
     });
 
