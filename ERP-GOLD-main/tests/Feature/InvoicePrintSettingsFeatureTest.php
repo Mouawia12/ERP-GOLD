@@ -52,6 +52,7 @@ class InvoicePrintSettingsFeatureTest extends TestCase
         $response->assertSee('data-print-template="compact"', false);
         $response->assertSee('data-show-header="0"', false);
         $response->assertSee('data-show-footer="0"', false);
+        $response->assertDontSee('<style type="text/css" media="screen">', false);
         $response->assertDontSee('<header class="print-header-section"', false);
         $response->assertDontSee('<div class="row print-footer-section"', false);
     }
@@ -88,6 +89,7 @@ class InvoicePrintSettingsFeatureTest extends TestCase
         $response->assertSee('data-print-template="modern"', false);
         $response->assertSee('data-show-header="1"', false);
         $response->assertSee('data-show-footer="1"', false);
+        $response->assertDontSee('<style type="text/css" media="screen">', false);
         $response->assertSee('<header class="print-header-section"', false);
         $response->assertSee('<div class="row print-footer-section"', false);
     }
