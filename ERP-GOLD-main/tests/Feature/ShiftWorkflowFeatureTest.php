@@ -494,6 +494,20 @@ class ShiftWorkflowFeatureTest extends TestCase
         $this->assertDatabaseCount('shifts', 0);
     }
 
+    public function test_admin_layout_includes_global_notification_layer_above_modals(): void
+    {
+        $branch = $this->createBranch('فرع تنبيهات الشفت');
+        $user = $this->createUser($branch, 'shift-notification-user@example.com');
+
+        $response = $this->actingAs($user, 'admin-web')
+            ->get(route('admin.shifts.index', [], false));
+
+        $response->assertOk();
+        $response->assertSee('erpShowSystemMessage', false);
+        $response->assertSee('erp-system-message-root', false);
+        $response->assertSee('window.alert = function', false);
+    }
+
     public function test_sales_store_links_created_invoice_to_active_shift_and_appears_in_shift_report(): void
     {
         $branch = $this->createBranch('فرع بيع الشفت');
