@@ -9,6 +9,7 @@ use App\Models\FinancialVoucher;
 use App\Models\FinancialYear;
 use App\Models\Permission;
 use App\Models\Shift;
+use App\Models\Subscriber;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -393,6 +394,106 @@ class ShiftWorkflowFeatureTest extends TestCase
         $response->assertDontSee('<td>'.$firstUser->name.'</td>', false);
     }
 
+    public function test_subscriber_admin_only_sees_his_own_subscriber_branches_users_and_shifts(): void
+    {
+        $subscriber = Subscriber::create([
+            'name' => 'مشترك الشفتات',
+            'login_email' => 'shift-subscriber@example.com',
+            'status' => true,
+        ]);
+        $otherSubscriber = Subscriber::create([
+            'name' => 'مشترك آخر للشفتات',
+            'login_email' => 'other-shift-subscriber@example.com',
+            'status' => true,
+        ]);
+
+        $adminBranch = $this->createBranch('فرع المشترك الرئيسي', [
+            'subscriber_id' => $subscriber->id,
+        ]);
+        $subscriberBranch = $this->createBranch('فرع المشترك الثاني', [
+            'subscriber_id' => $subscriber->id,
+        ]);
+        $foreignBranch = $this->createBranch('فرع مشترك آخر', [
+            'subscriber_id' => $otherSubscriber->id,
+        ]);
+
+        $admin = $this->createUser($adminBranch, 'subscriber-shift-admin@example.com', false, [
+            'subscriber_id' => $subscriber->id,
+        ]);
+        $admin->givePermissionTo(Permission::findOrCreate('employee.users.show', 'admin-web'));
+        $admin->givePermissionTo(Permission::findOrCreate('employee.branches.show', 'admin-web'));
+
+        $subscriberUser = $this->createUser($subscriberBranch, 'subscriber-shift-user@example.com', false, [
+            'subscriber_id' => $subscriber->id,
+        ]);
+        $foreignUser = $this->createUser($foreignBranch, 'foreign-shift-user@example.com', false, [
+            'subscriber_id' => $otherSubscriber->id,
+        ]);
+
+        $ownShift = $this->createShift($subscriberBranch, $subscriberUser, [
+            'opened_at' => now()->subHour(),
+            'opening_cash' => 150,
+        ]);
+        $foreignShift = $this->createShift($foreignBranch, $foreignUser, [
+            'opened_at' => now()->subMinutes(30),
+            'opening_cash' => 275,
+        ]);
+
+        $response = $this->actingAs($admin, 'admin-web')
+            ->get(route('admin.shifts.index', [], false));
+
+        $response->assertOk();
+        $response->assertSee('فرع المشترك الرئيسي');
+        $response->assertSee('فرع المشترك الثاني');
+        $response->assertDontSee('فرع مشترك آخر');
+        $response->assertSee($subscriberUser->name);
+        $response->assertDontSee($foreignUser->name);
+        $response->assertSee('<td>'.$ownShift->id.'</td>', false);
+        $response->assertDontSee('<td>'.$foreignShift->id.'</td>', false);
+
+        $this->actingAs($admin, 'admin-web')
+            ->get(route('admin.shifts.show', $foreignShift, false))
+            ->assertForbidden();
+    }
+
+    public function test_subscriber_admin_cannot_open_shift_on_branch_of_another_subscriber(): void
+    {
+        $subscriber = Subscriber::create([
+            'name' => 'مشترك فتح الشفت',
+            'login_email' => 'shift-open-subscriber@example.com',
+            'status' => true,
+        ]);
+        $otherSubscriber = Subscriber::create([
+            'name' => 'مشترك أجنبي',
+            'login_email' => 'foreign-open-subscriber@example.com',
+            'status' => true,
+        ]);
+
+        $adminBranch = $this->createBranch('فرع مشترك الفتح', [
+            'subscriber_id' => $subscriber->id,
+        ]);
+        $foreignBranch = $this->createBranch('فرع أجنبي للشفت', [
+            'subscriber_id' => $otherSubscriber->id,
+        ]);
+
+        $admin = $this->createUser($adminBranch, 'subscriber-open-admin@example.com', false, [
+            'subscriber_id' => $subscriber->id,
+        ]);
+        $admin->givePermissionTo(Permission::findOrCreate('employee.users.show', 'admin-web'));
+        $admin->givePermissionTo(Permission::findOrCreate('employee.branches.show', 'admin-web'));
+
+        $this->from(route('admin.shifts.index', [], false))
+            ->actingAs($admin, 'admin-web')
+            ->post(route('admin.shifts.store', [], false), [
+                'branch_id' => $foreignBranch->id,
+                'opening_cash' => 40,
+            ])
+            ->assertRedirect(route('admin.shifts.index', [], false))
+            ->assertSessionHasErrors('branch_id');
+
+        $this->assertDatabaseCount('shifts', 0);
+    }
+
     public function test_sales_store_links_created_invoice_to_active_shift_and_appears_in_shift_report(): void
     {
         $branch = $this->createBranch('فرع بيع الشفت');
@@ -507,18 +608,18 @@ class ShiftWorkflowFeatureTest extends TestCase
         $reportResponse->assertSee('253.00');
     }
 
-    private function createBranch(string $name): Branch
+    private function createBranch(string $name, array $attributes = []): Branch
     {
-        return Branch::create([
+        return Branch::create(array_merge([
             'name' => ['ar' => $name, 'en' => $name],
             'phone' => '0550000000',
             'status' => true,
-        ]);
+        ], $attributes));
     }
 
-    private function createUser(Branch $branch, string $email, bool $isAdmin = false): User
+    private function createUser(Branch $branch, string $email, bool $isAdmin = false, array $attributes = []): User
     {
-        return User::create([
+        return User::create(array_merge([
             'name' => strtok($email, '@'),
             'email' => $email,
             'password' => Hash::make('secret123'),
@@ -526,7 +627,7 @@ class ShiftWorkflowFeatureTest extends TestCase
             'status' => true,
             'is_admin' => $isAdmin,
             'profile_pic' => 'default.png',
-        ]);
+        ], $attributes));
     }
 
     private function createFinancialYear(): FinancialYear

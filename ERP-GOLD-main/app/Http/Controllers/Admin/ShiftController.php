@@ -21,12 +21,15 @@ class ShiftController extends Controller
     {
         $user = $request->user('admin-web');
         $canManageShiftDirectory = $this->canManageShiftDirectory($user);
+        $subscriberId = $this->visibleSubscriberId($user);
 
         $query = Shift::with(['branch', 'user'])->orderByDesc('opened_at');
 
         if (! $canManageShiftDirectory) {
             $query->where('user_id', $user->id);
         } else {
+            $this->scopeShiftQueryToSubscriber($query, $subscriberId);
+
             $query
                 ->when($request->filled('branch_id'), function ($builder) use ($request) {
                     return $builder->where('branch_id', $request->integer('branch_id'));
@@ -50,8 +53,8 @@ class ShiftController extends Controller
         return view('admin.shifts.index', [
             'shifts' => $query->get(),
             'activeShift' => $this->shiftService->currentForUser($user),
-            'branches' => Branch::where('status', 1)->orderBy('name')->get(),
-            'users' => User::orderBy('name')->get(),
+            'branches' => $this->visibleBranches($subscriberId),
+            'users' => $this->visibleUsers($subscriberId),
             'filters' => $request->only(['status', 'date_from', 'date_to', 'branch_id', 'user_id']),
             'canManageShiftDirectory' => $canManageShiftDirectory,
         ]);
@@ -66,6 +69,8 @@ class ShiftController extends Controller
             'opening_cash' => 'nullable|numeric|min:0',
             'opening_notes' => 'nullable|string|max:2000',
         ]);
+
+        $this->ensureBranchBelongsToVisibleSubscriber($user, (int) $validated['branch_id']);
 
         try {
             $this->shiftService->open(
@@ -126,7 +131,24 @@ class ShiftController extends Controller
 
     private function ensureVisibleTo($user, Shift $shift): void
     {
-        abort_unless($this->canManageShiftDirectory($user) || (int) $shift->user_id === (int) $user->id, 403);
+        if ((int) $shift->user_id === (int) $user->id) {
+            return;
+        }
+
+        abort_unless($this->canManageShiftDirectory($user), 403);
+
+        $subscriberId = $this->visibleSubscriberId($user);
+
+        if (! $subscriberId) {
+            return;
+        }
+
+        $shift->loadMissing(['branch', 'user']);
+
+        $belongsToVisibleSubscriber = (int) ($shift->branch?->subscriber_id ?? 0) === $subscriberId
+            || (int) ($shift->user?->subscriber_id ?? 0) === $subscriberId;
+
+        abort_unless($belongsToVisibleSubscriber, 403);
     }
 
     private function canManageShiftDirectory(User $user): bool
@@ -135,6 +157,77 @@ class ShiftController extends Controller
             'employee.users.show',
             'employee.user_permissions.show',
             'employee.branches.show',
+        ]);
+    }
+
+    private function visibleSubscriberId(User $user): ?int
+    {
+        if ($user->isOwner() || blank($user->subscriber_id)) {
+            return null;
+        }
+
+        return (int) $user->subscriber_id;
+    }
+
+    private function scopeShiftQueryToSubscriber($query, ?int $subscriberId): void
+    {
+        if (! $subscriberId) {
+            return;
+        }
+
+        $query->where(function ($builder) use ($subscriberId) {
+            $builder
+                ->whereHas('branch', function ($branchQuery) use ($subscriberId) {
+                    $branchQuery->where('subscriber_id', $subscriberId);
+                })
+                ->orWhereHas('user', function ($userQuery) use ($subscriberId) {
+                    $userQuery->where('subscriber_id', $subscriberId);
+                });
+        });
+    }
+
+    private function visibleBranches(?int $subscriberId)
+    {
+        return Branch::query()
+            ->where('status', 1)
+            ->when(
+                $subscriberId,
+                fn ($query) => $query->where('subscriber_id', $subscriberId)
+            )
+            ->orderBy('name')
+            ->get();
+    }
+
+    private function visibleUsers(?int $subscriberId)
+    {
+        return User::query()
+            ->when(
+                $subscriberId,
+                fn ($query) => $query->where('subscriber_id', $subscriberId)
+            )
+            ->orderBy('name')
+            ->get();
+    }
+
+    private function ensureBranchBelongsToVisibleSubscriber(User $user, int $branchId): void
+    {
+        $subscriberId = $this->visibleSubscriberId($user);
+
+        if (! $subscriberId) {
+            return;
+        }
+
+        $branchBelongsToSubscriber = Branch::query()
+            ->whereKey($branchId)
+            ->where('subscriber_id', $subscriberId)
+            ->exists();
+
+        if ($branchBelongsToSubscriber) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'branch_id' => ['لا يمكنك فتح شفت على فرع تابع لمشترك آخر.'],
         ]);
     }
 }
