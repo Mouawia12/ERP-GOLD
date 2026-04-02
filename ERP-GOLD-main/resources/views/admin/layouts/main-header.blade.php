@@ -34,7 +34,7 @@
         align-items: center;
         justify-content: center;
         margin: 0;
-        z-index: 1040;
+        z-index: 1030;
         transition: right .28s ease, transform .2s ease;
     }
 
@@ -69,6 +69,13 @@
         transform: translateY(-1px) scale(1.02);
         box-shadow: 0 20px 40px rgba(20, 49, 92, 0.22);
         border-color: rgba(122, 155, 214, 0.92);
+    }
+
+    body.modal-open .app-sidebar__toggle,
+    body.modal-open .app-sidebar__overlay {
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
     }
 
     .app-sidebar__toggle .open-toggle {

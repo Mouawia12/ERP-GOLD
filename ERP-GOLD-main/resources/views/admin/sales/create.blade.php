@@ -1119,14 +1119,40 @@
 
     var salesCashWasEditedManually = false;
 
+    function mountSalesPaymentModal(markup) {
+        $('body').find('#paymentsModal').remove();
+        $('.modal-backdrop').remove();
+        $('body').removeClass('modal-open').css('padding-right', '');
+
+        $('.show_modal1').html(markup);
+
+        var modal = $('.show_modal1').find('#paymentsModal');
+
+        if (!modal.length) {
+            return $();
+        }
+
+        modal.appendTo('body');
+        modal.on('hidden.bs.modal', function () {
+            $(this).remove();
+            $('.modal-backdrop').remove();
+            $('body').removeClass('modal-open').css('padding-right', '');
+            $('.show_modal1').empty();
+        });
+
+        return modal;
+    }
+
     function openPaymentModal(document_type, net_total, branch_id){
         let url = "{{ route('sales.payments')}}";
         $.post( url,{document_type: document_type, net_after_discount: net_total, branch_id: branch_id}, function( data ) {
-            $(".show_modal1").html( data ); 
+            var modal = mountSalesPaymentModal(data);
             salesCashWasEditedManually = false;
             refreshPaymentSummary();
-
-            $('#paymentsModal').modal({backdrop: 'static', keyboard: false} ,'show');
+            if (modal.length) {
+                modal.modal({backdrop: 'static', keyboard: false});
+                modal.modal('show');
+            }
         });
     }
 
