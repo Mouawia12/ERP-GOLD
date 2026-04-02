@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class Customer extends Model
@@ -41,8 +42,39 @@ class Customer extends Model
             $customerAccount = $parentAccount->childrens()->create([
                 'subscriber_id' => $parentAccount->subscriber_id,
                 'name' => ['en' => $customer->name, 'ar' => $customer->name],
+                'account_type' => $parentAccount->account_type,
+                'transfer_side' => $parentAccount->transfer_side,
             ]);
             $customer->account_id = $customerAccount->id;
+        });
+    }
+
+    public function account()
+    {
+        return $this->belongsTo(Account::class);
+    }
+
+    public function invoices()
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    public function scopeVisibleToUser(Builder $query, ?User $user): Builder
+    {
+        if (! $user || $user->isOwner() || blank($user->subscriber_id)) {
+            return $query;
+        }
+
+        $subscriberId = (int) $user->subscriber_id;
+
+        return $query->where(function (Builder $customerQuery) use ($subscriberId) {
+            $customerQuery
+                ->whereHas('account', function (Builder $accountQuery) use ($subscriberId) {
+                    $accountQuery->withoutGlobalScopes()->where('subscriber_id', $subscriberId);
+                })
+                ->orWhereHas('invoices.branch', function (Builder $branchQuery) use ($subscriberId) {
+                    $branchQuery->where('subscriber_id', $subscriberId);
+                });
         });
     }
 }

@@ -105,9 +105,13 @@ class SalesController extends Controller
     {
         $currentUser = Auth::guard('admin-web')->user();
         $invoiceTermsContext = $this->invoiceTermsService->salesContext((string) $type);
-        $customers = Customer::when($type == 'simplified', function ($query) {
-            return $query->where('tax_number', null);
-        })->where('type', '=', 'customer')->get();
+        $customers = Customer::query()
+            ->visibleToUser($currentUser)
+            ->when($type == 'simplified', function ($query) {
+                return $query->where('tax_number', null);
+            })
+            ->where('type', '=', 'customer')
+            ->get();
         $branches = $this->branchAccessService->visibleBranches($currentUser);
         $caratTypes = GoldCaratType::query()
             ->whereIn('key', ['crafted', 'scrap', 'pure'])
@@ -151,7 +155,21 @@ class SalesController extends Controller
             DB::beginTransaction();
             $validator = Validator::make($request->all(), [
                 'bill_date' => 'required',
-                'customer_id' => 'required|exists:customers,id,type,customer',
+                'customer_id' => [
+                    'required',
+                    'integer',
+                    function (string $attribute, mixed $value, \Closure $fail) use ($request) {
+                        $exists = Customer::query()
+                            ->visibleToUser($request->user('admin-web'))
+                            ->where('type', 'customer')
+                            ->whereKey($value)
+                            ->exists();
+
+                        if (! $exists) {
+                            $fail(__('validations.customer_id_exists'));
+                        }
+                    },
+                ],
                 'branch_id' => 'required',
                 'bill_client_name' => 'nullable|string|max:255',
                 'bill_client_phone' => 'nullable|string|max:50',
@@ -177,7 +195,10 @@ class SalesController extends Controller
                 // store header
                 $branch = Branch::findOrFail($request->branch_id);
                 $activeShift = $this->shiftService->requireActiveShift(Auth::user(), (int) $request->branch_id);
-                $customer = Customer::find($request->customer_id);
+                $customer = Customer::query()
+                    ->visibleToUser($request->user('admin-web'))
+                    ->where('type', 'customer')
+                    ->findOrFail($request->customer_id);
                 $warehouse = $branch->warehouses->first();
 
                 $linesTotal = 0;

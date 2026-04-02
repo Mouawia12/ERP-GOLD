@@ -97,7 +97,10 @@ class PurchasesController extends Controller
     public function create()
     {
         $currentUser = Auth::guard('admin-web')->user();
-        $customers = Customer::where('type', '=', 'supplier')->get();
+        $customers = Customer::query()
+            ->visibleToUser($currentUser)
+            ->where('type', '=', 'supplier')
+            ->get();
         $branches = $this->branchAccessService->visibleBranches($currentUser);
         $caratTypes = GoldCaratType::all();
 
@@ -203,7 +206,21 @@ class PurchasesController extends Controller
                     [self::NON_GOLD_CARAT_TYPE]
                 ))],
                 'purchase_type' => 'required|in:' . implode(',', config('settings.purchase_types')),
-                'supplier_id' => 'required|exists:customers,id,type,supplier',
+                'supplier_id' => [
+                    'required',
+                    'integer',
+                    function (string $attribute, mixed $value, \Closure $fail) use ($request) {
+                        $exists = Customer::query()
+                            ->visibleToUser($request->user('admin-web'))
+                            ->where('type', 'supplier')
+                            ->whereKey($value)
+                            ->exists();
+
+                        if (! $exists) {
+                            $fail(__('validations.supplier_id_exists'));
+                        }
+                    },
+                ],
                 'weight' => 'required|array',
                 'bill_client_name' => 'nullable|string|max:255',
                 'bill_client_phone' => 'nullable|string|max:50',
@@ -226,7 +243,10 @@ class PurchasesController extends Controller
             $this->branchAccessService->enforceBranchAccess(Auth::user(), (int) $request->branch_id);
             $purchaseType = $request->purchase_type;
             $financialYear = FinancialYear::where('is_active', 1)->first();
-            $supplier = Customer::find($request->supplier_id);
+            $supplier = Customer::query()
+                ->visibleToUser($request->user('admin-web'))
+                ->where('type', 'supplier')
+                ->findOrFail($request->supplier_id);
             $isNonGoldFlow = $request->carat_type === self::NON_GOLD_CARAT_TYPE;
 
             if ($isNonGoldFlow && $purchaseType !== 'normal') {

@@ -10,6 +10,7 @@ use App\Models\FinancialVoucher;
 use App\Models\GoldCarat;
 use App\Models\Invoice;
 use App\Models\User;
+use App\Services\Branches\BranchContextService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -39,11 +40,14 @@ class CustomerController extends Controller
     {
         $type = $this->normalizeType($type);
         $this->authorizeTypePermission($type, 'show');
+        $currentUser = $request->user('admin-web');
 
         $cashOnly = $cashDirectory || $request->boolean('cash_only');
         $identityNumber = $this->normalizeOptionalFilter($request->input('identity_number'));
 
-        $customers = Customer::where('type', $type)
+        $customers = Customer::query()
+            ->visibleToUser($currentUser)
+            ->where('type', $type)
             ->when($cashOnly, function ($query) {
                 return $query->where('is_cash_party', true);
             })
@@ -100,6 +104,7 @@ class CustomerController extends Controller
         $type = $this->normalizeType($type);
         $this->authorizeTypePermission($type, $request->filled('id') ? 'edit' : 'add');
         $request->merge(['type' => $type]);
+        $currentUser = $request->user('admin-web');
 
         $validator = Validator::make($request->all(), [
             'name' => 'required',
@@ -135,9 +140,7 @@ class CustomerController extends Controller
         }
 
         try {
-            $company = Customer::updateOrCreate([
-                'id' => $request->id ?? null
-            ], [
+            $payload = [
                 'name' => $request->name,
                 'phone' => $request->phone,
                 'is_cash_party' => $request->boolean('is_cash_party'),
@@ -152,7 +155,17 @@ class CustomerController extends Controller
                 'plot_identification' => $request->plot_identification,
                 'postal_code' => $request->postal_code,
                 'type' => $request->type,
-            ]);
+            ];
+
+            if ($request->filled('id')) {
+                $company = Customer::query()
+                    ->visibleToUser($currentUser)
+                    ->where('type', $type)
+                    ->findOrFail($request->id);
+                $company->update($payload);
+            } else {
+                $company = Customer::create($payload);
+            }
 
             return response()->json([
                 'status' => true,
@@ -170,6 +183,7 @@ class CustomerController extends Controller
     {
         $type = $this->normalizeType($type);
         $this->authorizeTypePermission($type, 'add');
+        $currentUser = $request->user('admin-web');
 
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
@@ -195,6 +209,7 @@ class CustomerController extends Controller
         $identityNumber = trim((string) $request->input('identity_number'));
 
         $customer = Customer::query()
+            ->visibleToUser($currentUser)
             ->where('type', $type)
             ->when($phone !== '', function ($query) use ($phone) {
                 return $query->where('phone', $phone);
@@ -203,6 +218,7 @@ class CustomerController extends Controller
 
         if (! $customer && $identityNumber !== '') {
             $customer = Customer::query()
+                ->visibleToUser($currentUser)
                 ->where('type', $type)
                 ->where('identity_number', $identityNumber)
                 ->first();
@@ -210,6 +226,7 @@ class CustomerController extends Controller
 
         if (! $customer) {
             $customer = Customer::query()
+                ->visibleToUser($currentUser)
                 ->where('type', $type)
                 ->where('name', $name)
                 ->first();
@@ -263,8 +280,10 @@ class CustomerController extends Controller
 
     public function report(Request $request, $id)
     {
-        $customer = Customer::findOrFail($id);
+        $currentUser = $request->user('admin-web');
+        $customer = Customer::query()->visibleToUser($currentUser)->findOrFail($id);
         $this->authorizeTypePermission($customer->type, 'show');
+        $accessibleBranchIds = $this->accessibleBranchIds($currentUser);
 
         $filters = Validator::make($request->all(), [
             'from_date' => 'nullable|date',
@@ -297,6 +316,9 @@ class CustomerController extends Controller
                 ->with(['branch', 'user', 'customer', 'account', 'details.carat', 'manufacturingLossSettlementLines.carat'])
                 ->where('customer_id', $customer->id)
                 ->whereIn('type', self::REPORTABLE_INVOICE_TYPES)
+                ->when($accessibleBranchIds !== [], function ($query) use ($accessibleBranchIds) {
+                    return $query->whereIn('branch_id', $accessibleBranchIds);
+                })
                 ->when($filters['from_date'] ?? null, function ($query, $value) {
                     return $query->whereDate('date', '>=', $value);
                 })
@@ -346,6 +368,9 @@ class CustomerController extends Controller
                 ->where(function ($query) use ($customer) {
                     $query->where('from_account_id', $customer->account_id)
                         ->orWhere('to_account_id', $customer->account_id);
+                })
+                ->when($accessibleBranchIds !== [], function ($query) use ($accessibleBranchIds) {
+                    return $query->whereIn('branch_id', $accessibleBranchIds);
                 })
                 ->when($filters['from_date'] ?? null, function ($query, $value) {
                     return $query->whereDate('date', '>=', $value);
@@ -403,8 +428,8 @@ class CustomerController extends Controller
             'transactions' => $transactions,
             'operationSummary' => $operationSummary,
             'caratSummary' => $caratSummary,
-            'branches' => Branch::query()->orderBy('name')->get(),
-            'users' => User::query()->orderBy('name')->get(),
+            'branches' => $this->branchesQuery($currentUser)->orderBy('name')->get(),
+            'users' => $this->usersQuery($currentUser)->orderBy('name')->get(),
             'carats' => GoldCarat::query()->orderBy('id')->get(),
             'filters' => $filters,
         ]);
@@ -429,7 +454,7 @@ class CustomerController extends Controller
      */
     public function edit($id)
     {
-        $customer = Customer::find($id);
+        $customer = Customer::query()->visibleToUser(auth('admin-web')->user())->find($id);
         abort_if(! $customer, 404);
         $this->authorizeTypePermission($customer->type, 'edit');
 
@@ -444,7 +469,7 @@ class CustomerController extends Controller
      */
     public function destroy($id)
     {
-        $customer = Customer::find($id);
+        $customer = Customer::query()->visibleToUser(auth('admin-web')->user())->find($id);
         if ($customer) {
             $this->authorizeTypePermission($customer->type, 'delete');
             $customer->delete();
@@ -777,5 +802,38 @@ class CustomerController extends Controller
         }
 
         return strlen($value) === 5 ? $value . ':00' : $value;
+    }
+
+    /**
+     * @return array<int>
+     */
+    private function accessibleBranchIds(?User $user): array
+    {
+        if (! $user || $user->isOwner()) {
+            return [];
+        }
+
+        return app(BranchContextService::class)->accessibleBranchIds($user);
+    }
+
+    private function branchesQuery(?User $user)
+    {
+        $accessibleBranchIds = $this->accessibleBranchIds($user);
+
+        return Branch::query()
+            ->when(
+                $user && ! $user->isOwner() && filled($user->subscriber_id),
+                fn ($query) => $query->where('subscriber_id', $user->subscriber_id)
+            )
+            ->when($accessibleBranchIds !== [], fn ($query) => $query->whereIn('id', $accessibleBranchIds));
+    }
+
+    private function usersQuery(?User $user)
+    {
+        return User::query()
+            ->when(
+                $user && ! $user->isOwner() && filled($user->subscriber_id),
+                fn ($query) => $query->where('subscriber_id', $user->subscriber_id)
+            );
     }
 }

@@ -9,6 +9,7 @@ use App\Models\InvoiceDetail;
 use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\User;
+use App\Services\Branches\BranchContextService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use DB;
@@ -22,6 +23,7 @@ class ItemsReportsController extends Controller
 
     public function item_list_report_search(Request $request)
     {
+        $subscriberId = $this->currentSubscriberId();
         $filters = [
             'branch_id' => $this->normalizeOptionalFilter($request->input('branch_id')),
             'inventory_classification' => $this->normalizeOptionalFilter($request->input('inventory_classification')),
@@ -36,6 +38,9 @@ class ItemsReportsController extends Controller
 
         $items = Item::query()
             ->with(['branch', 'category', 'goldCarat', 'publishedBranches'])
+            ->when($subscriberId, function ($query, $value) {
+                return $query->whereHas('branch', fn ($branchQuery) => $branchQuery->where('subscriber_id', $value));
+            })
             ->when($filters['branch_id'], function ($query, $value) {
                 return $query->publishedToBranch((int) $value);
             })
@@ -71,7 +76,7 @@ class ItemsReportsController extends Controller
             ->orderBy('code')
             ->get();
 
-        $branch = $filters['branch_id'] ? Branch::find($filters['branch_id']) : null;
+        $branch = $filters['branch_id'] ? $this->branchesQuery($subscriberId)->find($filters['branch_id']) : null;
         $inventoryClassifications = Item::inventoryClassificationOptions();
 
         return view('admin.reports.items.index', compact('items', 'branch', 'filters', 'inventoryClassifications'));
@@ -84,6 +89,7 @@ class ItemsReportsController extends Controller
 
     public function sold_items_report_search(Request $request)
     {
+        $subscriberId = $this->currentSubscriberId();
         [$periodFrom, $periodTo] = $this->resolvePeriod(
             $request,
             Carbon::now()->startOfYear()->format('Y-m-d'),
@@ -105,9 +111,12 @@ class ItemsReportsController extends Controller
 
         $itemsTransactions = InvoiceDetail::query()
             ->with(['invoice.branch', 'invoice.user', 'item', 'carat'])
-            ->whereHas('invoice', function ($query) use ($filters, $periodFrom, $periodTo) {
+            ->whereHas('invoice', function ($query) use ($filters, $periodFrom, $periodTo, $subscriberId) {
                 $query->where('type', 'sale')
                     ->whereBetween('date', [$periodFrom, $periodTo])
+                    ->when($subscriberId, function ($builder, $value) {
+                        return $builder->whereHas('branch', fn ($branchQuery) => $branchQuery->where('subscriber_id', $value));
+                    })
                     ->when($filters['branch_id'], function ($builder, $value) {
                         return $builder->where('branch_id', $value);
                     })
@@ -157,8 +166,8 @@ class ItemsReportsController extends Controller
             })
             ->values();
 
-        $branch = $filters['branch_id'] ? Branch::find($filters['branch_id']) : null;
-        $selectedUser = $filters['user_id'] ? User::find($filters['user_id']) : null;
+        $branch = $filters['branch_id'] ? $this->branchesQuery($subscriberId)->find($filters['branch_id']) : null;
+        $selectedUser = $filters['user_id'] ? $this->usersQuery($subscriberId)->find($filters['user_id']) : null;
 
         return view('admin.reports.sold_items.index', compact(
             'itemsTransactions',
@@ -173,10 +182,11 @@ class ItemsReportsController extends Controller
     private function soldItemsFiltersData(): array
     {
         $currentUser = auth('admin-web')->user();
+        $subscriberId = $this->currentSubscriberId();
 
         return [
-            'branches' => Branch::query()->where('status', 1)->orderBy('id')->get(),
-            'users' => User::query()->orderBy('name')->get(),
+            'branches' => $this->branchesQuery($subscriberId)->orderBy('id')->get(),
+            'users' => $this->usersQuery($subscriberId)->orderBy('name')->get(),
             'carats' => GoldCarat::query()->orderBy('id')->get(),
             'categories' => ItemCategory::query()->orderBy('id')->get(),
             'inventoryClassifications' => Item::inventoryClassificationOptions(),
@@ -200,9 +210,10 @@ class ItemsReportsController extends Controller
     private function itemListFiltersData(): array
     {
         $currentUser = auth('admin-web')->user();
+        $subscriberId = $this->currentSubscriberId();
 
         return [
-            'branches' => Branch::query()->where('status', 1)->orderBy('id')->get(),
+            'branches' => $this->branchesQuery($subscriberId)->orderBy('id')->get(),
             'carats' => GoldCarat::query()->orderBy('id')->get(),
             'categories' => ItemCategory::query()->orderBy('id')->get(),
             'inventoryClassifications' => Item::inventoryClassificationOptions(),
@@ -256,5 +267,35 @@ class ItemsReportsController extends Controller
         }
 
         return strlen($value) === 5 ? $value . ':00' : $value;
+    }
+
+    private function currentSubscriberId(): ?int
+    {
+        $user = auth('admin-web')->user();
+
+        if (! $user || $user->isOwner() || blank($user->subscriber_id)) {
+            return null;
+        }
+
+        return (int) $user->subscriber_id;
+    }
+
+    private function branchesQuery(?int $subscriberId)
+    {
+        $user = auth('admin-web')->user();
+        $accessibleBranchIds = $user && ! $user->isOwner()
+            ? app(BranchContextService::class)->accessibleBranchIds($user)
+            : [];
+
+        return Branch::query()
+            ->where('status', 1)
+            ->when($subscriberId, fn ($query) => $query->where('subscriber_id', $subscriberId))
+            ->when($accessibleBranchIds !== [], fn ($query) => $query->whereIn('id', $accessibleBranchIds));
+    }
+
+    private function usersQuery(?int $subscriberId)
+    {
+        return User::query()
+            ->when($subscriberId, fn ($query) => $query->where('subscriber_id', $subscriberId));
     }
 }

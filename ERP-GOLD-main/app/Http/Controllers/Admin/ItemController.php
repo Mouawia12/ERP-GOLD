@@ -90,9 +90,9 @@ class ItemController extends Controller
                 ->make(true);
         }
 
-        $categories = ItemCategory::all();
+        $categories = ItemCategory::query()->orderBy('id')->get();
         $carats = GoldCarat::all();
-        $branches = Branch::where('status', 1)->get();
+        $branches = $this->publicationBranchesForUser($currentUser);
         $inventoryClassifications = Item::inventoryClassificationOptions();
 
         return view('admin.items.index', compact('categories', 'carats', 'branches', 'inventoryClassifications'));
@@ -106,7 +106,7 @@ class ItemController extends Controller
     public function create()
     {
         $currentUser = $this->currentAdminUser();
-        $categories = ItemCategory::all();
+        $categories = ItemCategory::query()->orderBy('id')->get();
         $carats = GoldCarat::all();
         $caratTypes = GoldCaratType::all();
         $branches = $this->publicationBranchesForUser($currentUser);
@@ -151,7 +151,7 @@ class ItemController extends Controller
     {
         $currentUser = $this->currentAdminUser();
         $item = Item::with('publishedBranches')->find($id);
-        $categories = ItemCategory::all();
+        $categories = ItemCategory::query()->orderBy('id')->get();
         $carats = GoldCarat::all();
         $caratTypes = GoldCaratType::all();
         $branches = $this->publicationBranchesForUser($currentUser);
@@ -193,7 +193,15 @@ class ItemController extends Controller
             ],
             'name_ar' => ['required', 'string', 'max:255'],
             'name_en' => ['nullable', 'string', 'max:255'],
-            'category_id' => ['required', 'exists:item_categories,id'],
+            'category_id' => [
+                'required',
+                'integer',
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if (! ItemCategory::query()->whereKey($value)->exists()) {
+                        $fail('مجموعة الصنف المختارة غير متاحة لهذا المشترك.');
+                    }
+                },
+            ],
             'carats_id' => [
                 Rule::requiredIf(fn () => $request->input('inventory_classification') === Item::CLASSIFICATION_GOLD),
                 'nullable',

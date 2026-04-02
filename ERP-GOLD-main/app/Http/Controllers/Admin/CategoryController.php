@@ -4,12 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ItemCategory;
-use App\Models\Pricing;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 class CategoryController extends Controller
 {
@@ -25,7 +21,8 @@ class CategoryController extends Controller
 
     public function index()
     {
-        $categories = ItemCategory::all();
+        $categories = ItemCategory::query()->latest()->get();
+
         return view('admin.categories.index', compact('categories'));
     }
 
@@ -44,6 +41,18 @@ class CategoryController extends Controller
      */
     public function store(Request $request)
     {
+        $validated = $request->validate([
+            'id' => ['nullable', 'integer'],
+            'name_ar' => ['required', 'string', 'max:255'],
+            'name_en' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'image_url' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ], [
+            'name_ar.required' => 'اسم المجموعة بالعربية مطلوب.',
+            'name_en.required' => 'اسم المجموعة بالإنجليزية مطلوب.',
+            'image_url.image' => 'ملف الصورة يجب أن يكون صورة صالحة.',
+        ]);
+
         if ($request->id == 0) {
             if ($request->image_url) {
                 $imageName = time() . '.' . $request->image_url->extension();
@@ -54,8 +63,8 @@ class CategoryController extends Controller
 
             try {
                 ItemCategory::create([
-                    'title' => ['ar' => $request->name_ar, 'en' => $request->name_en],
-                    'description' => $request->description ?? '',
+                    'title' => ['ar' => $validated['name_ar'], 'en' => $validated['name_en']],
+                    'description' => $validated['description'] ?? '',
                     'image_url' => $imageName,
                 ]);
 
@@ -76,13 +85,12 @@ class CategoryController extends Controller
      */
     public function show($id)
     {
-        $category = ItemCategory::find($id);
-        if ($category) {
-            $category->name_ar = $category->getTranslation('title', 'ar');
-            $category->name_en = $category->getTranslation('title', 'en');
-            $category->image_url = asset('uploads/categories/images/' . $category->image_url);
-            return response()->json($category);
-        }
+        $category = ItemCategory::query()->findOrFail($id);
+        $category->name_ar = $category->getTranslation('title', 'ar');
+        $category->name_en = $category->getTranslation('title', 'en');
+        $category->image_url = asset('uploads/categories/images/' . $category->image_url);
+
+        return response()->json($category);
     }
 
     /**
@@ -105,24 +113,25 @@ class CategoryController extends Controller
      */
     public function update(Request $request)
     {
-        $category = ItemCategory::find($request->id);
-        if ($category) {
-            if ($request->image_url) {
-                $imageName = time() . '.' . $request->image_url->extension();
-                $request->image_url->move(('uploads/categories/images/'), $imageName);
-            } else {
-                $imageName = $category->image_url;
-            }
-            try {
-                $category->update([
-                    'title' => ['ar' => $request->name_ar, 'en' => $request->name_en],
-                    'description' => $request->description ?? '',
-                    'image_url' => $imageName,
-                ]);
-                return redirect()->route('categories')->with('success', __('main.updated'));
-            } catch (QueryException $ex) {
-                return redirect()->route('categories')->with('error', $ex->getMessage());
-            }
+        $category = ItemCategory::query()->findOrFail($request->id);
+
+        if ($request->image_url) {
+            $imageName = time() . '.' . $request->image_url->extension();
+            $request->image_url->move(('uploads/categories/images/'), $imageName);
+        } else {
+            $imageName = $category->image_url;
+        }
+
+        try {
+            $category->update([
+                'title' => ['ar' => $request->name_ar, 'en' => $request->name_en],
+                'description' => $request->description ?? '',
+                'image_url' => $imageName,
+            ]);
+
+            return redirect()->route('categories')->with('success', __('main.updated'));
+        } catch (QueryException $ex) {
+            return redirect()->route('categories')->with('error', $ex->getMessage());
         }
     }
 
@@ -134,10 +143,9 @@ class CategoryController extends Controller
      */
     public function destroy($id)
     {
-        $category = ItemCategory::find($id);
-        if ($category) {
-            $category->delete();
-            return redirect()->route('categories')->with('success', __('main.deleted'));
-        }
+        $category = ItemCategory::query()->findOrFail($id);
+        $category->delete();
+
+        return redirect()->route('categories')->with('success', __('main.deleted'));
     }
 }

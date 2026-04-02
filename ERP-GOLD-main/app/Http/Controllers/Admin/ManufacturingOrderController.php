@@ -93,7 +93,11 @@ class ManufacturingOrderController extends Controller
         $branches = $this->branchAccessService->visibleBranches($user);
         $currentBranchId = $this->resolvedCurrentBranchId($branches, $user?->branch_id);
         $itemsByBranch = $this->itemsByBranch($branches);
-        $manufacturers = Customer::query()->where('type', 'supplier')->orderBy('name')->get();
+        $manufacturers = Customer::query()
+            ->visibleToUser($user)
+            ->where('type', 'supplier')
+            ->orderBy('name')
+            ->get();
         $accounts = Account::query()->whereDoesntHave('childrens')->orderBy('name')->get();
         $prefilledLines = $this->prefilledLinesFromOldInput();
 
@@ -109,13 +113,27 @@ class ManufacturingOrderController extends Controller
 
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'bill_date' => ['required', 'date'],
-            'branch_id' => ['required', 'exists:branches,id'],
-            'manufacturer_id' => ['required', 'exists:customers,id'],
-            'account_id' => ['required', 'exists:accounts,id'],
-            'notes' => ['nullable', 'string'],
-            'item_id' => ['required', 'array', 'min:1'],
+            $validator = Validator::make($request->all(), [
+                'bill_date' => ['required', 'date'],
+                'branch_id' => ['required', 'exists:branches,id'],
+                'manufacturer_id' => [
+                    'required',
+                    'integer',
+                    function (string $attribute, mixed $value, \Closure $fail) use ($request) {
+                        $exists = Customer::query()
+                            ->visibleToUser($request->user('admin-web'))
+                            ->where('type', 'supplier')
+                            ->whereKey($value)
+                            ->exists();
+
+                        if (! $exists) {
+                            $fail('المصنع الخارجي المحدد غير متاح لهذا المشترك.');
+                        }
+                    },
+                ],
+                'account_id' => ['required', 'exists:accounts,id'],
+                'notes' => ['nullable', 'string'],
+                'item_id' => ['required', 'array', 'min:1'],
             'item_id.*' => ['nullable', 'integer', 'exists:items,id'],
             'quantity' => ['required', 'array'],
             'quantity.*' => ['nullable', 'numeric', 'min:0.001'],
