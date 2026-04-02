@@ -1,16 +1,9 @@
 @extends('admin.layouts.master')
 
 @section('content')
-    @if (count($errors) > 0)
-        <div class="alert alert-danger">
-            <strong>Errors :</strong>
-            <ul>
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
+    @include('admin.partials.validation-alert', [
+        'title' => 'تعذر إنشاء مجموعة الصلاحيات بسبب الأخطاء التالية:',
+    ])
 
     <div class="row">
         <div class="col-md-12">
@@ -18,7 +11,7 @@
                 <div class="card-body">
                     <div class="col-12">
                         <h4 class="alert alert-primary text-center">
-                            اضافة صلاحية جديدة
+                            إضافة مجموعة صلاحيات جديدة
                         </h4>
                     </div>
                     <div class="clearfix"></div>
@@ -31,8 +24,14 @@
                         <div class="row">
                             <div class="col-md-6 col-md-offset-6 mx-auto">
                                 <div class="form-group text-center">
-                                    <p>اسم مجموعة الصلاحية</p>
-                                    {!! Form::text('name', old('name'), ['class' => 'form-control', 'required']) !!}
+                                    <p>اسم مجموعة الصلاحيات</p>
+                                    {!! Form::text('name', old('name'), ['class' => 'form-control '.($errors->has('name') ? 'is-invalid' : ''), 'required']) !!}
+                                    @error('name')
+                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                    @enderror
+                                    <small class="text-muted d-block mt-2">
+                                        هذا الاسم يمثل مجموعة جاهزة ستقوم لاحقًا بإسنادها للمستخدمين.
+                                    </small>
                                 </div>
                             </div>
                         </div>
@@ -44,7 +43,7 @@
                         <div class="col-xs-12 col-md-12 text-center">
                             <button type="submit" class="btn btn-info">
                                 <i class="fa fa-plus"></i>
-                                تأكيد واضافة الصلاحيات
+                                حفظ مجموعة الصلاحيات
                             </button>
                         </div>
                     </div>

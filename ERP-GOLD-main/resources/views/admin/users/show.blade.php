@@ -4,6 +4,12 @@
     <div class="row text-center">
         <div class="col-lg-12 mt-5">
             <p class="alert alert-info alert-md text-center">عرض بيانات المستخدم</p>
+            @can('employee.users.edit')
+                <a href="{{ route('admin.users.permissions.edit', $user->id) }}" class="btn btn-primary mt-2">
+                    <i class="fa fa-key"></i>
+                    إدارة الصلاحيات لهذا المستخدم
+                </a>
+            @endcan
         </div>
 
         <div class="col-lg-12">

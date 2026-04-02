@@ -25,6 +25,17 @@
                             <h4  class="alert alert-info text-center">
                                 عرض صلاحيات المستخدمين
                             </h4>
+                            <p class="text-muted text-center mb-2">
+                                عرّف مجموعة الصلاحيات هنا أولًا، ثم اسندها لاحقًا لأي مستخدم من شاشة المستخدم أو شاشة إسناد الصلاحيات.
+                            </p>
+                            @can('employee.user_permissions.add')
+                                <div class="text-center mb-3">
+                                    <a href="{{ route('admin.roles.create') }}" class="btn btn-primary">
+                                        <i class="fa fa-plus"></i>
+                                        إضافة مجموعة صلاحيات
+                                    </a>
+                                </div>
+                            @endcan
                         </div>
                         <br>
                     </div>

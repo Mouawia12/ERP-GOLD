@@ -288,6 +288,10 @@ Route::group(
                         'store' => 'admin.users.store',
                         'show' => 'admin.users.show'
                     ]);
+                    Route::get('users/{user}/permissions', [UsersController::class, 'editPermissions'])
+                        ->name('admin.users.permissions.edit');
+                    Route::patch('users/{user}/permissions', [UsersController::class, 'updatePermissions'])
+                        ->name('admin.users.permissions.update');
 
                     Route::get('/financial_vouchers/{type}', [FinancialVoucherController::class, 'index'])->name('financial_vouchers');
                     Route::post('/financial_vouchers/{type}', [FinancialVoucherController::class, 'store'])->name('financial_vouchers.store');

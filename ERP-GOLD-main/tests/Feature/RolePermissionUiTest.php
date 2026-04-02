@@ -82,6 +82,59 @@ class RolePermissionUiTest extends TestCase
         $this->assertFalse($role->fresh()->hasPermissionTo($branchesShow));
     }
 
+    public function test_role_create_validation_errors_are_shown_in_clear_arabic_messages(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.user_permissions.add',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->from(route('admin.roles.create', [], false))
+            ->post(route('admin.roles.store', [], false), [
+                'name' => '',
+                'guard_name' => 'admin-web',
+                'permission' => [],
+            ]);
+
+        $response->assertRedirect(route('admin.roles.create', [], false));
+        $response->assertSessionHasErrors([
+            'name' => 'يرجى إدخال اسم واضح لمجموعة الصلاحيات.',
+            'permission' => 'حدد صلاحية واحدة على الأقل داخل المجموعة قبل الحفظ.',
+        ]);
+    }
+
+    public function test_role_name_validation_detects_duplicate_translated_role_names(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.user_permissions.add',
+        ]);
+
+        Role::create([
+            'name' => ['ar' => 'مدير المخزون', 'en' => 'Inventory Manager'],
+            'guard_name' => 'admin-web',
+        ]);
+
+        $permission = Permission::create([
+            'name' => 'employee.users.show',
+            'guard_name' => 'admin-web',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->from(route('admin.roles.create', [], false))
+            ->post(route('admin.roles.store', [], false), [
+                'name' => 'مدير المخزون',
+                'guard_name' => 'admin-web',
+                'permission' => [$permission->name],
+            ]);
+
+        $response->assertRedirect(route('admin.roles.create', [], false));
+        $response->assertSessionHasErrors([
+            'name' => 'اسم مجموعة الصلاحيات مستخدم بالفعل. اختر اسمًا آخر.',
+        ]);
+    }
+
     /**
      * @param  array<int, string>  $permissions
      */

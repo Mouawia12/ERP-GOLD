@@ -38,21 +38,38 @@ class RolesController extends Controller
 
     public function store(Request $request)
     {
-        $this->validate($request, [
-            'name' => 'required|unique:roles,name',
+        $validated = $request->validate([
+            'name' => [
+                'required',
+                'string',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $exists = Role::query()
+                        ->where(function ($query) use ($value) {
+                            $query->where('name->ar', $value)
+                                ->orWhere('name->en', $value)
+                                ->orWhere('name', $value);
+                        })
+                        ->exists();
+
+                    if ($exists) {
+                        $fail('اسم مجموعة الصلاحيات مستخدم بالفعل. اختر اسمًا آخر.');
+                    }
+                },
+            ],
             'guard_name' => 'required',
-            'permission' => 'required',
-        ]);
+            'permission' => 'required|array|min:1',
+            'permission.*' => 'string|exists:permissions,name',
+        ], $this->roleValidationMessages(), $this->roleValidationAttributes());
 
         $role = Role::create([
-            'name' => ['ar' => $request->input('name'), 'en' => $request->input('name')],
-            'guard_name' => $request->input('guard_name')
+            'name' => ['ar' => $validated['name'], 'en' => $validated['name']],
+            'guard_name' => $validated['guard_name']
         ]);
-        $role->syncPermissions($request->input('permission'));
+        $role->syncPermissions($validated['permission']);
 
         return redirect()
             ->route('admin.roles.index')
-            ->with('success', 'تم اضافة الصلاحية بنجاح');
+            ->with('success', 'تم إنشاء مجموعة الصلاحيات بنجاح. يمكنك الآن إسنادها لأي مستخدم.');
     }
 
     public function show($id)
@@ -79,19 +96,37 @@ class RolesController extends Controller
 
     public function update(Request $request, $id)
     {
-        $this->validate($request, [
-            'name' => 'required',
-            'permission' => 'required',
-        ]);
+        $validated = $request->validate([
+            'name' => [
+                'required',
+                'string',
+                function (string $attribute, mixed $value, \Closure $fail) use ($id): void {
+                    $exists = Role::query()
+                        ->where('id', '!=', $id)
+                        ->where(function ($query) use ($value) {
+                            $query->where('name->ar', $value)
+                                ->orWhere('name->en', $value)
+                                ->orWhere('name', $value);
+                        })
+                        ->exists();
+
+                    if ($exists) {
+                        $fail('اسم مجموعة الصلاحيات مستخدم بالفعل. اختر اسمًا آخر.');
+                    }
+                },
+            ],
+            'permission' => 'required|array|min:1',
+            'permission.*' => 'string|exists:permissions,name',
+        ], $this->roleValidationMessages($id), $this->roleValidationAttributes());
         $role = Role::findOrFail($id);
-        $role->name = $request->input('name');
+        $role->name = ['ar' => $validated['name'], 'en' => $validated['name']];
         $role->save();
 
-        $role->syncPermissions($request->input('permission'));
+        $role->syncPermissions($validated['permission']);
 
         return redirect()
             ->route('admin.roles.index')
-            ->with('success', 'تم تعديل الصلاحية بنجاح');
+            ->with('success', 'تم تحديث مجموعة الصلاحيات بنجاح.');
     }
 
     public function destroy(Request $request)
@@ -100,5 +135,34 @@ class RolesController extends Controller
         return redirect()
             ->route('admin.roles.index')
             ->with('success', 'تم حذف الصلاحية بنجاح');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function roleValidationMessages(?int $roleId = null): array
+    {
+        return [
+            'name.required' => 'يرجى إدخال اسم واضح لمجموعة الصلاحيات.',
+            'name.string' => 'اسم مجموعة الصلاحيات يجب أن يكون نصًا صالحًا.',
+            'name.unique' => 'اسم مجموعة الصلاحيات مستخدم بالفعل. اختر اسمًا آخر.',
+            'guard_name.required' => 'تعذر تحديد نوع الحارس المرتبط بالصلاحيات.',
+            'permission.required' => 'حدد صلاحية واحدة على الأقل داخل المجموعة قبل الحفظ.',
+            'permission.array' => 'قائمة الصلاحيات المختارة غير صحيحة.',
+            'permission.min' => 'حدد صلاحية واحدة على الأقل داخل المجموعة قبل الحفظ.',
+            'permission.*.exists' => 'تم اختيار صلاحية غير موجودة أو غير صالحة.',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function roleValidationAttributes(): array
+    {
+        return [
+            'name' => 'اسم مجموعة الصلاحيات',
+            'guard_name' => 'نوع الحارس',
+            'permission' => 'الصلاحيات',
+        ];
     }
 }

@@ -1,16 +1,9 @@
 @extends('admin.layouts.master')
 
 @section('content')
-    @if (count($errors) > 0)
-        <div class="alert alert-danger">
-            <strong>Errors :</strong>
-            <ul>
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
+    @include('admin.partials.validation-alert', [
+        'title' => 'تعذر تحديث مجموعة الصلاحيات بسبب الأخطاء التالية:',
+    ])
 
     {!! Form::model($role, ['method' => 'PATCH', 'route' => ['admin.roles.update', $role->id]]) !!}
     <div class="row">
@@ -32,12 +25,17 @@
                                 <p>اسم المجموعة</p>
                                 <input
                                     type="text"
-                                    value="{{ $role->name }}"
-                                    readonly
+                                    value="{{ old('name', $role->name) }}"
                                     name="name"
-                                    class="form-control text-center"
+                                    class="form-control text-center {{ $errors->has('name') ? 'is-invalid' : '' }}"
                                     style="font-size:16px;"
                                 >
+                                @error('name')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
+                                <small class="text-muted d-block mt-2">
+                                    غيّر اسم المجموعة إذا أردت، وسيبقى إسنادها للمستخدمين من شاشة المستخدم.
+                                </small>
                             </div>
                         </div>
                     </div>
@@ -48,7 +46,7 @@
                         <div class="col-xs-12 col-md-12 text-center">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fa fa-edit"></i>
-                                تأكيد وتعديل الصلاحيات
+                                حفظ تحديث مجموعة الصلاحيات
                             </button>
                         </div>
                     </div>

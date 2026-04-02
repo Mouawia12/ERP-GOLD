@@ -23,7 +23,7 @@ class UsersController extends Controller
     {
         $this->middleware('permission:employee.users.show', ['only' => ['index', 'show']]);
         $this->middleware('permission:employee.users.add', ['only' => ['create', 'store']]);
-        $this->middleware('permission:employee.users.edit', ['only' => ['edit', 'update']]);
+        $this->middleware('permission:employee.users.edit', ['only' => ['edit', 'update', 'editPermissions', 'updatePermissions']]);
         $this->middleware('permission:employee.users.delete', ['only' => ['destroy']]);
     }
 
@@ -80,7 +80,7 @@ class UsersController extends Controller
             'password' => 'required|string|same:confirm-password',
             'direct_permissions' => 'nullable|array',
             'direct_permissions.*' => 'string|exists:permissions,name',
-        ]);
+        ], $this->userValidationMessages(), $this->userValidationAttributes());
 
         $assignedBranchIds = $this->normalizedBranchIds(
             $validated['branch_ids'] ?? [],
@@ -103,11 +103,11 @@ class UsersController extends Controller
             'profile_pic' => 'default.png',
         ]);
 
-        if (! empty($validated['role_id'])) {
-            $role = Role::findOrFail($validated['role_id']);
-            $user->assignRole($role);
-        }
-        $user->syncPermissions($validated['direct_permissions'] ?? []);
+        $this->syncUserAccess(
+            $user,
+            $validated['role_id'] ?? null,
+            $validated['direct_permissions'] ?? [],
+        );
         $this->branchContextService->syncUserBranches($user, $assignedBranchIds, (int) $validated['branch_id']);
 
         return $this->redirectAfterUserSave($request, __('main.created'));
@@ -120,14 +120,7 @@ class UsersController extends Controller
         $subscriber = $this->currentSubscriber($actor);
         $this->ensureManagedUserBelongsToSubscriber($subscriber, $user);
 
-        $previousBranch = $user->branch;
-        $previousRole = $user->roles->first();
-        $previousDirectPermissions = $user->permissions->pluck('name')->sort()->values()->all();
-        $previousAssignedBranches = $user->branches
-            ->pluck('branch_name', 'id')
-            ->map(fn ($name, $branchId) => ['id' => (int) $branchId, 'name' => $name])
-            ->values()
-            ->all();
+        $beforeState = $this->captureUserStateForAudit($user);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:users,name,' . $user->id,
@@ -140,11 +133,8 @@ class UsersController extends Controller
             'password' => 'nullable|string|same:confirm-password',
             'direct_permissions' => 'nullable|array',
             'direct_permissions.*' => 'string|exists:permissions,name',
-        ]);
+        ], $this->userValidationMessages(false), $this->userValidationAttributes());
 
-        $previousStatus = (bool) $user->status;
-        $previousBranchId = (int) $user->branch_id;
-        $previousRoleId = $previousRole?->id;
         $passwordChanged = ! empty($validated['password']);
         $assignedBranchIds = $this->normalizedBranchIds(
             $validated['branch_ids'] ?? [],
@@ -167,25 +157,15 @@ class UsersController extends Controller
 
         $user->update($payload);
         $this->branchContextService->syncUserBranches($user, $assignedBranchIds, (int) $validated['branch_id']);
-        if (! empty($validated['role_id'])) {
-            $role = Role::findOrFail($validated['role_id']);
-            $user->syncRoles([$role]);
-        } else {
-            $user->syncRoles([]);
-        }
-        $user->syncPermissions($validated['direct_permissions'] ?? []);
+        $this->syncUserAccess(
+            $user,
+            $validated['role_id'] ?? null,
+            $validated['direct_permissions'] ?? [],
+        );
         $this->writeAuditLogs(
             $request->user('admin-web'),
             $user->fresh(['branch', 'roles', 'permissions']),
-            [
-                'status' => $previousStatus,
-                'branch_id' => $previousBranchId,
-                'branch_name' => $previousBranch?->branch_name,
-                'role_id' => $previousRoleId,
-                'role_name' => $this->resolveRoleName($previousRole),
-                'assigned_branches' => $previousAssignedBranches,
-                'direct_permissions' => $previousDirectPermissions,
-            ],
+            $beforeState,
             $passwordChanged,
         );
 
@@ -245,6 +225,70 @@ class UsersController extends Controller
             'permissionGroups' => $this->permissionMatrixService->permissionGroups(),
             'selectedPermissions' => old('direct_permissions', $user->permissions->pluck('name')->all()),
         ]);
+    }
+
+    public function editPermissions($id)
+    {
+        $user = User::with(['branch', 'branches', 'roles.permissions', 'permissions'])->findOrFail($id);
+        $subscriber = $this->currentSubscriber(request()->user('admin-web'));
+        $this->ensureManagedUserBelongsToSubscriber($subscriber, $user);
+
+        $currentRole = $user->roles->first();
+        $directPermissions = $user->permissions->pluck('name')->sort()->values();
+        $rolePermissions = $user->roles
+            ->flatMap(fn (Role $role) => $role->permissions->pluck('name'))
+            ->unique()
+            ->sort()
+            ->values();
+        $effectivePermissions = $user->getAllPermissions()
+            ->pluck('name')
+            ->unique()
+            ->sort()
+            ->values();
+
+        return view('admin.users.permissions', [
+            'user' => $user,
+            'roles' => Role::all(),
+            'permissionGroups' => $this->permissionMatrixService->permissionGroups(),
+            'selectedRoleId' => old('role_id', $currentRole?->id),
+            'selectedPermissions' => old('direct_permissions', $directPermissions->all()),
+            'directPermissions' => $directPermissions,
+            'rolePermissions' => $rolePermissions,
+            'effectivePermissions' => $effectivePermissions,
+            'currentRoleName' => $this->resolveRoleName($currentRole),
+        ]);
+    }
+
+    public function updatePermissions(Request $request, $id)
+    {
+        $user = User::with(['branch', 'branches', 'roles', 'permissions'])->findOrFail($id);
+        $subscriber = $this->currentSubscriber($request->user('admin-web'));
+        $this->ensureManagedUserBelongsToSubscriber($subscriber, $user);
+
+        $beforeState = $this->captureUserStateForAudit($user);
+
+        $validated = $request->validate([
+            'role_id' => 'nullable|exists:roles,id',
+            'direct_permissions' => 'nullable|array',
+            'direct_permissions.*' => 'string|exists:permissions,name',
+        ], $this->userPermissionAssignmentMessages(), $this->userValidationAttributes());
+
+        $this->syncUserAccess(
+            $user,
+            $validated['role_id'] ?? null,
+            $validated['direct_permissions'] ?? [],
+        );
+
+        $this->writeAuditLogs(
+            $request->user('admin-web'),
+            $user->fresh(['branch', 'roles', 'permissions']),
+            $beforeState,
+            false,
+        );
+
+        return redirect()
+            ->route('admin.users.permissions.edit', $user->id)
+            ->with('success', 'تم حفظ دور المستخدم وصلاحياته المباشرة بنجاح.');
     }
 
     public function destroy($id)
@@ -415,6 +459,92 @@ class UsersController extends Controller
         }
 
         return redirect()->route('admin.users.index')->with('success', $message);
+    }
+
+    private function syncUserAccess(User $user, mixed $roleId, array $directPermissions): void
+    {
+        if (filled($roleId)) {
+            $user->syncRoles([Role::findOrFail($roleId)]);
+        } else {
+            $user->syncRoles([]);
+        }
+
+        $user->syncPermissions($directPermissions);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function captureUserStateForAudit(User $user): array
+    {
+        $previousRole = $user->roles->first();
+
+        return [
+            'status' => (bool) $user->status,
+            'branch_id' => (int) $user->branch_id,
+            'branch_name' => $user->branch?->branch_name,
+            'role_id' => $previousRole?->id,
+            'role_name' => $this->resolveRoleName($previousRole),
+            'assigned_branches' => $user->branches
+                ->pluck('branch_name', 'id')
+                ->map(fn ($name, $branchId) => ['id' => (int) $branchId, 'name' => $name])
+                ->values()
+                ->all(),
+            'direct_permissions' => $user->permissions->pluck('name')->sort()->values()->all(),
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function userValidationMessages(bool $requirePassword = true): array
+    {
+        return array_filter([
+            'name.required' => 'يرجى إدخال اسم المستخدم.',
+            'name.unique' => 'اسم المستخدم مستخدم بالفعل. اختر اسمًا آخر.',
+            'email.required' => 'يرجى إدخال البريد الإلكتروني.',
+            'email.email' => 'صيغة البريد الإلكتروني غير صحيحة.',
+            'email.unique' => 'البريد الإلكتروني مستخدم بالفعل. استخدم بريدًا آخر.',
+            'role_id.exists' => 'مجموعة الصلاحيات المختارة غير موجودة أو غير صالحة.',
+            'branch_id.required' => 'يرجى اختيار الفرع الافتراضي للمستخدم.',
+            'branch_id.exists' => 'الفرع الافتراضي المختار غير موجود.',
+            'branch_ids.required' => 'حدد فرعًا واحدًا على الأقل لهذا المستخدم.',
+            'branch_ids.array' => 'قائمة الفروع المسموح بها غير صحيحة.',
+            'branch_ids.min' => 'حدد فرعًا واحدًا على الأقل لهذا المستخدم.',
+            'branch_ids.*.exists' => 'يوجد فرع غير صالح ضمن الفروع المسموح بها.',
+            'password.required' => $requirePassword ? 'يرجى إدخال كلمة المرور.' : null,
+            'password.same' => 'تأكيد كلمة المرور غير مطابق لكلمة المرور.',
+            'direct_permissions.array' => 'قائمة الصلاحيات المباشرة غير صحيحة.',
+            'direct_permissions.*.exists' => 'تم اختيار صلاحية مباشرة غير موجودة أو غير صالحة.',
+        ]);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function userPermissionAssignmentMessages(): array
+    {
+        return [
+            'role_id.exists' => 'مجموعة الصلاحيات المختارة غير موجودة أو غير صالحة.',
+            'direct_permissions.array' => 'قائمة الصلاحيات المباشرة غير صحيحة.',
+            'direct_permissions.*.exists' => 'تم اختيار صلاحية مباشرة غير موجودة أو غير صالحة.',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function userValidationAttributes(): array
+    {
+        return [
+            'name' => 'اسم المستخدم',
+            'email' => 'البريد الإلكتروني',
+            'role_id' => 'مجموعة الصلاحيات',
+            'branch_id' => 'الفرع الافتراضي',
+            'branch_ids' => 'الفروع المسموح بها',
+            'password' => 'كلمة المرور',
+            'direct_permissions' => 'الصلاحيات المباشرة',
+        ];
     }
 
     private function currentSubscriber(?User $actor): ?Subscriber

@@ -2,16 +2,16 @@
 
 @section('content')
 @can('employee.users.edit')
-    @if (count($errors) > 0)
-        <div class="alert alert-danger">
-            <strong>الاخطاء:</strong>
-            <ul>
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
+    @if (session('success'))
+        <div class="alert alert-success fade show">
+            <button class="close" data-dismiss="alert" aria-label="Close">×</button>
+            {{ session('success') }}
         </div>
     @endif
+
+    @include('admin.partials.validation-alert', [
+        'title' => 'تعذر تحديث المستخدم بسبب الأخطاء التالية:',
+    ])
 
     <div class="row">
         <div class="col-lg-12 col-md-12">
@@ -36,49 +36,44 @@
                             <div class="parsley-input col-md-4" id="fnWrapper">
                                 <label>اسم المستخدم</label>
                                 <input
-                                    class="form-control mg-b-20"
+                                    class="form-control mg-b-20 @error('name') is-invalid @enderror"
                                     data-parsley-class-handler="#lnWrapper"
                                     name="name"
                                     required
                                     type="text"
                                     value="{{ old('name', $user->name) }}"
                                 >
+                                @error('name')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
                             </div>
 
                             <div class="parsley-input col-md-4 mg-t-20 mg-md-t-0" id="emailWrapper">
                                 <label>البريد الالكتروني</label>
                                 <input
-                                    class="form-control mg-b-20"
+                                    class="form-control mg-b-20 @error('email') is-invalid @enderror"
                                     data-parsley-class-handler="#emailWrapper"
                                     name="email"
                                     required
                                     type="email"
                                     value="{{ old('email', $user->email) }}"
                                 >
+                                @error('email')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
                             </div>
 
-                            <div class="parsley-input col-md-4 mg-t-20 mg-md-t-0" id="roleWrapper">
-                                <label>الصلاحية</label>
-                                <select data-live-search="true" data-style="btn-dark" title="اختر الصلاحية"
-                                        class="form-control selectpicker" name="role_id" id="role_id">
-                                    <option value="" @selected(blank(old('role_id', $userRole[0] ?? null)))>
-                                        بدون دور - صلاحيات مباشرة فقط
-                                    </option>
-                                    @foreach ($roles as $role)
-                                        <option
-                                            value="{{ $role->id }}"
-                                            @selected(in_array($role->id, old('role_id') ? [old('role_id')] : $userRole))
-                                        >
-                                            {{ $role->name }}
-                                        </option>
-                                    @endforeach
+                            <div class="parsley-input col-md-4 mg-t-20 mg-md-t-0" id="statusWrapper">
+                                <label class="form-label">حالة المستخدم</label>
+                                <select class="form-control @error('status') is-invalid @enderror" name="status" id="status">
+                                    <option value="1" @selected(old('status', (int) $user->status) == 1)>مفعل</option>
+                                    <option value="0" @selected(old('status', (int) $user->status) == 0)>غير مفعل</option>
                                 </select>
-                                <small class="text-muted d-block mt-1">يمكن إزالة الدور والاعتماد على الصلاحيات المباشرة فقط.</small>
                             </div>
                         </div>
 
                         <div class="row mb-3 mt-3">
-                            <div class="parsley-input col-md-4 mg-t-20 mg-md-t-0" id="passwordWrapper">
+                            <div class="parsley-input col-md-6 mg-t-20 mg-md-t-0" id="passwordWrapper">
                                 <label>كلمة المرور</label>
                                 <div class="input-group mb-3">
                                     <div class="input-group-prepend">
@@ -95,10 +90,13 @@
                                         aria-describedby="basic-addon1"
                                     >
                                 </div>
+                                @error('password')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
                                 <small class="text-muted">اترك الحقل فارغًا إذا لم تكن تريد تغيير كلمة المرور.</small>
                             </div>
 
-                            <div class="parsley-input col-md-4 mg-t-20 mg-md-t-0" id="confirmPasswordWrapper">
+                            <div class="parsley-input col-md-6 mg-t-20 mg-md-t-0" id="confirmPasswordWrapper">
                                 <label>تأكيد كلمة المرور</label>
                                 <div class="input-group mb-3">
                                     <div class="input-group-prepend">
@@ -116,7 +114,9 @@
                                     >
                                 </div>
                             </div>
+                        </div>
 
+                        <div class="row mb-3 mt-3">
                             <div class="parsley-input col-md-6 mg-t-20 mg-md-t-0" id="branchesWrapper">
                                 <label class="form-label">الفروع المسموح بها</label>
                                 <select
@@ -139,6 +139,9 @@
                                         </option>
                                     @endforeach
                                 </select>
+                                @error('branch_ids')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
                                 <small class="text-muted">يمكن تعديل قائمة الفروع التي يستطيع هذا المستخدم التبديل بينها.</small>
                             </div>
 
@@ -155,44 +158,38 @@
                                         </option>
                                     @endforeach
                                 </select>
+                                @error('branch_id')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
                                 <small class="text-muted">هذا الفرع سيكون الافتراضي عند تسجيل الدخول، ويمكن تغييره أيضًا من الواجهة إذا كان للمستخدم عدة فروع.</small>
                             </div>
                         </div>
 
-                        <div class="row mb-3 mt-3">
-                            <div class="parsley-input col-md-4 mg-t-20 mg-md-t-0" id="statusWrapper">
-                                <label class="form-label">حالة المستخدم</label>
-                                <select class="form-control" name="status" id="status">
-                                    <option value="1" @selected(old('status', (int) $user->status) == 1)>مفعل</option>
-                                    <option value="0" @selected(old('status', (int) $user->status) == 0)>غير مفعل</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="card bg-light border mb-4">
-                            <div class="card-body">
-                                <h5 class="mb-2">صلاحيات مباشرة للمستخدم</h5>
-                                <p class="text-muted mb-3">
-                                    استخدمها عند الحاجة لإضافة استثناءات على صلاحيات الدور الحالي أو تقييد الوصول عمليًا على مستوى المستخدم.
-                                </p>
-
-                                @include('admin.roles.partials.permissions-matrix', [
-                                    'permissionGroups' => $permissionGroups,
-                                    'selectedPermissions' => $selectedPermissions,
-                                    'permissionInputName' => 'direct_permissions[]',
-                                    'permissionSearchId' => 'user-direct-permissions-search',
-                                    'permissionCheckAllId' => 'user-direct-permissions-check-all',
-                                    'permissionUncheckAllId' => 'user-direct-permissions-uncheck-all',
-                                    'permissionScope' => 'user-direct-permissions',
-                                ])
-                            </div>
-                        </div>
+                        @include('admin.users.partials.permission-assignment-panel', [
+                            'roles' => $roles,
+                            'permissionGroups' => $permissionGroups,
+                            'selectedRoleId' => old('role_id', $userRole[0] ?? null),
+                            'selectedPermissions' => $selectedPermissions,
+                            'assignmentTitle' => 'إسناد الصلاحيات الآن (اختياري)',
+                            'assignmentDescription' => 'يمكنك تعديل بيانات المستخدم فقط من هذه الشاشة، أو تعديل بياناته وصلاحياته معًا في نفس الحفظ.',
+                            'assignmentManageUrl' => route('admin.users.permissions.edit', $user->id),
+                            'roleFieldName' => 'role_id',
+                            'roleFieldId' => 'edit_role_id',
+                            'permissionInputName' => 'direct_permissions[]',
+                            'permissionSearchId' => 'user-direct-permissions-search',
+                            'permissionCheckAllId' => 'user-direct-permissions-check-all',
+                            'permissionUncheckAllId' => 'user-direct-permissions-uncheck-all',
+                            'permissionScope' => 'user-direct-permissions',
+                        ])
 
                         <div class="col-lg-12 text-center mt-3 mb-3">
                             <button class="btn btn-info btn-md" type="submit">
                                 <i class="fa fa-edit"></i>
                                 تعديل
                             </button>
+                            <a href="{{ route('admin.users.permissions.edit', $user->id) }}" class="btn btn-outline-primary btn-md">
+                                إدارة الصلاحيات فقط
+                            </a>
                             @if(request()->filled('return_branch_id'))
                                 <a href="{{ route('admin.branches.show', request('return_branch_id')) }}" class="btn btn-outline-secondary btn-md">
                                     رجوع إلى الفرع

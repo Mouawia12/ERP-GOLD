@@ -97,6 +97,10 @@
                                                class="btn btn-warning" role="button">
                                                 <i class="fa fa-edit"></i>
                                             </a>
+                                            <a href="{{ route('admin.users.permissions.edit', $user->id) }}"
+                                               class="btn btn-primary" role="button" title="إسناد الصلاحيات">
+                                                <i class="fa fa-key"></i>
+                                            </a>
                                         @endcan
                                         @can('employee.users.delete')
                                             @if ($user->id !== 1)

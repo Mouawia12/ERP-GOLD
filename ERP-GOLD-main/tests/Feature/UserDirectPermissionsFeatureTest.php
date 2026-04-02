@@ -45,21 +45,96 @@ class UserDirectPermissionsFeatureTest extends TestCase
             ->get(route('admin.users.create', [], false));
 
         $createResponse->assertOk();
-        $createResponse->assertSee('صلاحيات مباشرة للمستخدم');
+        $createResponse->assertSee('إسناد الصلاحيات الآن (اختياري)');
         $createResponse->assertSee('user-direct-permissions-search', false);
         $createResponse->assertSee('direct_permissions[]', false);
-        $createResponse->assertSee('employee.users.show');
-        $createResponse->assertSee('بدون دور - صلاحيات مباشرة فقط');
+        $createResponse->assertSee('name="role_id"', false);
 
         $editResponse = $this
             ->actingAs($admin, 'admin-web')
             ->get(route('admin.users.edit', $managedUser->id, false));
 
         $editResponse->assertOk();
-        $editResponse->assertSee('صلاحيات مباشرة للمستخدم');
+        $editResponse->assertSee('إسناد الصلاحيات الآن (اختياري)');
         $editResponse->assertSee('user-direct-permissions-check-all', false);
-        $editResponse->assertSee('employee.users.show');
-        $editResponse->assertSee('بدون دور - صلاحيات مباشرة فقط');
+        $editResponse->assertSee('direct_permissions[]', false);
+        $editResponse->assertSee(route('admin.users.permissions.edit', $managedUser->id, false), false);
+    }
+
+    public function test_dedicated_permission_assignment_page_can_update_user_role_and_direct_permissions(): void
+    {
+        $directPermission = Permission::findOrCreate('employee.accounts.show', 'admin-web');
+        $rolePermission = Permission::findOrCreate('employee.branches.show', 'admin-web');
+        $admin = $this->createAdminUser([
+            'employee.users.edit',
+            'employee.users.show',
+        ]);
+
+        $sourceRole = $this->createRole('مشرف قديم', 'Old Supervisor');
+        $targetRole = $this->createRole('مشرف مالي', 'Finance Supervisor');
+        $targetRole->givePermissionTo($rolePermission);
+
+        $managedUser = $this->createManagedUser($sourceRole);
+
+        $pageResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('admin.users.permissions.edit', $managedUser->id, false));
+
+        $pageResponse->assertOk();
+        $pageResponse->assertSee('إسناد صلاحيات للمستخدم');
+        $pageResponse->assertSee('تعيين مجموعة الصلاحيات والصلاحيات المباشرة');
+        $pageResponse->assertSee('employee.accounts.show');
+
+        $updateResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->patch(route('admin.users.permissions.update', $managedUser->id, false), [
+                'role_id' => $targetRole->id,
+                'direct_permissions' => [
+                    $directPermission->name,
+                ],
+            ]);
+
+        $updateResponse->assertRedirect(route('admin.users.permissions.edit', $managedUser->id, false));
+        $updateResponse->assertSessionHasNoErrors();
+
+        $managedUser = $managedUser->fresh();
+
+        $this->assertTrue($managedUser->hasRole($targetRole));
+        $this->assertTrue($managedUser->hasDirectPermission($directPermission));
+        $this->assertEqualsCanonicalizing(
+            [
+                'employee.accounts.show',
+                'employee.branches.show',
+            ],
+            $managedUser->getAllPermissions()->pluck('name')->all(),
+        );
+    }
+
+    public function test_users_index_and_show_pages_expose_dedicated_permission_assignment_action(): void
+    {
+        Permission::findOrCreate('employee.users.show', 'admin-web');
+        $admin = $this->createAdminUser([
+            'employee.users.show',
+            'employee.users.edit',
+        ]);
+
+        $managedRole = $this->createRole('مشرف المستخدمين', 'Users Supervisor');
+        $managedUser = $this->createManagedUser($managedRole);
+
+        $indexResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('admin.users.index', [], false));
+
+        $indexResponse->assertOk();
+        $indexResponse->assertSee(route('admin.users.permissions.edit', $managedUser->id, false), false);
+
+        $showResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('admin.users.show', $managedUser->id, false));
+
+        $showResponse->assertOk();
+        $showResponse->assertSee('إدارة الصلاحيات لهذا المستخدم');
+        $showResponse->assertSee(route('admin.users.permissions.edit', $managedUser->id, false), false);
     }
 
     public function test_admin_can_assign_direct_permissions_to_user_and_show_page_displays_effective_permissions(): void

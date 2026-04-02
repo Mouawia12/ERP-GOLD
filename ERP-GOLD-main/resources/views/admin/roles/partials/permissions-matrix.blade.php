@@ -4,6 +4,9 @@
     $permissionCheckAllId = $permissionCheckAllId ?? 'check_all';
     $permissionUncheckAllId = $permissionUncheckAllId ?? 'uncheck_all';
     $permissionScope = $permissionScope ?? 'role-permissions';
+    $permissionErrorKey = str_ends_with($permissionInputName, '[]')
+        ? substr($permissionInputName, 0, -2)
+        : $permissionInputName;
 @endphp
 
 <style>
@@ -128,6 +131,10 @@
         الغاء تحديد الكل
     </button>
 </div>
+
+@error($permissionErrorKey)
+    <div class="alert alert-danger mb-3">{{ $message }}</div>
+@enderror
 
 @foreach($permissionGroups as $group)
     <div class="permission-group-card">

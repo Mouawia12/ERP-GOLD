@@ -2,16 +2,9 @@
 
 @section('content')
 @can('employee.users.add')
-    @if (count($errors) > 0)
-        <div class="alert alert-danger">
-            <strong>الاخطاء:</strong>
-            <ul>
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
+    @include('admin.partials.validation-alert', [
+        'title' => 'تعذر إنشاء المستخدم بسبب الأخطاء التالية:',
+    ])
 
     <div class="row row-sm">
         <div class="col-xl-12">
@@ -27,19 +20,22 @@
                         @endif
 
                         <div class="row m-t-3 mb-3">
-                            <div class="parsley-input col-md-4" id="fnWrapper">
+                            <div class="parsley-input col-md-6" id="fnWrapper">
                                 <label>اسم المستخدم</label>
                                 <input
-                                    class="form-control mg-b-20"
+                                    class="form-control mg-b-20 @error('name') is-invalid @enderror"
                                     data-parsley-class-handler="#lnWrapper"
                                     name="name"
                                     value="{{ old('name') }}"
                                     required
                                     type="text"
                                 >
+                                @error('name')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
                             </div>
 
-                            <div class="parsley-input col-md-4 mg-t-20 mg-md-t-0" id="lnWrapper">
+                            <div class="parsley-input col-md-6 mg-t-20 mg-md-t-0" id="lnWrapper">
                                 <label>البريد الالكتروني</label>
                                 <input
                                     class="form-control mg-b-20 @error('email') is-invalid @enderror"
@@ -52,31 +48,13 @@
                                 >
 
                                 @error('email')
-                                    <span class="invalid-feedback" role="alert">
-                                        <strong>{{ $message }}</strong>
-                                    </span>
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
                                 @enderror
-                            </div>
-
-                            <div class="parsley-input col-md-4 mg-t-20 mg-md-t-0" id="roleWrapper">
-                                <label class="form-label">الصلاحية</label>
-                                <select data-live-search="true" data-style="btn-dark" title="اختر الصلاحية"
-                                        class="form-control selectpicker" id="role_id" name="role_id">
-                                    <option value="" @selected(old('role_id') === null || old('role_id') === '')>
-                                        بدون دور - صلاحيات مباشرة فقط
-                                    </option>
-                                    @foreach ($roles as $role)
-                                        <option value="{{ $role->id }}" @selected(old('role_id') == $role->id)>
-                                            {{ $role->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                <small class="text-muted d-block mt-1">اترك الدور فارغًا إذا أردت تقييد المستخدم بصلاحيات مباشرة فقط.</small>
                             </div>
                         </div>
 
                         <div class="row m-t-3 mb-3">
-                            <div class="parsley-input col-md-4 mg-t-20 mg-md-t-0" id="passwordWrapper">
+                            <div class="parsley-input col-md-6 mg-t-20 mg-md-t-0" id="passwordWrapper">
                                 <label>كلمة المرور</label>
                                 <div class="input-group mb-3">
                                     <div class="input-group-prepend">
@@ -94,9 +72,12 @@
                                         aria-describedby="basic-addon1"
                                     >
                                 </div>
+                                @error('password')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
                             </div>
 
-                            <div class="parsley-input col-md-4 mg-t-20 mg-md-t-0" id="confirmPasswordWrapper">
+                            <div class="parsley-input col-md-6 mg-t-20 mg-md-t-0" id="confirmPasswordWrapper">
                                 <label>تأكيد كلمة المرور</label>
                                 <div class="input-group mb-3">
                                     <div class="input-group-prepend">
@@ -115,7 +96,9 @@
                                     >
                                 </div>
                             </div>
+                        </div>
 
+                        <div class="row m-t-3 mb-3">
                             <div class="parsley-input col-md-6 mg-t-20 mg-md-t-0" id="branchesWrapper">
                                 <label class="form-label">الفروع المسموح بها</label>
                                 <select
@@ -135,6 +118,9 @@
                                         </option>
                                     @endforeach
                                 </select>
+                                @error('branch_ids')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
                                 <small class="text-muted">يمكنك اختيار أكثر من فرع لهذا المستخدم.</small>
                                 @if(!empty($returnBranchId))
                                     <small class="text-info d-block mt-1">سيتم إعادتك إلى شاشة هذا الفرع بعد الحفظ.</small>
@@ -151,28 +137,28 @@
                                         </option>
                                     @endforeach
                                 </select>
+                                @error('branch_id')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
                                 <small class="text-muted">سيبدأ المستخدم بهذا الفرع ويمكنه التبديل لاحقًا بين الفروع المربوطة به.</small>
                             </div>
                         </div>
 
-                        <div class="card bg-light border mb-4">
-                            <div class="card-body">
-                                <h5 class="mb-2">صلاحيات مباشرة للمستخدم</h5>
-                                <p class="text-muted mb-3">
-                                    هذه الصلاحيات تضاف فوق الصلاحيات الموروثة من الدور المختار، وتستخدم للحالات الخاصة فقط.
-                                </p>
-
-                                @include('admin.roles.partials.permissions-matrix', [
-                                    'permissionGroups' => $permissionGroups,
-                                    'selectedPermissions' => $selectedPermissions,
-                                    'permissionInputName' => 'direct_permissions[]',
-                                    'permissionSearchId' => 'user-direct-permissions-search',
-                                    'permissionCheckAllId' => 'user-direct-permissions-check-all',
-                                    'permissionUncheckAllId' => 'user-direct-permissions-uncheck-all',
-                                    'permissionScope' => 'user-direct-permissions',
-                                ])
-                            </div>
-                        </div>
+                        @include('admin.users.partials.permission-assignment-panel', [
+                            'roles' => $roles,
+                            'permissionGroups' => $permissionGroups,
+                            'selectedRoleId' => old('role_id'),
+                            'selectedPermissions' => $selectedPermissions,
+                            'assignmentTitle' => 'إسناد الصلاحيات الآن (اختياري)',
+                            'assignmentDescription' => 'يمكنك إنشاء المستخدم أولًا ثم العودة لاحقًا إلى شاشة إسناد الصلاحيات، أو إسناد المجموعة والصلاحيات المباشرة الآن من نفس الصفحة.',
+                            'roleFieldName' => 'role_id',
+                            'roleFieldId' => 'create_role_id',
+                            'permissionInputName' => 'direct_permissions[]',
+                            'permissionSearchId' => 'user-direct-permissions-search',
+                            'permissionCheckAllId' => 'user-direct-permissions-check-all',
+                            'permissionUncheckAllId' => 'user-direct-permissions-uncheck-all',
+                            'permissionScope' => 'user-direct-permissions',
+                        ])
 
                         <div class="col-xs-12 col-sm-12 col-md-12 text-center">
                             <button class="btn btn-info pd-x-20" type="submit">حفظ</button>
