@@ -671,7 +671,7 @@ class AccountingReportsController extends Controller
     {
         $user = auth('admin-web')->user();
 
-        if (! $user || $user->isOwner()) {
+        if (! $user) {
             return [];
         }
 
@@ -685,7 +685,7 @@ class AccountingReportsController extends Controller
 
         return Branch::query()
             ->when(
-                $user && ! $user->isOwner() && filled($user->subscriber_id),
+                filled($user?->subscriber_id),
                 fn ($query) => $query->where('subscriber_id', $user->subscriber_id)
             )
             ->when($accessibleBranchIds !== [], fn ($query) => $query->whereIn('id', $accessibleBranchIds));
@@ -697,7 +697,7 @@ class AccountingReportsController extends Controller
 
         return User::query()
             ->when(
-                $user && ! $user->isOwner() && filled($user->subscriber_id),
+                filled($user?->subscriber_id),
                 fn ($query) => $query->where('subscriber_id', $user->subscriber_id)
             );
     }

@@ -162,7 +162,7 @@ class ShiftController extends Controller
 
     private function visibleSubscriberId(User $user): ?int
     {
-        if ($user->isOwner() || blank($user->subscriber_id)) {
+        if (blank($user->subscriber_id)) {
             return null;
         }
 

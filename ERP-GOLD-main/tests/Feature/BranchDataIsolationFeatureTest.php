@@ -81,6 +81,8 @@ class BranchDataIsolationFeatureTest extends TestCase
         $createResponse->assertSee('فرع البيع الأساسي');
         $createResponse->assertDontSee('فرع البيع الخارجي');
         $createResponse->assertSee('salesCashWasEditedManually = false', false);
+        $createResponse->assertSee('ensureDefaultSalesPaymentLine();', false);
+        $createResponse->assertSee('resolveSalesPreferredBankAccountId', false);
         $createResponse->assertSee("if (!salesCashWasEditedManually)", false);
         $createResponse->assertSee("$('#cash').val(suggestedCashValue.toFixed(2));", false);
 
@@ -145,6 +147,8 @@ class BranchDataIsolationFeatureTest extends TestCase
         $createResponse->assertSee('فرع الشراء الأساسي');
         $createResponse->assertDontSee('فرع الشراء الخارجي');
         $createResponse->assertSee('purchaseCashWasEditedManually = false', false);
+        $createResponse->assertSee('ensureDefaultPurchasePaymentLine();', false);
+        $createResponse->assertSee('resolvePurchasePreferredBankAccountId', false);
         $createResponse->assertSee("if (!purchaseCashWasEditedManually)", false);
         $createResponse->assertSee("$('#purchase_cash').val(suggestedCashValue.toFixed(2));", false);
 
@@ -226,6 +230,94 @@ class BranchDataIsolationFeatureTest extends TestCase
         $ajaxResponse->assertJsonMissing([
             'bill_number' => $foreignInvoice->bill_number,
         ]);
+    }
+
+    public function test_sales_payment_modal_payload_marks_default_bank_account_for_frontend_auto_selection(): void
+    {
+        $ownBranch = $this->createBranch('فرع مودال المبيعات');
+        $user = $this->createUser($ownBranch, 'sales-payment-modal@example.com', [
+            'employee.simplified_tax_invoices.add',
+        ]);
+
+        $fallbackLedger = $this->createAccount('بنك احتياطي مبيعات', '9150');
+        $defaultLedger = $this->createAccount('بنك افتراضي مبيعات', '9151');
+
+        BankAccount::create([
+            'branch_id' => $ownBranch->id,
+            'ledger_account_id' => $fallbackLedger->id,
+            'account_name' => 'حساب احتياطي',
+            'bank_name' => 'بنك احتياطي',
+            'supports_credit_card' => true,
+            'supports_bank_transfer' => true,
+            'is_default' => false,
+            'is_active' => true,
+        ]);
+
+        BankAccount::create([
+            'branch_id' => $ownBranch->id,
+            'ledger_account_id' => $defaultLedger->id,
+            'account_name' => 'شبكة افتراضية',
+            'bank_name' => 'بنك البيع',
+            'supports_credit_card' => true,
+            'supports_bank_transfer' => false,
+            'is_default' => true,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($user, 'admin-web')
+            ->post(route('sales.payments', [], false), [
+                'branch_id' => $ownBranch->id,
+                'net_after_discount' => 100,
+                'document_type' => 'sale',
+            ]);
+
+        $response->assertOk();
+        $response->assertSee('window.currentSalesBankAccounts', false);
+        $response->assertSee('"is_default":true', false);
+    }
+
+    public function test_purchase_payment_modal_payload_marks_default_bank_account_for_frontend_auto_selection(): void
+    {
+        $ownBranch = $this->createBranch('فرع مودال المشتريات');
+        $user = $this->createUser($ownBranch, 'purchase-payment-modal@example.com', [
+            'employee.purchase_invoices.add',
+        ]);
+
+        $fallbackLedger = $this->createAccount('بنك احتياطي مشتريات', '9160');
+        $defaultLedger = $this->createAccount('بنك افتراضي مشتريات', '9161');
+
+        BankAccount::create([
+            'branch_id' => $ownBranch->id,
+            'ledger_account_id' => $fallbackLedger->id,
+            'account_name' => 'حساب مشتريات احتياطي',
+            'bank_name' => 'بنك المشتريات الاحتياطي',
+            'supports_credit_card' => true,
+            'supports_bank_transfer' => true,
+            'is_default' => false,
+            'is_active' => true,
+        ]);
+
+        BankAccount::create([
+            'branch_id' => $ownBranch->id,
+            'ledger_account_id' => $defaultLedger->id,
+            'account_name' => 'حساب مشتريات افتراضي',
+            'bank_name' => 'بنك السداد',
+            'supports_credit_card' => false,
+            'supports_bank_transfer' => true,
+            'is_default' => true,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($user, 'admin-web')
+            ->post(route('purchases.payments', [], false), [
+                'branch_id' => $ownBranch->id,
+                'net_after_discount' => 100,
+                'document_type' => 'purchase',
+            ]);
+
+        $response->assertOk();
+        $response->assertSee('window.currentPurchaseBankAccounts', false);
+        $response->assertSee('"is_default":true', false);
     }
 
     public function test_branch_user_financial_vouchers_are_scoped_to_his_branch(): void

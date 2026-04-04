@@ -35,7 +35,7 @@ trait BelongsToSubscriberScope
     {
         $user = auth('admin-web')->user();
 
-        if (! $user || $user->isOwner() || blank($user->subscriber_id)) {
+        if (! $user || blank($user->subscriber_id)) {
             return null;
         }
 

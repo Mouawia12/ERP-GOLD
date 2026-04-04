@@ -81,6 +81,7 @@
             'name' => $bankAccount->display_name,
             'supports_credit_card' => (bool) $bankAccount->supports_credit_card,
             'supports_bank_transfer' => (bool) $bankAccount->supports_bank_transfer,
+            'is_default' => (bool) $bankAccount->is_default,
         ];
     })->values();
 @endphp

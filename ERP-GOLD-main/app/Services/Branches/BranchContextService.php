@@ -34,8 +34,18 @@ class BranchContextService
      */
     public function accessibleBranchIds(User $user): array
     {
-        if ($user->isOwner()) {
+        if ($user->isOwner() && blank($user->subscriber_id)) {
             return [];
+        }
+
+        if (filled($user->subscriber_id) && $user->isOwner()) {
+            return Branch::query()
+                ->where('subscriber_id', $user->subscriber_id)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
         }
 
         $branchIds = $user->branches()
@@ -57,7 +67,7 @@ class BranchContextService
 
     public function defaultBranchId(User $user): ?int
     {
-        if ($user->isOwner()) {
+        if ($user->isOwner() && blank($user->subscriber_id)) {
             return $this->persistedDefaultBranchId($user);
         }
 
@@ -83,7 +93,7 @@ class BranchContextService
     {
         $defaultBranchId = $this->defaultBranchId($user);
 
-        if ($user->isOwner()) {
+        if ($user->isOwner() && blank($user->subscriber_id)) {
             return $defaultBranchId;
         }
 
@@ -121,7 +131,7 @@ class BranchContextService
 
     public function switchTo(User $user, int $branchId, Session $session): void
     {
-        if (! $user->isOwner()) {
+        if (! ($user->isOwner() && blank($user->subscriber_id))) {
             abort_unless(
                 in_array($branchId, $this->accessibleBranchIds($user), true),
                 403,

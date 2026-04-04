@@ -10,6 +10,7 @@ use App\Models\InvoiceDetail;
 use App\Models\Item;
 use App\Models\ItemCategory;
 use App\Models\User;
+use App\Services\Branches\BranchContextService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use DB;
@@ -340,8 +341,8 @@ class StockReportsController extends Controller
         $currentUser = auth('admin-web')->user();
 
         $data = [
-            'branches' => Branch::where('status', 1)->orderBy('id')->get(),
-            'users' => User::orderBy('name')->get(),
+            'branches' => $this->branchesQuery()->where('status', 1)->orderBy('id')->get(),
+            'users' => $this->usersQuery()->orderBy('name')->get(),
             'defaultFilters' => [
                 'date_from' => $defaultDateFrom,
                 'date_to' => $defaultDateTo,
@@ -380,6 +381,7 @@ class StockReportsController extends Controller
 
     private function applyInvoiceFilters($query, Request $request, string $periodFrom, string $periodTo, string $table = 'invoices'): void
     {
+        $accessibleBranchIds = $this->accessibleBranchIds();
         $branchId = $this->normalizeOptionalFilter($request->input('branch_id'));
         $userId = $this->normalizeOptionalFilter($request->input('user_id'));
         $invoiceNumber = $this->normalizeOptionalFilter($request->input('invoice_number', $request->input('billNumber')));
@@ -390,6 +392,10 @@ class StockReportsController extends Controller
         $toTime = $this->normalizeTime($request->input('to_time'));
 
         $query->whereBetween($table . '.date', [$periodFrom, $periodTo]);
+
+        if ($accessibleBranchIds !== []) {
+            $query->whereIn($table . '.branch_id', $accessibleBranchIds);
+        }
 
         if ($branchId !== null) {
             $query->where($table . '.branch_id', $branchId);
@@ -450,13 +456,51 @@ class StockReportsController extends Controller
     {
         $branchId = $this->normalizeOptionalFilter($request->input('branch_id'));
 
-        return $branchId ? Branch::find($branchId) : null;
+        return $branchId ? $this->branchesQuery()->find($branchId) : null;
     }
 
     private function selectedUser(Request $request): ?User
     {
         $userId = $this->normalizeOptionalFilter($request->input('user_id'));
 
-        return $userId ? User::find($userId) : null;
+        return $userId ? $this->usersQuery()->find($userId) : null;
+    }
+
+    /**
+     * @return array<int>
+     */
+    private function accessibleBranchIds(): array
+    {
+        $user = auth('admin-web')->user();
+
+        if (! $user) {
+            return [];
+        }
+
+        return app(BranchContextService::class)->accessibleBranchIds($user);
+    }
+
+    private function branchesQuery()
+    {
+        $user = auth('admin-web')->user();
+        $accessibleBranchIds = $this->accessibleBranchIds();
+
+        return Branch::query()
+            ->when(
+                filled($user?->subscriber_id),
+                fn ($query) => $query->where('subscriber_id', $user->subscriber_id)
+            )
+            ->when($accessibleBranchIds !== [], fn ($query) => $query->whereIn('id', $accessibleBranchIds));
+    }
+
+    private function usersQuery()
+    {
+        $user = auth('admin-web')->user();
+
+        return User::query()
+            ->when(
+                filled($user?->subscriber_id),
+                fn ($query) => $query->where('subscriber_id', $user->subscriber_id)
+            );
     }
 }

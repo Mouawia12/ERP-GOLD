@@ -273,7 +273,7 @@ class ItemsReportsController extends Controller
     {
         $user = auth('admin-web')->user();
 
-        if (! $user || $user->isOwner() || blank($user->subscriber_id)) {
+        if (! $user || blank($user->subscriber_id)) {
             return null;
         }
 
@@ -283,7 +283,7 @@ class ItemsReportsController extends Controller
     private function branchesQuery(?int $subscriberId)
     {
         $user = auth('admin-web')->user();
-        $accessibleBranchIds = $user && ! $user->isOwner()
+        $accessibleBranchIds = $user
             ? app(BranchContextService::class)->accessibleBranchIds($user)
             : [];
 

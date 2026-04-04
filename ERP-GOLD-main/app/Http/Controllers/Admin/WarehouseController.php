@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\GoldCarat;
 use App\Models\GoldCaratType;
 use App\Models\InvoiceDetail;
+use App\Services\Branches\BranchContextService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,7 +32,7 @@ class WarehouseController extends Controller
         $carats = GoldCarat::query()->orderBy('id')->get();
         $baseCarat = GoldCarat::query()->where('transform_factor', 1)->first();
         $company = null;
-        $branch = $filters['branch_id'] ? Branch::find($filters['branch_id']) : null;
+        $branch = $filters['branch_id'] ? $this->branchesQuery()->find($filters['branch_id']) : null;
 
         $stockByCarat = [];
         $stockByBaseCarat = [];
@@ -84,7 +85,7 @@ class WarehouseController extends Controller
     public function gold_stock_search()
     {
         $currentUser = auth('admin-web')->user();
-        $branches = Branch::query()->where('status', 1)->orderBy('id')->get();
+        $branches = $this->branchesQuery()->where('status', 1)->orderBy('id')->get();
 
         return view('admin.reports.stock_reports.gold_stock.search', [
             'branches' => $branches,
@@ -127,10 +128,17 @@ class WarehouseController extends Controller
 
     private function stockTotalsQuery(array $filters, int $caratId, int $caratTypeId)
     {
+        $accessibleBranchIds = $this->accessibleBranchIds();
+
         return InvoiceDetail::query()
             ->where('gold_carat_id', $caratId)
             ->where('gold_carat_type_id', $caratTypeId)
             ->whereBetween('date', [$filters['period_from'], $filters['period_to']])
+            ->when($accessibleBranchIds !== [], function ($query) use ($accessibleBranchIds) {
+                return $query->whereHas('invoice', function ($invoiceQuery) use ($accessibleBranchIds) {
+                    $invoiceQuery->whereIn('branch_id', $accessibleBranchIds);
+                });
+            })
             ->when($filters['branch_id'], function ($query, $branchId) {
                 return $query->whereHas('invoice', function ($invoiceQuery) use ($branchId) {
                     $invoiceQuery->where('branch_id', $branchId);
@@ -140,10 +148,21 @@ class WarehouseController extends Controller
 
     private function stockDependentQuery(array $filters, int $caratTypeId)
     {
+        $accessibleBranchIds = $this->accessibleBranchIds();
+
         return InvoiceDetail::query()
             ->join('gold_carats', 'invoice_details.gold_carat_id', '=', 'gold_carats.id')
             ->where('invoice_details.gold_carat_type_id', $caratTypeId)
             ->whereBetween('invoice_details.date', [$filters['period_from'], $filters['period_to']])
+            ->when($accessibleBranchIds !== [], function ($query) use ($accessibleBranchIds) {
+                return $query->whereExists(function ($subQuery) use ($accessibleBranchIds) {
+                    $subQuery
+                        ->select(DB::raw(1))
+                        ->from('invoices')
+                        ->whereColumn('invoices.id', 'invoice_details.invoice_id')
+                        ->whereIn('invoices.branch_id', $accessibleBranchIds);
+                });
+            })
             ->when($filters['branch_id'], function ($query, $branchId) {
                 return $query->whereExists(function ($subQuery) use ($branchId) {
                     $subQuery
@@ -153,5 +172,32 @@ class WarehouseController extends Controller
                         ->where('invoices.branch_id', $branchId);
                 });
             });
+    }
+
+    /**
+     * @return array<int>
+     */
+    private function accessibleBranchIds(): array
+    {
+        $user = auth('admin-web')->user();
+
+        if (! $user) {
+            return [];
+        }
+
+        return app(BranchContextService::class)->accessibleBranchIds($user);
+    }
+
+    private function branchesQuery()
+    {
+        $user = auth('admin-web')->user();
+        $accessibleBranchIds = $this->accessibleBranchIds();
+
+        return Branch::query()
+            ->when(
+                filled($user?->subscriber_id),
+                fn ($query) => $query->where('subscriber_id', $user->subscriber_id)
+            )
+            ->when($accessibleBranchIds !== [], fn ($query) => $query->whereIn('id', $accessibleBranchIds));
     }
 }

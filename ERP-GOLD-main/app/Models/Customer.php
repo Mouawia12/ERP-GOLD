@@ -61,7 +61,7 @@ class Customer extends Model
 
     public function scopeVisibleToUser(Builder $query, ?User $user): Builder
     {
-        if (! $user || $user->isOwner() || blank($user->subscriber_id)) {
+        if (! $user || blank($user->subscriber_id)) {
             return $query;
         }
 

@@ -1020,6 +1020,7 @@
             success: function(data) {
                 var modal = mountPurchasePaymentModal(data);
                 purchaseCashWasEditedManually = false;
+                ensureDefaultPurchasePaymentLine();
                 refreshPurchasePaymentSummary();
                 if (modal.length) {
                     modal.modal({backdrop: 'static', keyboard: false});
@@ -1039,17 +1040,69 @@
 
     var purchaseCashWasEditedManually = false;
 
-    function buildPurchaseBankAccountOptions(methodType, selectedId) {
-        var options = '<option value="">حدد الحساب البنكي</option>';
-        var items = window.currentPurchaseBankAccounts || [];
+    function getPurchaseSupportedBankAccounts(methodType) {
+        return (window.currentPurchaseBankAccounts || []).filter(function (item) {
+            return methodType === 'credit_card' ? item.supports_credit_card : item.supports_bank_transfer;
+        });
+    }
 
-        items.forEach(function (item) {
-            var supported = methodType === 'credit_card' ? item.supports_credit_card : item.supports_bank_transfer;
+    function resolvePurchasePreferredMethodType(preferredMethodType, preferredBankAccountId) {
+        var preferredAccountId = String(preferredBankAccountId || '');
+        var methodType = preferredMethodType === 'bank_transfer' ? 'bank_transfer' : 'credit_card';
 
-            if (!supported) {
-                return;
+        if (preferredAccountId !== '' && getPurchaseSupportedBankAccounts(methodType).some(function (item) {
+            return String(item.id) === preferredAccountId;
+        })) {
+            return methodType;
+        }
+
+        var defaultAccount = (window.currentPurchaseBankAccounts || []).find(function (item) {
+            return item.is_default;
+        });
+
+        if (defaultAccount) {
+            if (defaultAccount.supports_credit_card) {
+                return 'credit_card';
             }
 
+            if (defaultAccount.supports_bank_transfer) {
+                return 'bank_transfer';
+            }
+        }
+
+        return getPurchaseSupportedBankAccounts('credit_card').length ? 'credit_card' : 'bank_transfer';
+    }
+
+    function resolvePurchasePreferredBankAccountId(methodType, preferredBankAccountId) {
+        var supportedAccounts = getPurchaseSupportedBankAccounts(methodType);
+        var preferredAccountId = String(preferredBankAccountId || '');
+
+        if (supportedAccounts.length === 0) {
+            return '';
+        }
+
+        if (preferredAccountId !== '') {
+            var currentAccount = supportedAccounts.find(function (item) {
+                return String(item.id) === preferredAccountId;
+            });
+
+            if (currentAccount) {
+                return currentAccount.id;
+            }
+        }
+
+        var defaultAccount = supportedAccounts.find(function (item) {
+            return item.is_default;
+        });
+
+        return (defaultAccount || supportedAccounts[0]).id;
+    }
+
+    function buildPurchaseBankAccountOptions(methodType, selectedId) {
+        var options = '<option value="">حدد الحساب البنكي</option>';
+        var items = getPurchaseSupportedBankAccounts(methodType);
+
+        items.forEach(function (item) {
             var selected = String(selectedId || '') === String(item.id) ? 'selected' : '';
             options += '<option value="' + item.id + '" ' + selected + '>' + item.name + '</option>';
         });
@@ -1068,8 +1121,8 @@
     }
 
     function appendPurchasePaymentLineRow(line) {
-        var methodType = (line && line.method_type) ? line.method_type : 'credit_card';
-        var bankAccountId = line && line.bank_account_id ? line.bank_account_id : '';
+        var methodType = resolvePurchasePreferredMethodType(line && line.method_type, line && line.bank_account_id);
+        var bankAccountId = resolvePurchasePreferredBankAccountId(methodType, line && line.bank_account_id);
         var referenceNo = line && line.reference_no ? line.reference_no : '';
         var amount = line && line.amount ? line.amount : '';
 
@@ -1085,6 +1138,18 @@
         $('#purchase_payment_lines_table tbody').append(rowHtml);
         refreshPurchasePaymentInputNames();
         refreshPurchasePaymentSummary();
+    }
+
+    function ensureDefaultPurchasePaymentLine() {
+        if ($('#purchase_payment_lines_table tbody tr').length > 0) {
+            return;
+        }
+
+        if ((window.currentPurchaseBankAccounts || []).length === 0) {
+            return;
+        }
+
+        appendPurchasePaymentLineRow();
     }
 
     function collectPurchasePaymentLines() {
@@ -1146,7 +1211,9 @@
 
     $(document).on('change', '.purchase-payment-line-method', function () {
         var row = $(this).closest('tr');
-        row.find('.purchase-payment-line-bank-account').html(buildPurchaseBankAccountOptions($(this).val(), ''));
+        var methodType = $(this).val();
+        var bankAccountId = resolvePurchasePreferredBankAccountId(methodType, row.find('.purchase-payment-line-bank-account').val());
+        row.find('.purchase-payment-line-bank-account').html(buildPurchaseBankAccountOptions(methodType, bankAccountId));
         refreshPurchasePaymentInputNames();
         refreshPurchasePaymentSummary();
     });
