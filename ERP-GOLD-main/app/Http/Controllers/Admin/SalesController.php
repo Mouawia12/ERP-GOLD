@@ -64,11 +64,25 @@ class SalesController extends Controller
             return Datatables::of($data)
                 ->addIndexColumn()
                 ->addColumn('action', function ($row) use ($type) {
+                    $btn = '';
+
                     if (auth()->user()->canany(['employee.simplified_tax_invoices.show', 'employee.tax_invoices.show'])) {
                         $btn = '<a href=' . route('sales.show', $row->id) . ' class="btn btn-primary" 
                                     value="' . $row->id . '" role="button" data-bs-toggle="button" target="_blank" >
                                     <i class="fa fa-eye"></i>معاينة</a>';
+
+                        $btn .= '<div class="btn-group" style="margin:0 5px;" dir="rtl">
+                                    <button type="button" class="btn btn-secondary dropdown-toggle"
+                                            data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                        <i class="fa fa-print"></i> طباعة
+                                    </button>
+                                    <div class="dropdown-menu">
+                                        <a class="dropdown-item" target="_blank" href="' . route('sales.show', ['id' => $row->id, 'paper' => 'a4']) . '">طباعة A4</a>
+                                        <a class="dropdown-item" target="_blank" href="' . route('sales.show', ['id' => $row->id, 'paper' => 'a5']) . '">طباعة A5</a>
+                                    </div>
+                                </div>';
                     }
+
                     if ($row->returnInvoices()->sum('net_total') < $row->net_total) {
                         if (auth()->user()->canany(['employee.sales_returns.add', 'employee.sales_returns.show'])) {
                             $btn = $btn . '<a style="margin:0 5px;" href=' . route('sales_return.create', ['type' => $type, 'id' => $row->id]) . ' class="btn btn-info" 

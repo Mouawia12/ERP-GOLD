@@ -140,39 +140,14 @@
 
 <!-- Scroll to Top Button-->
 
-<div class="modal fade" id="tablePrintSizeModal" tabindex="-1" role="dialog" aria-labelledby="tablePrintSizeModalLabel"
-     aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="tablePrintSizeModalLabel">اختيار حجم الطباعة</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <p class="text-muted mb-3">اختر مقاس الورقة قبل طباعة قائمة الفواتير الحالية.</p>
-                <div class="row">
-                    <div class="col-6">
-                        <label class="paper-size-option is-active w-100" data-paper-size-option="a4">
-                            <input type="radio" name="table_print_paper_size" value="a4" checked>
-                            <span class="paper-size-title">A4</span>
-                            <span class="paper-size-hint">مناسب للطباعة الكاملة</span>
-                        </label>
-                    </div>
-                    <div class="col-6">
-                        <label class="paper-size-option w-100" data-paper-size-option="a5">
-                            <input type="radio" name="table_print_paper_size" value="a5">
-                            <span class="paper-size-title">A5</span>
-                            <span class="paper-size-hint">حجم أصغر ومختصر</span>
-                        </label>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">إلغاء</button>
-                <button type="button" class="btn btn-primary" id="confirmTablePrintButton">طباعة الآن</button>
-            </div>
+<div id="salesTablePrintToolbarTemplate" class="d-none">
+    <div class="btn-group mr-2" dir="rtl">
+        <button type="button" class="btn btn-primary dropdown-toggle" id="salesTablePrintDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            <i class="fa fa-print"></i>
+        </button>
+        <div class="dropdown-menu">
+            <a class="dropdown-item sales-table-print-option" href="#" data-paper-size="a4">طباعة القائمة A4</a>
+            <a class="dropdown-item sales-table-print-option" href="#" data-paper-size="a5">طباعة القائمة A5</a>
         </div>
     </div>
 </div>
@@ -218,29 +193,94 @@
         document.title = "{{__('main.pos_sales_list')}}";
 
         $(document).ready(function () {
-            var selectedTablePaperSize = 'a4';
-            var hiddenPrintButtonIndex = 3;
+            function printSalesTable(paperSize) {
+                var tableElement = document.getElementById('SalesTable');
+                var titleElement = document.querySelector('#head-right h4');
+                var tableWindow = window.open('', '_blank', 'width=1280,height=900');
 
-            function syncPaperSizeOptionState() {
-                $('[data-paper-size-option]').removeClass('is-active');
-                $('[data-paper-size-option="' + selectedTablePaperSize + '"]').addClass('is-active');
-                $('input[name="table_print_paper_size"][value="' + selectedTablePaperSize + '"]').prop('checked', true);
+                if (!tableWindow || !tableElement) {
+                    return;
+                }
+
+                var printTitle = titleElement ? titleElement.textContent.trim() : 'قائمة الفواتير';
+                var tableHtml = tableElement.outerHTML;
+                var printFontSize = paperSize === 'a5' ? '11px' : '12px';
+                var tablePadding = paperSize === 'a5' ? '4px 6px' : '6px 8px';
+
+                tableWindow.document.open();
+                tableWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html dir="rtl">
+                    <head>
+                        <meta charset="utf-8">
+                        <title>${printTitle}</title>
+                        <style>
+                            @page { size: ${paperSize.toUpperCase()} portrait; margin: 8mm; }
+                            body {
+                                direction: rtl;
+                                margin: 0;
+                                color: #000;
+                                font-family: Almarai, "DejaVu Sans", sans-serif;
+                                font-size: ${printFontSize};
+                            }
+                            .print-page {
+                                padding: 8mm;
+                            }
+                            .print-title {
+                                margin: 0 0 14px;
+                                text-align: center;
+                                font-size: 16px;
+                                font-weight: 700;
+                            }
+                            table {
+                                width: 100%;
+                                border-collapse: collapse;
+                            }
+                            th, td {
+                                border: 1px solid #999;
+                                padding: ${tablePadding};
+                                text-align: center;
+                                vertical-align: middle;
+                            }
+                            thead th {
+                                background: #e0e0e0;
+                            }
+                            th:last-child,
+                            td:last-child {
+                                display: none;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="print-page">
+                            <h1 class="print-title">${printTitle}</h1>
+                            ${tableHtml}
+                        </div>
+                    </body>
+                    </html>
+                `);
+                tableWindow.document.close();
+
+                setTimeout(function () {
+                    tableWindow.focus();
+                    tableWindow.print();
+                }, 250);
             }
 
-            function tablePrintCustomize(win) {
-                var printFontSize = selectedTablePaperSize === 'a5' ? '11px' : '12px';
-                var tablePadding = selectedTablePaperSize === 'a5' ? '4px 6px' : '6px 8px';
-                var style = win.document.createElement('style');
+            function appendPrintToolbar(buttonContainer) {
+                if ($('#salesTablePrintDropdown').length) {
+                    return;
+                }
 
-                style.type = 'text/css';
-                style.media = 'print';
-                style.textContent = '@page { size: ' + selectedTablePaperSize.toUpperCase() + ' portrait; margin: 8mm; }'
-                    + 'body { direction: rtl; text-align: right; font-family: Almarai, sans-serif; font-size: ' + printFontSize + '; }'
-                    + 'table { width: 100% !important; border-collapse: collapse !important; }'
-                    + 'table th, table td { padding: ' + tablePadding + ' !important; text-align: center !important; }'
-                    + 'h1 { text-align: center !important; margin-bottom: 16px !important; }';
+                var printToolbar = $('#salesTablePrintToolbarTemplate').children().clone(true, true);
+                $(buttonContainer).append(printToolbar);
+            }
 
-                win.document.head.appendChild(style);
+            function bindPrintToolbarEvents() {
+                $(document).on('click', '.sales-table-print-option', function (event) {
+                    event.preventDefault();
+                    printSalesTable($(this).data('paper-size'));
+                });
             }
     
             $.ajaxSetup({
@@ -307,23 +347,6 @@
                     {
                         extend: 'excel',
                         text: '<i title="export to excel" class="fa fa-file-excel"></i>',
-                    }, 
-                    {
-                        text: '<i title="print" class="fa fa-print"></i>',
-                        action: function () {
-                            $('#tablePrintSizeModal').modal('show');
-                        },
-                    },
-                    {
-                        extend: 'print',
-                        className: 'd-none',
-                        text: '',
-                        exportOptions: {
-                            columns: ':visible'
-                        },
-                        customize: function (win) {
-                            tablePrintCustomize(win);
-                        },
                     },
                     {
                         extend: 'colvis',
@@ -334,23 +357,15 @@
                 
                 "lengthMenu": [ [10, 25, 50, -1], [10, 25, 50, "All"] ],
                 order: [[0, 'desc']]
-            }).buttons().container().appendTo('#ItemTable_wrapper .col-md-6:eq(0)');
+            });
+
+            table.buttons().container().appendTo('#SalesTable_wrapper .col-md-6:eq(0)');
+            appendPrintToolbar(table.buttons().container());
+            bindPrintToolbarEvents();
        
             $(document).on('click', '#createButton', function (event) {   
                 window.location = "{{route('sales.create', $type)}}"; 
             });
-
-            $(document).on('click', '[data-paper-size-option]', function () {
-                selectedTablePaperSize = $(this).data('paper-size-option');
-                syncPaperSizeOptionState();
-            });
-
-            $(document).on('click', '#confirmTablePrintButton', function () {
-                $('#tablePrintSizeModal').modal('hide');
-                table.button(hiddenPrintButtonIndex).trigger();
-            });
-
-            syncPaperSizeOptionState();
         });
 </script> 
  

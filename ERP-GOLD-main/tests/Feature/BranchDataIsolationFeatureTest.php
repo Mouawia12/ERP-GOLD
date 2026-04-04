@@ -70,6 +70,8 @@ class BranchDataIsolationFeatureTest extends TestCase
         $indexResponse->assertJsonFragment([
             'bill_number' => $ownInvoice->bill_number,
         ]);
+        $indexResponse->assertSee('paper=a4');
+        $indexResponse->assertSee('paper=a5');
         $indexResponse->assertJsonMissing([
             'bill_number' => $foreignInvoice->bill_number,
         ]);
@@ -209,8 +211,8 @@ class BranchDataIsolationFeatureTest extends TestCase
         $htmlResponse->assertSee('name="branch_id"', false);
         $htmlResponse->assertSee('name="date_from"', false);
         $htmlResponse->assertSee('name="date_to"', false);
-        $htmlResponse->assertSee('id="tablePrintSizeModal"', false);
-        $htmlResponse->assertSee('id="confirmTablePrintButton"', false);
+        $htmlResponse->assertSee('id="salesTablePrintToolbarTemplate"', false);
+        $htmlResponse->assertSee('class="dropdown-item sales-table-print-option"', false);
 
         $ajaxResponse = $this->withHeaders([
             'X-Requested-With' => 'XMLHttpRequest',
