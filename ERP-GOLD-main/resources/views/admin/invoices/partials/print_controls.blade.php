@@ -15,6 +15,10 @@
         box-shadow: 0 14px 30px rgba(15, 23, 42, 0.22);
     }
 
+    .print-control-bar.no-print {
+        display: flex !important;
+    }
+
     .print-control-group {
         display: flex;
         flex-direction: column;
