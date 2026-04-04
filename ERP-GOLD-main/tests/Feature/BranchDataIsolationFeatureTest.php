@@ -209,6 +209,8 @@ class BranchDataIsolationFeatureTest extends TestCase
         $htmlResponse->assertSee('name="branch_id"', false);
         $htmlResponse->assertSee('name="date_from"', false);
         $htmlResponse->assertSee('name="date_to"', false);
+        $htmlResponse->assertSee('id="tablePrintSizeModal"', false);
+        $htmlResponse->assertSee('id="confirmTablePrintButton"', false);
 
         $ajaxResponse = $this->withHeaders([
             'X-Requested-With' => 'XMLHttpRequest',

@@ -16,7 +16,46 @@
     }
     body{
         direction: rtl; 
-    } 
+    }
+
+    .paper-size-option {
+        border: 1px solid #dbe4ff;
+        border-radius: 12px;
+        padding: 14px 12px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        background: #f8fbff;
+        text-align: center;
+    }
+
+    .paper-size-option:hover {
+        border-color: #4f7cff;
+        background: #eef4ff;
+    }
+
+    .paper-size-option input {
+        display: none;
+    }
+
+    .paper-size-option .paper-size-title {
+        display: block;
+        font-weight: 700;
+        color: #1e3a8a;
+        font-size: 15px;
+    }
+
+    .paper-size-option .paper-size-hint {
+        display: block;
+        margin-top: 4px;
+        font-size: 12px;
+        color: #64748b;
+    }
+
+    .paper-size-option.is-active {
+        border-color: #2563eb;
+        background: #dbeafe;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
 
 </style>   
 
@@ -101,6 +140,43 @@
 
 <!-- Scroll to Top Button-->
 
+<div class="modal fade" id="tablePrintSizeModal" tabindex="-1" role="dialog" aria-labelledby="tablePrintSizeModalLabel"
+     aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tablePrintSizeModalLabel">اختيار حجم الطباعة</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">اختر مقاس الورقة قبل طباعة قائمة الفواتير الحالية.</p>
+                <div class="row">
+                    <div class="col-6">
+                        <label class="paper-size-option is-active w-100" data-paper-size-option="a4">
+                            <input type="radio" name="table_print_paper_size" value="a4" checked>
+                            <span class="paper-size-title">A4</span>
+                            <span class="paper-size-hint">مناسب للطباعة الكاملة</span>
+                        </label>
+                    </div>
+                    <div class="col-6">
+                        <label class="paper-size-option w-100" data-paper-size-option="a5">
+                            <input type="radio" name="table_print_paper_size" value="a5">
+                            <span class="paper-size-title">A5</span>
+                            <span class="paper-size-hint">حجم أصغر ومختصر</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-primary" id="confirmTablePrintButton">طباعة الآن</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="smallModalLabel"
      aria-hidden="true">
     <div class="modal-dialog modal-sm" role="document">
@@ -142,6 +218,30 @@
         document.title = "{{__('main.pos_sales_list')}}";
 
         $(document).ready(function () {
+            var selectedTablePaperSize = 'a4';
+            var hiddenPrintButtonIndex = 3;
+
+            function syncPaperSizeOptionState() {
+                $('[data-paper-size-option]').removeClass('is-active');
+                $('[data-paper-size-option="' + selectedTablePaperSize + '"]').addClass('is-active');
+                $('input[name="table_print_paper_size"][value="' + selectedTablePaperSize + '"]').prop('checked', true);
+            }
+
+            function tablePrintCustomize(win) {
+                var printFontSize = selectedTablePaperSize === 'a5' ? '11px' : '12px';
+                var tablePadding = selectedTablePaperSize === 'a5' ? '4px 6px' : '6px 8px';
+                var style = win.document.createElement('style');
+
+                style.type = 'text/css';
+                style.media = 'print';
+                style.textContent = '@page { size: ' + selectedTablePaperSize.toUpperCase() + ' portrait; margin: 8mm; }'
+                    + 'body { direction: rtl; text-align: right; font-family: Almarai, sans-serif; font-size: ' + printFontSize + '; }'
+                    + 'table { width: 100% !important; border-collapse: collapse !important; }'
+                    + 'table th, table td { padding: ' + tablePadding + ' !important; text-align: center !important; }'
+                    + 'h1 { text-align: center !important; margin-bottom: 16px !important; }';
+
+                win.document.head.appendChild(style);
+            }
     
             $.ajaxSetup({
                 headers: {
@@ -209,8 +309,21 @@
                         text: '<i title="export to excel" class="fa fa-file-excel"></i>',
                     }, 
                     {
-                        extend: 'print',
                         text: '<i title="print" class="fa fa-print"></i>',
+                        action: function () {
+                            $('#tablePrintSizeModal').modal('show');
+                        },
+                    },
+                    {
+                        extend: 'print',
+                        className: 'd-none',
+                        text: '',
+                        exportOptions: {
+                            columns: ':visible'
+                        },
+                        customize: function (win) {
+                            tablePrintCustomize(win);
+                        },
                     },
                     {
                         extend: 'colvis',
@@ -226,6 +339,18 @@
             $(document).on('click', '#createButton', function (event) {   
                 window.location = "{{route('sales.create', $type)}}"; 
             });
+
+            $(document).on('click', '[data-paper-size-option]', function () {
+                selectedTablePaperSize = $(this).data('paper-size-option');
+                syncPaperSizeOptionState();
+            });
+
+            $(document).on('click', '#confirmTablePrintButton', function () {
+                $('#tablePrintSizeModal').modal('hide');
+                table.button(hiddenPrintButtonIndex).trigger();
+            });
+
+            syncPaperSizeOptionState();
         });
 </script> 
  
