@@ -120,6 +120,36 @@ class InvoicePrintSettingsFeatureTest extends TestCase
         $response->assertSee('window.location.href = url.toString();', false);
     }
 
+    public function test_sales_print_page_uses_new_a4_layout_when_a4_is_selected(): void
+    {
+        $branch = $this->createBranch('فرع تصميم A4', 'sales-a4-layout@example.com', '444444444');
+        $user = $this->createUser($branch, 'sales-a4-layout-user@example.com');
+        $invoice = $this->createInvoice($branch, $user, 'sale', [
+            'sale_type' => 'simplified',
+            'bill_client_name' => 'عميل تصميم A4',
+            'bill_client_phone' => '0554444444',
+        ]);
+
+        DB::table('system_settings')->insert([
+            ['key' => 'invoice_print_format', 'value' => 'a4'],
+            ['key' => 'invoice_print_template', 'value' => 'classic'],
+            ['key' => 'invoice_print_show_header', 'value' => '1'],
+            ['key' => 'invoice_print_show_footer', 'value' => '1'],
+        ]);
+
+        $response = $this
+            ->actingAs($user, 'admin-web')
+            ->get(route('sales.show', ['id' => $invoice->id, 'paper' => 'a4'], false));
+
+        $response->assertOk();
+        $response->assertSee('data-print-format="a4"', false);
+        $response->assertSee('class="page"', false);
+        $response->assertSee('class="page-content"', false);
+        $response->assertSee('Simplified Tax Invoice');
+        $response->assertSee('class="items-table"', false);
+        $response->assertDontSee('invoice-print-table', false);
+    }
+
     private function createBranch(string $name, string $email, string $phone): Branch
     {
         return Branch::create([
