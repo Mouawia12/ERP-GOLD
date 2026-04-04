@@ -485,29 +485,11 @@
 @php
     $type = $invoice->sale_type;
     $route = $invoice->type == 'sale' ? 'sales.index' : 'sales_return.index';
+    $backUrl = route($route, $type);
+    $whatsappUrl = ! empty($invoice->client_phone)
+        ? route('send.invoice.whatsapp', $invoice->id)
+        : null;
 @endphp
-<a href="{{route($route,$type)}}" class="no-print btn btn-md btn-danger"
-   style="left:20px!important;">
-    العودة الى النظام
-</a>
-<button onclick="window.print();" class="no-print btn btn-md btn-info"
-    style="left:230px!important;">
-    اضغط للطباعة
-</button>
-@if(!empty($invoice ->client_phone))
-<a href="{{route('send.invoice.whatsapp',$invoice ->id)}}" class="no-print btn btn-md btn-success"
-   style="left:450px!important;">
-    ارسال الفاتورة واتس اب
-</a>
-@endif
-
-
-<script src="{{asset('assets/js/jquery.min.js')}}"></script>
-
-   <script>
-    $(document).ready(function () {
-        window.print();
-    });
-</script>
+@include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl'))
 </body>
 </html>

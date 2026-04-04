@@ -375,29 +375,12 @@
 
 
 </div>
-
-<a href="{{ route($invoice->type === 'purchase_return' ? 'purchase_return.index' : 'purchases.index') }}" class="no-print btn btn-md btn-danger"
-   style="left:20px!important;">
-    العودة الى النظام
-</a>
-<button onclick="window.print();" class="no-print btn btn-md btn-info"
-    style="left:230px!important;">
-    اضغط للطباعة
-</button>
-@if(!empty($invoice ->client_phone))
-<a href="{{route('send.invoice.whatsapp',$invoice ->id)}}" class="no-print btn btn-md btn-success"
-   style="left:450px!important;">
-    ارسال الفاتورة واتس اب
-</a>
-@endif
-
-
-<script src="{{asset('assets/js/jquery.min.js')}}"></script>
-
-<script>
-    $(document).ready(function () {
-        window.print();
-    });
-</script>
+@php
+    $backUrl = route($invoice->type === 'purchase_return' ? 'purchase_return.index' : 'purchases.index');
+    $whatsappUrl = ! empty($invoice->client_phone)
+        ? route('send.invoice.whatsapp', $invoice->id)
+        : null;
+@endphp
+@include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl'))
 </body>
 </html>

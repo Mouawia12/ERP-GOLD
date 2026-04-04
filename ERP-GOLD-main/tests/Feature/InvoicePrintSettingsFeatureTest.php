@@ -94,6 +94,32 @@ class InvoicePrintSettingsFeatureTest extends TestCase
         $response->assertSee('<div class="row print-footer-section"', false);
     }
 
+    public function test_print_page_can_temporarily_override_paper_size_from_request(): void
+    {
+        $branch = $this->createBranch('فرع المقاسات', 'paper-override@example.com', '333333333');
+        $user = $this->createUser($branch, 'paper-override-user@example.com');
+        $invoice = $this->createInvoice($branch, $user, 'sale', [
+            'sale_type' => 'simplified',
+            'bill_client_name' => 'عميل اختيار المقاس',
+        ]);
+
+        DB::table('system_settings')->insert([
+            ['key' => 'invoice_print_format', 'value' => 'a4'],
+            ['key' => 'invoice_print_template', 'value' => 'classic'],
+            ['key' => 'invoice_print_show_header', 'value' => '1'],
+            ['key' => 'invoice_print_show_footer', 'value' => '1'],
+        ]);
+
+        $response = $this
+            ->actingAs($user, 'admin-web')
+            ->get(route('sales.show', ['id' => $invoice->id, 'paper' => 'a5'], false));
+
+        $response->assertOk();
+        $response->assertSee('data-print-format="a5"', false);
+        $response->assertSee('id="paper-size-select"', false);
+        $response->assertSee('window.location.href = url.toString();', false);
+    }
+
     private function createBranch(string $name, string $email, string $phone): Branch
     {
         return Branch::create([

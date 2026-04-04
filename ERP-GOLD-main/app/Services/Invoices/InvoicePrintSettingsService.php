@@ -42,12 +42,16 @@ class InvoicePrintSettingsService
      */
     public function currentSettings(): array
     {
-        $format = SystemSetting::getValue(self::FORMAT_KEY, self::FORMAT_A4);
+        $requestedFormat = request()->query('paper');
+        $availableFormats = $this->availableFormats();
+        $format = in_array($requestedFormat, $availableFormats, true)
+            ? $requestedFormat
+            : SystemSetting::getValue(self::FORMAT_KEY, self::FORMAT_A4);
         $template = SystemSetting::getValue(self::TEMPLATE_KEY, 'classic');
         $availableTemplates = array_keys($this->availableTemplates());
 
         return [
-            'format' => in_array($format, $this->availableFormats(), true) ? $format : self::FORMAT_A4,
+            'format' => in_array($format, $availableFormats, true) ? $format : self::FORMAT_A4,
             'show_header' => $this->booleanSetting(self::SHOW_HEADER_KEY, true),
             'show_footer' => $this->booleanSetting(self::SHOW_FOOTER_KEY, true),
             'template' => in_array($template, $availableTemplates, true) ? $template : 'classic',
