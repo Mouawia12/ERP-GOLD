@@ -22,6 +22,11 @@
         $currencyLabel = 'ريال';
         $saleOrderNumber = $invoice->serial ?: '---';
         $grandTotal = $invoice->round_net_total ?: $invoice->net_total;
+        $paymentTypeLabel = [
+            'cash' => 'نقدي',
+            'credit_card' => 'شبكة / بطاقة',
+            'bank_transfer' => 'تحويل بنكي',
+        ][$invoice->payment_type ?: 'cash'] ?? 'نقدي';
         $paymentBreakdown = [
             ['label' => 'نقدي', 'value' => $invoice->cash_paid_total],
             ['label' => 'شبكة', 'value' => $invoice->credit_card_paid_total],
@@ -121,47 +126,46 @@
             <div class="invoice-rule"></div>
 
             <section class="invoice-head-meta">
-                <div>
-                    <table class="meta-table">
-                        <tbody>
-                            <tr>
-                                <th>التاريخ</th>
-                                <td><span class="ltr">{{ $formattedDate }}</span></td>
-                            </tr>
-                            <tr>
-                                <th>الوقت</th>
-                                <td><span class="ltr">{{ $formattedTime }}</span></td>
-                            </tr>
-                            <tr>
-                                <th>الرقم</th>
-                                <td><span class="ltr">{{ $invoice->bill_number }}</span></td>
-                            </tr>
-                            <tr>
-                                <th>النوع</th>
-                                <td>{{ $documentTitle }}</td>
-                            </tr>
-                            <tr>
-                                <th>العميل</th>
-                                <td>{{ $invoice->customerName ?: '---' }}</td>
-                            </tr>
-                            <tr>
-                                <th>الهاتف</th>
-                                <td><span class="ltr">{{ $invoice->customerPhone ?: '---' }}</span></td>
-                            </tr>
-                            <tr>
-                                <th>أمر البيع</th>
-                                <td><span class="ltr">{{ $saleOrderNumber }}</span></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="qr-box">
+                <div class="{{ ! empty($invoice->zatcaQrCode) ? 'qr-box' : 'qr-box is-placeholder' }}">
                     @if(! empty($invoice->zatcaQrCode))
                         <img src="{{ $invoice->zatcaQrCode }}" alt="QR Code">
                     @else
                         <span class="qr-placeholder">QR</span>
                     @endif
+                </div>
+
+                <div class="invoice-meta-list">
+                    <div class="invoice-meta-row">
+                        <span class="invoice-meta-label">الرقم:</span>
+                        <span class="invoice-meta-value ltr">{{ $invoice->bill_number }}</span>
+                    </div>
+                    <div class="invoice-meta-row">
+                        <span class="invoice-meta-label">نوع السداد:</span>
+                        <span class="invoice-meta-value">{{ $paymentTypeLabel }}</span>
+                    </div>
+                    <div class="invoice-meta-row">
+                        <span class="invoice-meta-label">التليفون:</span>
+                        <span class="invoice-meta-value ltr">{{ $invoice->customerPhone ?: '---' }}</span>
+                    </div>
+                </div>
+
+                <div class="invoice-meta-list">
+                    <div class="invoice-meta-row">
+                        <span class="invoice-meta-label">التاريخ:</span>
+                        <span class="invoice-meta-value ltr">{{ $formattedDate }}</span>
+                    </div>
+                    <div class="invoice-meta-row">
+                        <span class="invoice-meta-label">الوقت:</span>
+                        <span class="invoice-meta-value ltr">{{ $formattedTime }}</span>
+                    </div>
+                    <div class="invoice-meta-row">
+                        <span class="invoice-meta-label">العميل:</span>
+                        <span class="invoice-meta-value">{{ $invoice->customerName ?: '---' }}</span>
+                    </div>
+                    <div class="invoice-meta-row">
+                        <span class="invoice-meta-label">أمر البيع:</span>
+                        <span class="invoice-meta-value ltr">{{ $saleOrderNumber }}</span>
+                    </div>
                 </div>
             </section>
 

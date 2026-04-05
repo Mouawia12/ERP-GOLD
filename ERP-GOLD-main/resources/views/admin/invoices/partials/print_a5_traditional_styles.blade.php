@@ -51,15 +51,15 @@
 
     .invoice-header {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 58px minmax(0, 1fr);
-        column-gap: 6px;
+        grid-template-columns: minmax(0, 1fr) 84px minmax(0, 1fr);
+        column-gap: 8px;
         align-items: start;
     }
 
     .company-block {
-        min-height: 58px;
-        font-size: 8.5px;
-        line-height: 1.35;
+        min-height: 82px;
+        font-size: 8.8px;
+        line-height: 1.45;
     }
 
     .company-block.company-en {
@@ -72,7 +72,7 @@
     }
 
     .company-line {
-        margin: 0 0 2px;
+        margin: 0 0 3px;
         word-break: break-word;
     }
 
@@ -85,40 +85,40 @@
     }
 
     .brand-logo {
-        width: 54px;
-        height: 54px;
+        width: 78px;
+        height: 78px;
         object-fit: contain;
         display: block;
-        margin: 0 auto 4px;
+        margin: 0 auto 5px;
     }
 
     .invoice-title {
         margin: 0;
-        font-size: 12px;
+        font-size: 14px;
         font-weight: 700;
         line-height: 1.25;
     }
 
     .invoice-title-en {
         margin: 2px 0 0;
-        font-size: 9px;
+        font-size: 10px;
         font-weight: 700;
         line-height: 1.2;
     }
 
     .invoice-rule {
-        margin: 5px 0 6px;
+        margin: 8px 0 9px;
     }
 
     .invoice-head-meta {
         display: grid;
-        grid-template-columns: 64% 36%;
-        column-gap: 6px;
+        grid-template-columns: 34% 28% 38%;
+        column-gap: 8px;
         align-items: start;
-        margin-bottom: 6px;
+        direction: ltr;
+        margin-bottom: 8px;
     }
 
-    .meta-table,
     .items-table,
     .totals-table,
     .payment-table,
@@ -128,8 +128,6 @@
         table-layout: fixed;
     }
 
-    .meta-table td,
-    .meta-table th,
     .items-table td,
     .items-table th,
     .totals-table td,
@@ -143,7 +141,6 @@
         vertical-align: middle;
     }
 
-    .meta-table th,
     .items-table th,
     .totals-table th,
     .payment-table th,
@@ -152,33 +149,53 @@
         font-weight: 700;
     }
 
-    .meta-table {
-        font-size: 8.5px;
+    .invoice-meta-list {
+        direction: rtl;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        padding-top: 4px;
     }
 
-    .meta-table th {
-        width: 31%;
-        text-align: right;
+    .invoice-meta-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 4px;
+        font-size: 9px;
+        line-height: 1.5;
+        font-weight: 700;
     }
 
-    .meta-table td {
-        text-align: left;
+    .invoice-meta-label {
+        white-space: nowrap;
+    }
+
+    .invoice-meta-value {
+        min-width: 0;
+        word-break: break-word;
     }
 
     .qr-box {
         width: 100%;
-        min-height: 108px;
-        border: 1px solid #999;
+        min-height: 126px;
+        border: 0;
         display: flex;
+        align-items: flex-start;
+        justify-content: flex-start;
+        overflow: hidden;
+        padding: 0;
+    }
+
+    .qr-box.is-placeholder {
+        border: 1px dashed #999;
         align-items: center;
         justify-content: center;
-        overflow: hidden;
         padding: 4px;
     }
 
     .qr-box img {
-        width: 92px;
-        height: 92px;
+        width: 122px;
+        height: 122px;
         object-fit: contain;
     }
 
