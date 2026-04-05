@@ -121,13 +121,13 @@
 
         .invoice-header {
             display: grid;
-            grid-template-columns: 1fr 180px 1fr;
-            column-gap: 18px;
+            grid-template-columns: 1fr 132px 1fr;
+            column-gap: 14px;
             align-items: start;
         }
 
         .company-block {
-            min-height: 132px;
+            min-height: 88px;
         }
 
         .company-block.company-en {
@@ -148,15 +148,31 @@
         }
 
         .header-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             text-align: center;
         }
 
+        .brand-logo-wrap {
+            width: 132px;
+            height: 78px;
+            margin: 0 auto 6px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 0;
+        }
+
         .brand-logo {
-            width: 150px;
-            height: 150px;
+            width: 132px;
+            height: 132px;
             object-fit: contain;
             display: block;
-            margin: 0 auto 10px;
+            margin: 0;
+            transform: scale(2.05);
+            transform-origin: center center;
         }
 
         .invoice-title {
@@ -166,13 +182,13 @@
         }
 
         .invoice-title-en {
-            margin: 4px 0 0;
+            margin: 2px 0 0;
             font-size: 14px;
             font-weight: 700;
         }
 
         .invoice-rule {
-            margin: 12px 0 14px;
+            margin: 8px 0 12px;
         }
 
         .invoice-head-meta {
@@ -368,7 +384,9 @@
                 </section>
 
                 <section class="header-center">
-                    <img src="{{ $brandLogoUrl }}" alt="Logo" class="brand-logo">
+                    <div class="brand-logo-wrap">
+                        <img src="{{ $brandLogoUrl }}" alt="Logo" class="brand-logo">
+                    </div>
                     <h1 class="invoice-title">فاتورة ضريبية مبسطة</h1>
                     <p class="invoice-title-en">Simplified Tax Invoice</p>
                 </section>
