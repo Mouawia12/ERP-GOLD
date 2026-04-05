@@ -244,6 +244,15 @@
         margin-bottom: 6px;
     }
 
+    .reference-summary-grid {
+        direction: ltr;
+        align-items: start;
+    }
+
+    .reference-summary-grid > div {
+        direction: rtl;
+    }
+
     .summary-stack {
         display: flex;
         flex-direction: column;

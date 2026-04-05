@@ -55,25 +55,12 @@
         }
 
         $invoiceSummaryRows = [
-            ['label' => 'قبل الضريبة', 'value' => $invoice->lines_total],
-            ['label' => 'الخصم', 'value' => $invoice->discount_total],
-            ['label' => 'الضريبة', 'value' => $invoice->taxes_total],
-            ['label' => 'الصافي', 'value' => $grandTotal],
+            ['label' => 'صافي الفاتورة قبل الخصم', 'value' => $invoice->lines_total],
+            ['label' => 'إجمالي الخصم', 'value' => $invoice->discount_total],
+            ['label' => 'صافي الفاتورة بعد الخصم', 'value' => $invoice->lines_total_after_discount],
+            ['label' => 'إجمالي الضريبة المضافة', 'value' => $invoice->taxes_total],
+            ['label' => 'الصافي شامل الضريبة', 'value' => $grandTotal],
         ];
-
-        $caratSummary = [];
-        foreach ($invoice->details as $detail) {
-            $weightValue = $isSale ? $detail->out_weight : $detail->in_weight;
-            if (preg_match('/(24|22|21|18)/', (string) $detail->carat_display_label, $matches)) {
-                $caratKey = $matches[1];
-                $caratSummary[$caratKey] = ($caratSummary[$caratKey] ?? 0) + (float) $weightValue;
-            }
-        }
-
-        $caratSummary = collect(['24', '22', '21', '18'])
-            ->filter(fn ($carat) => array_key_exists($carat, $caratSummary))
-            ->map(fn ($carat) => ['label' => 'عيار '.$carat, 'value' => $caratSummary[$carat]])
-            ->values();
 
         $branchAddressAr = $branch->short_address ?: $branch->full_address ?: '---';
         $branchAddressEn = $branchNameEn . ' - ' . ($branch->city ?: $branch->region ?: $branchAddressAr);
@@ -172,11 +159,17 @@
             <table class="items-table">
                 <thead>
                     <tr>
-                        <th style="width: 6%;">م</th>
-                        <th style="width: 36%;">الوصف</th>
-                        <th style="width: 22%;">المواصفات</th>
-                        <th style="width: 16%;">التسعير</th>
-                        <th style="width: 20%;">الإجمالي</th>
+                        <th style="width: 6%;">مسلسل</th>
+                        <th style="width: 16%;">الوصف</th>
+                        <th style="width: 8%;">العيار</th>
+                        <th style="width: 8%;">الوزن</th>
+                        <th style="width: 9%;">ما خلا المعدن</th>
+                        <th style="width: 9%;">سعر الجرام</th>
+                        <th style="width: 7%;">العدد</th>
+                        <th style="width: 11%;">الإجمالي</th>
+                        <th style="width: 8%;">VAT</th>
+                        <th style="width: 8%;">نسبة الضريبة</th>
+                        <th style="width: 10%;">الإجمالي شامل الضريبة</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -186,68 +179,30 @@
                             $nonMetal = $detail->no_metal_type === 'fixed'
                                 ? (float) $detail->no_metal
                                 : ((float) $weight * ((float) $detail->no_metal / 100));
+                            $taxRate = (float) $detail->line_total > 0
+                                ? (((float) $detail->line_tax / (float) $detail->line_total) * 100)
+                                : 0;
                         @endphp
                         <tr>
                             <td>{{ $index + 1 }}</td>
                             <td class="description-cell">
                                 <span class="description-main">{{ strip_tags((string) $detail->item->title) }}</span>
-                                <span class="sub-line ltr">{{ $detail->unit->barcode ?: '---' }}</span>
                             </td>
-                            <td>
-                                <span class="description-main">{{ $detail->carat_display_label ?: '---' }}</span>
-                                <span class="sub-line">وزن: <span class="ltr">{{ $fmtWeight($weight) }}</span></span>
-                                <span class="sub-line">عدد: <span class="ltr">{{ $detail->out_quantity ?: 0 }}</span> | غير المعدن: <span class="ltr">{{ $fmtWeight($nonMetal) }}</span></span>
-                            </td>
-                            <td>
-                                <span class="description-main ltr">{{ $fmtMoney($detail->unit_price) }}</span>
-                                <span class="sub-line">VAT: <span class="ltr">{{ $fmtMoney($detail->line_tax) }}</span></span>
-                            </td>
-                            <td>
-                                <span class="description-main ltr">{{ $fmtMoney($detail->round_net_total) }}</span>
-                                <span class="sub-line">قبل الضريبة: <span class="ltr">{{ $fmtMoney($detail->line_total) }}</span></span>
-                            </td>
+                            <td>{{ $detail->carat_display_label ?: '---' }}</td>
+                            <td><span class="ltr">{{ $fmtWeight($weight) }}</span></td>
+                            <td><span class="ltr">{{ $fmtWeight($nonMetal) }}</span></td>
+                            <td><span class="ltr">{{ $fmtMoney($detail->unit_price) }}</span></td>
+                            <td><span class="ltr">{{ $detail->out_quantity ?: 0 }}</span></td>
+                            <td><span class="ltr">{{ $fmtMoney($detail->line_total) }}</span></td>
+                            <td><span class="ltr">{{ $fmtMoney($detail->line_tax) }}</span></td>
+                            <td><span class="ltr">{{ $fmtMoney($taxRate) }}%</span></td>
+                            <td><span class="ltr">{{ $fmtMoney($detail->round_net_total) }}</span></td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
 
-            <section class="summary-grid">
-                <div class="summary-stack">
-                    <table class="payment-table">
-                        <thead>
-                            <tr>
-                                <th colspan="2">طرق الدفع</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($paymentBreakdown as $paymentRow)
-                                <tr>
-                                    <td>{{ $paymentRow['label'] }}</td>
-                                    <td><span class="ltr">{{ $fmtMoney($paymentRow['value']) }}</span> {{ $currencyLabel }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-
-                    @if($caratSummary->isNotEmpty())
-                        <table class="carat-table">
-                            <thead>
-                                <tr>
-                                    <th colspan="2">تفصيل العيارات</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($caratSummary as $row)
-                                    <tr>
-                                        <td>{{ $row['label'] }}</td>
-                                        <td><span class="ltr">{{ $fmtWeight($row['value']) }}</span></td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    @endif
-                </div>
-
+            <section class="summary-grid reference-summary-grid">
                 <div class="summary-stack">
                     <table class="totals-table">
                         <thead>
@@ -260,6 +215,24 @@
                                 <tr>
                                     <td>{{ $summaryRow['label'] }}</td>
                                     <td><span class="ltr">{{ $fmtMoney($summaryRow['value']) }}</span> {{ $currencyLabel }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="summary-stack">
+                    <table class="payment-table">
+                        <thead>
+                            <tr>
+                                <th colspan="2">طرق الدفع</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($paymentBreakdown as $paymentRow)
+                                <tr>
+                                    <td>{{ $paymentRow['label'] }}</td>
+                                    <td><span class="ltr">{{ $fmtMoney($paymentRow['value']) }}</span> {{ $currencyLabel }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
