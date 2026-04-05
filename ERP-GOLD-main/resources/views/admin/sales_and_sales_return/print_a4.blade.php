@@ -121,7 +121,7 @@
 
         .invoice-header {
             display: grid;
-            grid-template-columns: 1fr 132px 1fr;
+            grid-template-columns: 1fr 168px 1fr;
             column-gap: 14px;
             align-items: start;
         }
@@ -155,8 +155,8 @@
         }
 
         .brand-logo-wrap {
-            width: 132px;
-            height: 78px;
+            width: 168px;
+            height: 88px;
             margin: 0 auto 6px;
             overflow: hidden;
             display: flex;
@@ -166,25 +166,27 @@
         }
 
         .brand-logo {
-            width: 132px;
-            height: 132px;
+            width: 124px;
+            height: 124px;
             object-fit: contain;
             display: block;
             margin: 0;
-            transform: scale(2.05);
+            transform: scale(1.42);
             transform-origin: center center;
         }
 
         .invoice-title {
             margin: 0;
-            font-size: 18px;
+            font-size: 17px;
             font-weight: 700;
+            white-space: nowrap;
         }
 
         .invoice-title-en {
             margin: 2px 0 0;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 700;
+            white-space: nowrap;
         }
 
         .invoice-rule {
