@@ -9,27 +9,25 @@
         $documentTitle = $invoice->sale_type === 'standard'
             ? ($isSale ? __('main.sales_standard') : __('main.sales_standard_return'))
             : ($isSale ? __('main.sales_simplified') : __('main.sales_simplified_return'));
+        $documentTitleEn = $invoice->sale_type === 'standard'
+            ? ($isSale ? 'Tax Invoice' : 'Tax Invoice Return')
+            : ($isSale ? 'Simplified Tax Invoice' : 'Simplified Tax Invoice Return');
         $companyNameAr = $subscriber?->name ?: (method_exists($branch, 'getTranslation') ? $branch->getTranslation('name', 'ar') : $branch->name);
-        $companyNameEn = method_exists($branch, 'getTranslation')
-            ? ($branch->getTranslation('name', 'en') ?: $companyNameAr)
-            : $companyNameAr;
         $branchNameAr = method_exists($branch, 'getTranslation') ? ($branch->getTranslation('name', 'ar') ?: $branch->name) : $branch->name;
-        $branchNameEn = method_exists($branch, 'getTranslation') ? ($branch->getTranslation('name', 'en') ?: $branchNameAr) : $branchNameAr;
-        $formattedDate = \Carbon\Carbon::parse($invoice->date)->format('d/m/Y');
+        $formattedDate = \Carbon\Carbon::parse($invoice->date)->format('d-m-Y');
         $formattedTime = $invoice->time ? \Carbon\Carbon::parse($invoice->time)->format('H:i') : now()->format('H:i');
         $fmtMoney = fn ($value) => number_format((float) $value, 2);
         $fmtWeight = fn ($value) => number_format((float) $value, 3);
-        $currencyLabel = 'ريال';
         $printTemplate = $printSettings['template'] ?? 'classic';
         $showHeader = $printSettings['show_header'] ?? true;
         $showFooter = $printSettings['show_footer'] ?? true;
         $saleOrderNumber = $invoice->serial ?: '---';
-        $grandTotal = $invoice->round_net_total ?: $invoice->net_total;
         $paymentTypeLabel = [
             'cash' => 'نقدي',
             'credit_card' => 'شبكة / بطاقة',
             'bank_transfer' => 'تحويل بنكي',
         ][$invoice->payment_type ?: 'cash'] ?? 'نقدي';
+
         $paymentBreakdown = [
             ['label' => 'نقدي', 'value' => $invoice->cash_paid_total],
             ['label' => 'شبكة', 'value' => $invoice->credit_card_paid_total],
@@ -39,43 +37,36 @@
             $paymentBreakdown[] = ['label' => 'تحويل', 'value' => $invoice->bank_transfer_paid_total];
         }
 
-        $bankPaymentLines = collect($invoice->payment_lines_breakdown ?? [])
-            ->filter(fn ($paymentLine) => ! empty($paymentLine['bank_account_name']))
-            ->map(function ($paymentLine) {
-                $label = $paymentLine['method_label'].' - '.$paymentLine['bank_account_name'];
-                if (! empty($paymentLine['reference_no'])) {
-                    $label .= ' / '.$paymentLine['reference_no'];
-                }
+        foreach (collect($invoice->payment_lines_breakdown ?? [])->filter(fn ($paymentLine) => ! empty($paymentLine['bank_account_name'])) as $paymentLine) {
+            $label = $paymentLine['method_label'].' - '.$paymentLine['bank_account_name'];
+            if (! empty($paymentLine['reference_no'])) {
+                $label .= ' / '.$paymentLine['reference_no'];
+            }
 
-                return [
-                    'label' => $label,
-                    'value' => $paymentLine['amount'],
-                ];
-            });
-
-        foreach ($bankPaymentLines as $paymentLine) {
-            $paymentBreakdown[] = $paymentLine;
+            $paymentBreakdown[] = [
+                'label' => $label,
+                'value' => $paymentLine['amount'],
+            ];
         }
 
-        $invoiceSummaryRows = [
-            ['label' => 'صافي الفاتورة قبل الخصم', 'value' => $invoice->lines_total],
-            ['label' => 'إجمالي الخصم', 'value' => $invoice->discount_total],
-            ['label' => 'صافي الفاتورة بعد الخصم', 'value' => $invoice->lines_total_after_discount],
-            ['label' => 'إجمالي الضريبة المضافة', 'value' => $invoice->taxes_total],
-            ['label' => 'الصافي شامل الضريبة', 'value' => $grandTotal],
+        $summaryRows = [
+            ['label' => 'الإجمالي قبل الضريبة', 'label_en' => '(Total Without Vat)', 'value' => $invoice->lines_total],
+            ['label' => 'الخصم', 'label_en' => '(Discount Value)', 'value' => $invoice->discount_total],
+            ['label' => 'ضريبة القيمة المضافة', 'label_en' => '(Add Value Vat)', 'value' => $invoice->taxes_total],
+            ['label' => 'قيمة الفاتورة', 'label_en' => '(Total)', 'value' => $invoice->round_net_total ?: $invoice->net_total],
         ];
 
-        $branchAddressAr = $branch->short_address ?: $branch->full_address ?: '---';
-        $branchAddressEn = $branchNameEn . ' - ' . ($branch->city ?: $branch->region ?: $branchAddressAr);
+        $invoiceTerms = trim((string) ($invoice->invoice_terms ?? ''));
         $backUrl = route($isSale ? 'sales.index' : 'sales_return.index', $invoice->sale_type);
         $whatsappUrl = ! empty($invoice->client_phone)
             ? route('send.invoice.whatsapp', $invoice->id)
             : null;
+        $branchAddressAr = $branch->short_address ?: $branch->full_address ?: '---';
     @endphp
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>{{ $documentTitle }} {{ $invoice->bill_number }}</title>
-    @include('admin.invoices.partials.print_a5_traditional_styles')
+    @include('admin.invoices.partials.print_a5_reference_styles')
 </head>
 <body
     data-print-format="a5"
@@ -86,149 +77,135 @@
 >
     <div class="page">
         <div class="page-content">
-            @if($showHeader)
-                <header class="invoice-header">
-                    <section class="company-block company-ar">
-                        <p class="company-line company-name">{{ $companyNameAr }}</p>
-                        <p class="company-line">الرقم الضريبي: <span class="ltr">{{ $branch->tax_number ?: '---' }}</span></p>
-                        <p class="company-line">السجل التجاري: <span class="ltr">{{ $branch->commercial_register ?: '---' }}</span></p>
-                        @if(! empty($branch->license_number))
-                            <p class="company-line">رخصة المعادن: <span class="ltr">{{ $branch->license_number }}</span></p>
+            <div class="invoice-shell">
+                @if($showHeader)
+                    <section class="micro-header">
+                        <div class="micro-header-block">
+                            <span class="micro-header-title">{{ $companyNameAr }}</span>
+                            <span>الفرع: {{ $branchNameAr }}</span>
+                        </div>
+                        <div class="micro-header-block">
+                            <span>الرقم الضريبي: <span class="ltr">{{ $branch->tax_number ?: '---' }}</span></span>
+                            <span>السجل التجاري: <span class="ltr">{{ $branch->commercial_register ?: '---' }}</span></span>
+                        </div>
+                    </section>
+                @endif
+
+                <section class="compact-head">
+                    <div class="{{ ! empty($invoice->zatcaQrCode) ? 'compact-qr' : 'compact-qr is-placeholder' }}">
+                        @if(! empty($invoice->zatcaQrCode))
+                            <img src="{{ $invoice->zatcaQrCode }}" alt="QR Code">
+                        @else
+                            <span class="qr-placeholder">QR</span>
                         @endif
-                        <p class="company-line">الفرع: {{ $branchNameAr }}</p>
-                    </section>
-
-                    <section class="header-center">
-                        <img src="{{ $brandLogoUrl }}" alt="Logo" class="brand-logo">
-                        <h1 class="invoice-title">{{ $invoice->sale_type === 'standard' ? 'فاتورة ضريبية' : 'فاتورة ضريبية مبسطة' }}</h1>
-                        <p class="invoice-title-en">{{ $invoice->sale_type === 'standard' ? 'Tax Invoice' : 'Simplified Tax Invoice' }}</p>
-                    </section>
-
-                    <section class="company-block company-en">
-                        <p class="company-line company-name">{{ $companyNameEn }}</p>
-                        <p class="company-line">Tax Number: <span class="ltr">{{ $branch->tax_number ?: '---' }}</span></p>
-                        <p class="company-line">Commercial Registry: <span class="ltr">{{ $branch->commercial_register ?: '---' }}</span></p>
-                        @if(! empty($branch->license_number))
-                            <p class="company-line">Mineral License: <span class="ltr">{{ $branch->license_number }}</span></p>
-                        @endif
-                        <p class="company-line">Branch: {{ $branchNameEn }}</p>
-                    </section>
-                </header>
-
-                <div class="invoice-rule"></div>
-            @endif
-
-            <section class="invoice-head-meta">
-                <div class="{{ ! empty($invoice->zatcaQrCode) ? 'qr-box' : 'qr-box is-placeholder' }}">
-                    @if(! empty($invoice->zatcaQrCode))
-                        <img src="{{ $invoice->zatcaQrCode }}" alt="QR Code">
-                    @else
-                        <span class="qr-placeholder">QR</span>
-                    @endif
-                </div>
-
-                <div class="invoice-meta-list">
-                    <div class="invoice-meta-row">
-                        <span class="invoice-meta-label">الرقم:</span>
-                        <span class="invoice-meta-value ltr">{{ $invoice->bill_number }}</span>
                     </div>
-                    <div class="invoice-meta-row">
-                        <span class="invoice-meta-label">نوع السداد:</span>
-                        <span class="invoice-meta-value">{{ $paymentTypeLabel }}</span>
-                    </div>
-                    <div class="invoice-meta-row">
-                        <span class="invoice-meta-label">التليفون:</span>
-                        <span class="invoice-meta-value ltr">{{ $invoice->customerPhone ?: '---' }}</span>
-                    </div>
-                </div>
 
-                <div class="invoice-meta-list">
-                    <div class="invoice-meta-row">
-                        <span class="invoice-meta-label">التاريخ:</span>
-                        <span class="invoice-meta-value ltr">{{ $formattedDate }}</span>
+                    <div class="compact-title-block">
+                        <h1 class="compact-title">{{ $invoice->sale_type === 'standard' ? 'فاتورة ضريبية' : 'فاتورة ضريبية مبسطة' }}</h1>
+                        <p class="compact-subtitle">{{ $documentTitleEn }}</p>
                     </div>
-                    <div class="invoice-meta-row">
-                        <span class="invoice-meta-label">الوقت:</span>
-                        <span class="invoice-meta-value ltr">{{ $formattedTime }}</span>
-                    </div>
-                    <div class="invoice-meta-row">
-                        <span class="invoice-meta-label">العميل:</span>
-                        <span class="invoice-meta-value">{{ $invoice->customerName ?: '---' }}</span>
-                    </div>
-                    <div class="invoice-meta-row">
-                        <span class="invoice-meta-label">أمر البيع:</span>
-                        <span class="invoice-meta-value ltr">{{ $saleOrderNumber }}</span>
-                    </div>
-                </div>
-            </section>
 
-            <table class="items-table">
-                <thead>
-                    <tr>
-                        <th style="width: 6%;">مسلسل</th>
-                        <th style="width: 16%;">الوصف</th>
-                        <th style="width: 8%;">العيار</th>
-                        <th style="width: 8%;">الوزن</th>
-                        <th style="width: 9%;">ما خلا المعدن</th>
-                        <th style="width: 9%;">سعر الجرام</th>
-                        <th style="width: 7%;">العدد</th>
-                        <th style="width: 11%;">الإجمالي</th>
-                        <th style="width: 8%;">VAT</th>
-                        <th style="width: 8%;">نسبة الضريبة</th>
-                        <th style="width: 10%;">الإجمالي شامل الضريبة</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($invoice->details->values() as $index => $detail)
-                        @php
-                            $weight = $isSale ? $detail->out_weight : $detail->in_weight;
-                            $nonMetal = $detail->no_metal_type === 'fixed'
-                                ? (float) $detail->no_metal
-                                : ((float) $weight * ((float) $detail->no_metal / 100));
-                            $taxRate = (float) $detail->line_total > 0
-                                ? (((float) $detail->line_tax / (float) $detail->line_total) * 100)
-                                : 0;
-                        @endphp
+                    <div class="compact-meta">
+                        <div class="compact-meta-row">
+                            <span class="compact-meta-label">رقم الفاتورة :</span>
+                            <span class="compact-meta-value ltr">{{ $invoice->bill_number }}</span>
+                        </div>
+                        <div class="compact-meta-row">
+                            <span class="compact-meta-label">التاريخ :</span>
+                            <span class="compact-meta-value ltr">{{ $formattedDate }}</span>
+                        </div>
+                        <div class="compact-meta-row">
+                            <span class="compact-meta-label">الوقت :</span>
+                            <span class="compact-meta-value ltr">{{ $formattedTime }}</span>
+                        </div>
+                        <div class="compact-meta-row">
+                            <span class="compact-meta-label">نوع السداد :</span>
+                            <span class="compact-meta-value">{{ $paymentTypeLabel }}</span>
+                        </div>
+                        <div class="compact-meta-row">
+                            <span class="compact-meta-label">العميل :</span>
+                            <span class="compact-meta-value">{{ $invoice->customerName ?: 'عميل افتراضي' }}</span>
+                        </div>
+                        <div class="compact-meta-row">
+                            <span class="compact-meta-label">رقم أمر البيع :</span>
+                            <span class="compact-meta-value ltr">{{ $saleOrderNumber }}</span>
+                        </div>
+                    </div>
+                </section>
+
+                <table class="reference-table">
+                    <thead>
                         <tr>
-                            <td>{{ $index + 1 }}</td>
-                            <td class="description-cell">
-                                <span class="description-main">{{ strip_tags((string) $detail->item->title) }}</span>
-                            </td>
-                            <td>{{ $detail->carat_display_label ?: '---' }}</td>
-                            <td><span class="ltr">{{ $fmtWeight($weight) }}</span></td>
-                            <td><span class="ltr">{{ $fmtWeight($nonMetal) }}</span></td>
-                            <td><span class="ltr">{{ $fmtMoney($detail->unit_price) }}</span></td>
-                            <td><span class="ltr">{{ $detail->out_quantity ?: 0 }}</span></td>
-                            <td><span class="ltr">{{ $fmtMoney($detail->line_total) }}</span></td>
-                            <td><span class="ltr">{{ $fmtMoney($detail->line_tax) }}</span></td>
-                            <td><span class="ltr">{{ $fmtMoney($taxRate) }}%</span></td>
-                            <td><span class="ltr">{{ $fmtMoney($detail->round_net_total) }}</span></td>
+                            <th style="width: 5%;">
+                                <span class="head-main">م</span>
+                            </th>
+                            <th style="width: 21%;">
+                                <span class="head-main">وصف الصنف</span>
+                                <span class="head-sub">(Item)</span>
+                            </th>
+                            <th style="width: 8%;">
+                                <span class="head-main">العيار</span>
+                                <span class="head-sub">(Karat)</span>
+                            </th>
+                            <th style="width: 10%;">
+                                <span class="head-main">وزن الذهب</span>
+                                <span class="head-sub">(Weight)</span>
+                            </th>
+                            <th style="width: 8%;">
+                                <span class="head-main">العدد</span>
+                                <span class="head-sub">(Count)</span>
+                            </th>
+                            <th style="width: 10%;">
+                                <span class="head-main">ما خلا من المعدن</span>
+                                <span class="head-sub">(Non Metal)</span>
+                            </th>
+                            <th style="width: 10%;">
+                                <span class="head-main">سعر الجرام</span>
+                                <span class="head-sub">(Gram Price)</span>
+                            </th>
+                            <th style="width: 10%;">
+                                <span class="head-main">الإجمالي</span>
+                                <span class="head-sub">(Total)</span>
+                            </th>
+                            <th style="width: 8%;">
+                                <span class="head-main">الضريبة</span>
+                                <span class="head-sub">(Vat)</span>
+                            </th>
+                            <th style="width: 10%;">
+                                <span class="head-main">الإجمالي شامل الضريبة</span>
+                                <span class="head-sub">(Total With Vat)</span>
+                            </th>
                         </tr>
-                    @endforeach
-                </tbody>
-            </table>
-
-            <section class="summary-grid reference-summary-grid">
-                <div class="summary-stack">
-                    <table class="totals-table">
-                        <thead>
+                    </thead>
+                    <tbody>
+                        @foreach($invoice->details->values() as $index => $detail)
+                            @php
+                                $weight = $isSale ? $detail->out_weight : $detail->in_weight;
+                                $nonMetal = $detail->no_metal_type === 'fixed'
+                                    ? (float) $detail->no_metal
+                                    : ((float) $weight * ((float) $detail->no_metal / 100));
+                            @endphp
                             <tr>
-                                <th colspan="2">ملخص الفاتورة</th>
+                                <td>{{ $index + 1 }}</td>
+                                <td class="description-cell">
+                                    <span class="description-main">{{ strip_tags((string) $detail->item->title) }}</span>
+                                    <span class="description-sub ltr">{{ $detail->unit->barcode ?: '---' }}</span>
+                                </td>
+                                <td>{{ $detail->carat_display_label ?: '---' }}</td>
+                                <td><span class="ltr">{{ $fmtWeight($weight) }}</span></td>
+                                <td><span class="ltr">{{ $detail->out_quantity ?: 0 }}</span></td>
+                                <td><span class="ltr">{{ $fmtWeight($nonMetal) }}</span></td>
+                                <td><span class="ltr">{{ $fmtMoney($detail->unit_price) }}</span></td>
+                                <td><span class="ltr">{{ $fmtMoney($detail->line_total) }}</span></td>
+                                <td><span class="ltr">{{ $fmtMoney($detail->line_tax) }}</span></td>
+                                <td><span class="ltr">{{ $fmtMoney($detail->round_net_total) }}</span></td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($invoiceSummaryRows as $summaryRow)
-                                <tr>
-                                    <td>{{ $summaryRow['label'] }}</td>
-                                    <td><span class="ltr">{{ $fmtMoney($summaryRow['value']) }}</span> {{ $currencyLabel }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                        @endforeach
+                    </tbody>
+                </table>
 
-                <div class="summary-stack">
-                    <table class="payment-table">
+                <section class="summary-grid">
+                    <table class="summary-table">
                         <thead>
                             <tr>
                                 <th colspan="2">طرق الدفع</th>
@@ -237,26 +214,57 @@
                         <tbody>
                             @foreach($paymentBreakdown as $paymentRow)
                                 <tr>
-                                    <td>{{ $paymentRow['label'] }}</td>
-                                    <td><span class="ltr">{{ $fmtMoney($paymentRow['value']) }}</span> {{ $currencyLabel }}</td>
+                                    <td class="summary-label">{{ $paymentRow['label'] }}</td>
+                                    <td class="summary-value"><span class="ltr">{{ $fmtMoney($paymentRow['value']) }}</span></td>
                                 </tr>
                             @endforeach
                         </tbody>
                     </table>
-                </div>
-            </section>
 
-            <p class="seller-line">البائع: {{ $invoice->user->name ?: '---' }}</p>
+                    <table class="summary-table">
+                        <thead>
+                            <tr>
+                                <th colspan="2">ملخص الفاتورة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($summaryRows as $summaryRow)
+                                <tr>
+                                    <td class="summary-label">
+                                        {{ $summaryRow['label'] }}
+                                        <span class="summary-sub">{{ $summaryRow['label_en'] }}</span>
+                                    </td>
+                                    <td class="summary-value"><span class="ltr">{{ $fmtMoney($summaryRow['value']) }}</span></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </section>
 
-            @if(! empty($invoice->invoice_terms))
-                <p class="notes-line">ملاحظات: {{ $invoice->invoice_terms }}</p>
-            @endif
+                @if($invoiceTerms !== '')
+                    <section class="terms-box">
+                        <div class="terms-title">شروط الفاتورة</div>
+                        <div class="terms-content">{{ $invoiceTerms }}</div>
+                    </section>
+                @endif
+
+                <section class="signatures">
+                    <div class="signature-box">
+                        <span class="signature-label">اسم البائع</span>
+                        <span class="signature-line">{{ $invoice->user->name ?: '------' }}</span>
+                    </div>
+                    <div class="signature-box">
+                        <span class="signature-label">مدير الفرع</span>
+                        <span class="signature-line">------</span>
+                    </div>
+                </section>
+            </div>
         </div>
 
         @if($showFooter)
-            <footer class="page-footer">
-                <div class="footer-right">{{ $branchAddressAr }}</div>
-                <div class="footer-left">{{ $branchAddressEn }}</div>
+            <footer class="micro-footer">
+                <div>{{ $branchAddressAr }}</div>
+                <div class="ltr">{{ $branch->phone ?: '---' }}</div>
             </footer>
         @endif
     </div>

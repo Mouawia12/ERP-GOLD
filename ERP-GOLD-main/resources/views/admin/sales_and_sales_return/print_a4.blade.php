@@ -419,6 +419,25 @@
             overflow-wrap: anywhere;
         }
 
+        .terms-box {
+            margin: 0 0 10px;
+            padding: 8px 10px;
+            border: 1px solid #999;
+            font-size: 10px;
+            line-height: 1.45;
+        }
+
+        .terms-box-title {
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .terms-box-content {
+            white-space: pre-line;
+            max-height: 48px;
+            overflow: hidden;
+        }
+
         .page-footer {
             margin-top: auto;
             padding-top: 8px;
@@ -672,6 +691,13 @@
                     </table>
                 </div>
             </section>
+
+            @if(! empty($invoice->invoice_terms))
+                <section class="terms-box">
+                    <div class="terms-box-title">شروط الفاتورة</div>
+                    <div class="terms-box-content">{{ $invoice->invoice_terms }}</div>
+                </section>
+            @endif
 
             <p class="seller-line">البائع: {{ $invoice->user->name ?: '---' }}</p>
         </div>

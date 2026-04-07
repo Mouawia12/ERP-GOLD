@@ -34,6 +34,7 @@ class InvoicePrintSettingsFeatureTest extends TestCase
             'sale_type' => 'simplified',
             'bill_client_name' => 'عميل اختبار',
             'bill_client_phone' => '0550000000',
+            'invoice_terms' => "شرط أول\nشرط ثاني",
         ]);
 
         DB::table('system_settings')->insert([
@@ -53,6 +54,8 @@ class InvoicePrintSettingsFeatureTest extends TestCase
         $response->assertSee('data-show-header="0"', false);
         $response->assertSee('data-show-footer="0"', false);
         $response->assertSee('class="invoice-print-format-a5 invoice-template-compact"', false);
+        $response->assertSee('شروط الفاتورة');
+        $response->assertSee('شرط أول');
         $response->assertDontSee('<header class="invoice-header">', false);
         $response->assertDontSee('<footer class="page-footer">', false);
     }
@@ -165,6 +168,7 @@ class InvoicePrintSettingsFeatureTest extends TestCase
             'sale_type' => 'simplified',
             'bill_client_name' => 'عميل تصميم A4',
             'bill_client_phone' => '0554444444',
+            'invoice_terms' => 'شروط A4 الافتراضية',
         ]);
 
         DB::table('system_settings')->insert([
@@ -184,6 +188,8 @@ class InvoicePrintSettingsFeatureTest extends TestCase
         $response->assertSee('class="page"', false);
         $response->assertSee('class="page-content"', false);
         $response->assertSee('Simplified Tax Invoice');
+        $response->assertSee('شروط الفاتورة');
+        $response->assertSee('شروط A4 الافتراضية');
         $response->assertSee('<header class="invoice-header">', false);
         $response->assertSee('<footer class="page-footer">', false);
         $response->assertSee('class="items-table"', false);
