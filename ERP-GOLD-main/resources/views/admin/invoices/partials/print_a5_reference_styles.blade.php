@@ -35,6 +35,7 @@
         --screen-outline: #d8dce2;
         --shell-width: 108mm;
         --qr-size: 19mm;
+        --meta-width: 42mm;
         --terms-max-height: 13mm;
         --page-padding-top: 6mm;
         --page-padding-inline: 7mm;
@@ -51,23 +52,25 @@
     body.invoice-template-compact {
         --shell-width: 104mm;
         --qr-size: 17mm;
+        --meta-width: 40mm;
         --terms-max-height: 11mm;
     }
 
     body.invoice-paper-ready {
-        --shell-width: 98mm;
-        --qr-size: 15mm;
-        --terms-max-height: 9mm;
+        --shell-width: 101mm;
+        --qr-size: 14mm;
+        --meta-width: 37mm;
+        --terms-max-height: 7.5mm;
         --page-padding-top: 16mm;
-        --page-padding-inline: 11mm;
+        --page-padding-inline: 9mm;
         --page-padding-bottom: 15mm;
-        --head-gap: 3mm;
-        --head-margin-bottom: 2mm;
-        --table-cell-padding-block: 0.9mm;
-        --table-cell-padding-inline: 0.8mm;
-        --summary-gap: 1.5mm;
-        --signature-gap: 6mm;
-        --signature-margin-top: 2mm;
+        --head-gap: 2.4mm;
+        --head-margin-bottom: 1.5mm;
+        --table-cell-padding-block: 0.68mm;
+        --table-cell-padding-inline: 0.7mm;
+        --summary-gap: 1.1mm;
+        --signature-gap: 4.8mm;
+        --signature-margin-top: 1.3mm;
     }
 
     body.invoice-template-modern {
@@ -136,7 +139,7 @@
 
     .compact-head {
         display: grid;
-        grid-template-columns: var(--qr-size) minmax(0, 1fr) 42mm;
+        grid-template-columns: var(--qr-size) minmax(0, 1fr) var(--meta-width);
         gap: var(--head-gap);
         align-items: start;
         direction: ltr;
@@ -224,7 +227,14 @@
     .summary-table {
         width: 100%;
         border-collapse: collapse;
+    }
+
+    .reference-table {
         table-layout: fixed;
+    }
+
+    .summary-table {
+        table-layout: auto;
     }
 
     .reference-table {
@@ -292,45 +302,64 @@
 
     .summary-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
         gap: var(--summary-gap);
-        margin-bottom: 2.2mm;
+        margin-bottom: 1.7mm;
     }
 
     .summary-label {
         font-weight: 700;
+        line-height: 1.18;
     }
 
     .summary-sub {
-        display: block;
-        margin-top: 0.2mm;
-        font-size: 5.4px;
-        line-height: 1.1;
+        display: inline;
+        margin-inline-start: 0.45mm;
+        font-size: 5.1px;
+        line-height: 1;
         color: #6b7280;
         direction: ltr;
     }
 
     .summary-value {
-        width: 29%;
+        width: 25%;
         text-align: center;
         white-space: nowrap;
+        line-height: 1.1;
+    }
+
+    .payment-table .summary-label {
+        width: 56%;
+        font-size: 6.2px;
+    }
+
+    .payment-table .summary-value {
+        width: 44%;
+    }
+
+    .invoice-summary-table .summary-label {
+        width: 75%;
+    }
+
+    .invoice-summary-table .summary-value {
+        width: 25%;
     }
 
     .terms-box {
-        margin-bottom: 2.3mm;
+        margin-bottom: 1.7mm;
         border: 1px solid var(--line-color);
-        padding: 1.4mm 1.7mm;
+        padding: 1.05mm 1.45mm;
     }
 
     .terms-title {
-        margin-bottom: 0.6mm;
+        margin-bottom: 0.35mm;
         font-size: 6.6px;
         font-weight: 700;
     }
 
     .terms-content {
-        font-size: 6.1px;
-        line-height: 1.45;
+        font-size: 5.85px;
+        line-height: 1.28;
         white-space: pre-line;
         max-height: var(--terms-max-height);
         overflow: hidden;
@@ -350,7 +379,7 @@
 
     .signature-label {
         display: block;
-        margin-bottom: 2.2mm;
+        margin-bottom: 1.1mm;
         font-weight: 700;
     }
 
@@ -358,10 +387,105 @@
         display: flex;
         align-items: flex-end;
         justify-content: center;
-        min-height: 8mm;
-        padding-top: 4mm;
+        min-height: 5.9mm;
+        padding-top: 2.3mm;
         border-top: 1px solid var(--line-strong);
         overflow-wrap: anywhere;
+    }
+
+    body.invoice-paper-ready .compact-title-block {
+        padding-top: 0.4mm;
+    }
+
+    body.invoice-paper-ready .compact-title {
+        font-size: 9.5px;
+        line-height: 1.12;
+    }
+
+    body.invoice-paper-ready .compact-subtitle {
+        margin-top: 0.25mm;
+        font-size: 5.5px;
+    }
+
+    body.invoice-paper-ready .compact-meta {
+        font-size: 6.15px;
+        line-height: 1.38;
+    }
+
+    body.invoice-paper-ready .reference-table {
+        margin-bottom: 1.4mm;
+        font-size: 6.35px;
+    }
+
+    body.invoice-paper-ready .description-main {
+        font-size: 6.5px;
+        line-height: 1.08;
+    }
+
+    body.invoice-paper-ready .description-sub {
+        margin-top: 0.15mm;
+        font-size: 5.1px;
+        line-height: 1.05;
+    }
+
+    body.invoice-paper-ready .summary-grid {
+        grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+        margin-bottom: 1.3mm;
+    }
+
+    body.invoice-paper-ready .summary-table th,
+    body.invoice-paper-ready .summary-table td {
+        line-height: 1.08;
+    }
+
+    body.invoice-paper-ready .payment-table .summary-label {
+        width: 53%;
+        font-size: 5.95px;
+    }
+
+    body.invoice-paper-ready .payment-table .summary-value {
+        width: 47%;
+    }
+
+    body.invoice-paper-ready .invoice-summary-table .summary-label {
+        width: 78%;
+    }
+
+    body.invoice-paper-ready .invoice-summary-table .summary-value {
+        width: 22%;
+    }
+
+    body.invoice-paper-ready .invoice-summary-table .summary-sub {
+        margin-inline-start: 0.3mm;
+        font-size: 4.6px;
+    }
+
+    body.invoice-paper-ready .terms-box {
+        margin-bottom: 1.25mm;
+        padding: 0.85mm 1.15mm;
+    }
+
+    body.invoice-paper-ready .terms-title {
+        margin-bottom: 0.2mm;
+        font-size: 6.1px;
+    }
+
+    body.invoice-paper-ready .terms-content {
+        font-size: 5.45px;
+        line-height: 1.18;
+    }
+
+    body.invoice-paper-ready .signatures {
+        font-size: 6.45px;
+    }
+
+    body.invoice-paper-ready .signature-label {
+        margin-bottom: 0.9mm;
+    }
+
+    body.invoice-paper-ready .signature-line {
+        min-height: 5.2mm;
+        padding-top: 1.8mm;
     }
 
     .micro-footer {

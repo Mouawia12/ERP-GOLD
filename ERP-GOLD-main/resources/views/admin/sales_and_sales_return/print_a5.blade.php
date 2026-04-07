@@ -207,7 +207,7 @@
                 </table>
 
                 <section class="summary-grid">
-                    <table class="summary-table">
+                    <table class="summary-table payment-table">
                         <thead>
                             <tr>
                                 <th colspan="2">طرق الدفع</th>
@@ -223,7 +223,7 @@
                         </tbody>
                     </table>
 
-                    <table class="summary-table">
+                    <table class="summary-table invoice-summary-table">
                         <thead>
                             <tr>
                                 <th colspan="2">ملخص الفاتورة</th>
