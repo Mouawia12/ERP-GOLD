@@ -75,6 +75,7 @@
     data-print-template="{{ $printTemplate }}"
     data-show-header="{{ $showHeader ? '1' : '0' }}"
     data-show-footer="{{ $showFooter ? '1' : '0' }}"
+    data-paper-orientation="{{ $compactStandalonePrint ? 'landscape' : 'portrait' }}"
     class="invoice-print-format-a5 invoice-template-{{ $printTemplate }}{{ $compactStandalonePrint ? ' invoice-paper-ready' : '' }}"
 >
     <div class="page">
