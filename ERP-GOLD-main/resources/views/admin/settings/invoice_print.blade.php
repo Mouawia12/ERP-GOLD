@@ -49,8 +49,8 @@
                             @endforeach
                         </div>
 
-                        <div class="form-group mb-4">
-                            <label class="d-block font-weight-bold mb-3">قالب الطباعة</label>
+	                        <div class="form-group mb-4">
+	                            <label class="d-block font-weight-bold mb-3">قالب الطباعة</label>
                             <div class="row">
                                 @foreach ($availableTemplates as $templateKey => $templateLabel)
                                     <div class="col-md-4 mb-3">
@@ -86,10 +86,44 @@
                                     </div>
                                 @endforeach
                             </div>
-                        </div>
+	                        </div>
 
-                        <div class="form-group mb-4">
-                            <label class="d-block font-weight-bold mb-3">عناصر الطباعة</label>
+	                        <div class="form-group mb-4">
+	                            <label class="d-block font-weight-bold mb-3">اتجاه طباعة A5</label>
+	                            <div class="row">
+	                                @foreach ($availableOrientations as $orientationKey => $orientationLabel)
+	                                    <div class="col-md-6 mb-3">
+	                                        <div class="card border h-100">
+	                                            <div class="card-body">
+	                                                <div class="custom-control custom-radio">
+	                                                    <input
+	                                                        type="radio"
+	                                                        id="orientation_{{ $orientationKey }}"
+	                                                        name="orientation"
+	                                                        value="{{ $orientationKey }}"
+	                                                        class="custom-control-input"
+	                                                        {{ ($printSettings['orientation'] ?? 'portrait') === $orientationKey ? 'checked' : '' }}
+	                                                    >
+	                                                    <label class="custom-control-label font-weight-bold" for="orientation_{{ $orientationKey }}">
+	                                                        {{ $orientationLabel }}
+	                                                    </label>
+	                                                </div>
+	                                                <small class="text-muted d-block mt-2">
+	                                                    @if($orientationKey === 'landscape')
+	                                                        مناسب أكثر للطباعة على الأوراق الجاهزة ذات الترويسة والتذييل المطبوعة مسبقًا.
+	                                                    @else
+	                                                        مناسب للطباعة التقليدية أو عندما تكون مساحة الفاتورة عمودية.
+	                                                    @endif
+	                                                </small>
+	                                            </div>
+	                                        </div>
+	                                    </div>
+	                                @endforeach
+	                            </div>
+	                        </div>
+
+	                        <div class="form-group mb-4">
+	                            <label class="d-block font-weight-bold mb-3">عناصر الطباعة</label>
 
                             <div class="custom-control custom-checkbox mb-3">
                                 <input

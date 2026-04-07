@@ -78,6 +78,11 @@
                                             <h5 class="alert alert-info text-center mb-4">
                                                 تسجيل الدخول
                                             </h5>
+                                            @if (session('success'))
+                                                <div class="alert alert-success text-center">
+                                                    {{ session('success') }}
+                                                </div>
+                                            @endif
                                             @if (session('error'))
                                                 <div class="alert alert-danger text-center">
                                                     {{ session('error') }}

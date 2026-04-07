@@ -94,6 +94,7 @@ class SystemSettingController extends Controller
             'printSettings' => $this->invoicePrintSettingsService->currentSettings(false),
             'availableFormats' => $this->invoicePrintSettingsService->availableFormats(),
             'availableTemplates' => $this->invoicePrintSettingsService->availableTemplates(),
+            'availableOrientations' => $this->invoicePrintSettingsService->availableOrientations(),
         ]);
     }
 
@@ -102,6 +103,7 @@ class SystemSettingController extends Controller
         $validated = $request->validate([
             'format' => 'required|in:' . implode(',', $this->invoicePrintSettingsService->availableFormats()),
             'template' => 'required|in:' . implode(',', array_keys($this->invoicePrintSettingsService->availableTemplates())),
+            'orientation' => 'required|in:' . implode(',', array_keys($this->invoicePrintSettingsService->availableOrientations())),
         ]);
 
         $this->invoicePrintSettingsService->setSettings(
@@ -109,6 +111,7 @@ class SystemSettingController extends Controller
             $request->boolean('show_header'),
             $request->boolean('show_footer'),
             $validated['template'],
+            $validated['orientation'],
         );
 
         return redirect()

@@ -1,3 +1,8 @@
+@php
+    $availableOrientations = app(\App\Services\Invoices\InvoicePrintSettingsService::class)->availableOrientations();
+    $showOrientationSelector = ($printSettings['format'] ?? 'a4') === 'a5';
+@endphp
+
 <style type="text/css">
     .print-control-bar {
         position: fixed;
@@ -95,6 +100,19 @@
         </select>
     </div>
 
+    @if($showOrientationSelector)
+        <div class="print-control-group">
+            <label for="paper-orientation-select" class="print-control-label">اتجاه الطباعة</label>
+            <select id="paper-orientation-select" class="print-control-select">
+                @foreach($availableOrientations as $orientationKey => $orientationLabel)
+                    <option value="{{ $orientationKey }}" {{ ($printSettings['orientation'] ?? 'portrait') === $orientationKey ? 'selected' : '' }}>
+                        {{ $orientationLabel }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+    @endif
+
     <button type="button" id="print-now-button" class="print-control-button">طباعة</button>
 
     <a href="{{ $backUrl }}" class="print-control-link is-danger">العودة</a>
@@ -107,13 +125,33 @@
 <script>
     (function () {
         var sizeSelect = document.getElementById('paper-size-select');
+        var orientationSelect = document.getElementById('paper-orientation-select');
         var printButton = document.getElementById('print-now-button');
+        var updatePreviewUrl = function () {
+            var url = new URL(window.location.href);
+
+            if (sizeSelect) {
+                url.searchParams.set('paper', sizeSelect.value);
+            }
+
+            if (orientationSelect) {
+                url.searchParams.set('orientation', orientationSelect.value);
+            } else {
+                url.searchParams.delete('orientation');
+            }
+
+            window.location.href = url.toString();
+        };
 
         if (sizeSelect) {
             sizeSelect.addEventListener('change', function () {
-                var url = new URL(window.location.href);
-                url.searchParams.set('paper', this.value);
-                window.location.href = url.toString();
+                updatePreviewUrl();
+            });
+        }
+
+        if (orientationSelect) {
+            orientationSelect.addEventListener('change', function () {
+                updatePreviewUrl();
             });
         }
 

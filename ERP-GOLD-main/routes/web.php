@@ -74,7 +74,8 @@ Route::group(
                 Route::get('/', [LoginController::class, 'showLoginForm']);
                 Route::get('/home', [HomeController::class, 'index'])->name('admin.home');
                 Route::get('/lock-screen', [HomeController::class, 'lock_screen'])->name('admin.lock.screen');
-                Route::post('admin/logout', [LoginController::class, 'logout'])->name('admin.logout');
+                Route::match(['get', 'post'], 'logout', [LoginController::class, 'logout'])->name('admin.logout');
+                Route::match(['get', 'post'], 'admin/logout', [LoginController::class, 'logout'])->name('admin.logout.legacy');
                 Route::post('/current-branch', [CurrentBranchController::class, 'update'])->name('admin.current_branch.update');
 
                 Route::middleware('ops.only')->group(function () {

@@ -211,6 +211,111 @@ class SubscriberProvisioningFeatureTest extends TestCase
         $this->assertGuest('admin-web');
     }
 
+    public function test_owner_can_update_subscriber_admin_password_without_exposing_it_on_show_page(): void
+    {
+        foreach ([
+            'employee.subscribers.add',
+            'employee.subscribers.show',
+            'employee.subscribers.edit',
+        ] as $permission) {
+            Permission::findOrCreate($permission, 'admin-web');
+        }
+
+        $owner = $this->createOwnerUser([
+            'employee.subscribers.add',
+            'employee.subscribers.show',
+            'employee.subscribers.edit',
+        ]);
+
+        $this->actingAs($owner, 'admin-web')
+            ->post(route('admin.subscribers.store', [], false), [
+                'name' => 'مشترك تحديث كلمة السر',
+                'login_email' => 'subscriber-password-update@example.com',
+                'password' => 'secret123',
+                'password_confirmation' => 'secret123',
+                'max_users' => 3,
+                'max_branches' => 1,
+                'status' => '1',
+            ]);
+
+        $subscriber = Subscriber::query()->where('login_email', 'subscriber-password-update@example.com')->firstOrFail();
+        $adminUser = $subscriber->adminUser()->firstOrFail();
+
+        $updateResponse = $this->actingAs($owner, 'admin-web')
+            ->put(route('admin.subscribers.update', $subscriber, false), [
+                'name' => 'مشترك تحديث كلمة السر',
+                'login_email' => 'subscriber-password-update@example.com',
+                'contact_email' => null,
+                'contact_phone' => null,
+                'max_users' => 3,
+                'max_branches' => 1,
+                'new_password' => 'new-secret-456',
+                'new_password_confirmation' => 'new-secret-456',
+                'status' => '1',
+            ]);
+
+        $updateResponse->assertRedirect(route('admin.subscribers.show', $subscriber, false));
+
+        $this->assertTrue(Hash::check('new-secret-456', $adminUser->fresh()->password));
+
+        $showResponse = $this->actingAs($owner, 'admin-web')
+            ->get(route('admin.subscribers.show', $subscriber, false));
+
+        $showResponse->assertOk();
+        $showResponse->assertDontSee('new-secret-456');
+        $showResponse->assertDontSee('secret123');
+    }
+
+    public function test_subscriber_edit_validation_messages_are_displayed_in_clear_arabic(): void
+    {
+        foreach ([
+            'employee.subscribers.add',
+            'employee.subscribers.show',
+            'employee.subscribers.edit',
+        ] as $permission) {
+            Permission::findOrCreate($permission, 'admin-web');
+        }
+
+        $owner = $this->createOwnerUser([
+            'employee.subscribers.add',
+            'employee.subscribers.show',
+            'employee.subscribers.edit',
+        ]);
+
+        $this->actingAs($owner, 'admin-web')
+            ->post(route('admin.subscribers.store', [], false), [
+                'name' => 'مشترك رسائل التحقق',
+                'login_email' => 'subscriber-validation@example.com',
+                'password' => 'secret123',
+                'password_confirmation' => 'secret123',
+                'max_users' => 3,
+                'max_branches' => 1,
+                'status' => '1',
+            ]);
+
+        $subscriber = Subscriber::query()->where('login_email', 'subscriber-validation@example.com')->firstOrFail();
+
+        $response = $this->actingAs($owner, 'admin-web')
+            ->from(route('admin.subscribers.edit', $subscriber, false))
+            ->followingRedirects()
+            ->put(route('admin.subscribers.update', $subscriber, false), [
+                'name' => 'مشترك رسائل التحقق',
+                'login_email' => 'subscriber-validation@example.com',
+                'contact_email' => null,
+                'contact_phone' => null,
+                'max_users' => 3,
+                'max_branches' => 1,
+                'new_password' => '123',
+                'new_password_confirmation' => '123',
+                'status' => '1',
+            ]);
+
+        $response->assertOk();
+        $response->assertSee('تعذر حفظ التعديلات. يرجى مراجعة الأخطاء التالية:');
+        $response->assertSee('يجب ألا تقل كلمة السر الجديدة عن 6 أحرف.');
+        $response->assertDontSee('validation.min.string');
+    }
+
     /**
      * @param  array<int, string>  $permissions
      */

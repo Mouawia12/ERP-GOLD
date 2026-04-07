@@ -21,6 +21,8 @@
         $printTemplate = $printSettings['template'] ?? 'classic';
         $showHeader = $printSettings['show_header'] ?? true;
         $showFooter = $printSettings['show_footer'] ?? true;
+        $compactStandalonePrint = ! $showHeader && ! $showFooter;
+        $printOrientation = $printSettings['orientation'] ?? ($compactStandalonePrint ? 'landscape' : 'portrait');
         $showInvoiceTerms = app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowInvoiceTermsForInvoice($invoice);
         $paymentTypeLabel = [
             'cash' => 'نقدي',
@@ -94,7 +96,8 @@
     data-print-template="{{ $printTemplate }}"
     data-show-header="{{ $showHeader ? '1' : '0' }}"
     data-show-footer="{{ $showFooter ? '1' : '0' }}"
-    class="invoice-print-format-a5 invoice-template-{{ $printTemplate }}"
+    data-paper-orientation="{{ $printOrientation }}"
+    class="invoice-print-format-a5 invoice-template-{{ $printTemplate }} invoice-orientation-{{ $printOrientation }}{{ $compactStandalonePrint ? ' invoice-paper-ready' : '' }}"
 >
     <div class="page">
         <div class="page-content">

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Exceptions\Handler;
 use App\Models\Branch;
 use App\Models\Permission;
 use App\Models\Role;
@@ -9,6 +10,7 @@ use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\UserAuditLog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Mcamara\LaravelLocalization\Middleware\LaravelLocalizationRedirectFilter;
 use Mcamara\LaravelLocalization\Middleware\LocaleSessionRedirect;
@@ -71,6 +73,80 @@ class AdminAccessTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('brand-login-logo', false);
+    }
+
+    public function test_authenticated_admin_visiting_login_page_is_redirected_to_dashboard(): void
+    {
+        $user = $this->createAdminUser();
+
+        $response = $this->actingAs($user, 'admin-web')->get(route('admin.login', [], false));
+
+        $response->assertRedirect(route('admin.home', [], false));
+    }
+
+    public function test_admin_can_log_out_cleanly_from_post_route(): void
+    {
+        $user = $this->createAdminUser();
+
+        $response = $this
+            ->actingAs($user, 'admin-web')
+            ->post(route('admin.logout', [], false));
+
+        $response->assertRedirect(route('admin.login', [], false));
+        $response->assertSessionHas('success', 'تم تسجيل الخروج بنجاح.');
+        $this->assertGuest('admin-web');
+    }
+
+    public function test_admin_can_log_out_cleanly_from_legacy_get_logout_url(): void
+    {
+        $user = $this->createAdminUser();
+
+        $response = $this
+            ->actingAs($user, 'admin-web')
+            ->get(route('admin.logout.legacy', [], false));
+
+        $response->assertRedirect(route('admin.login', [], false));
+        $this->assertGuest('admin-web');
+    }
+
+    public function test_token_mismatch_on_admin_logout_redirects_to_login_instead_of_419_page(): void
+    {
+        $user = $this->createAdminUser();
+        $this->actingAs($user, 'admin-web');
+        $session = app('session.store');
+        $session->start();
+        $request = Request::create(route('admin.logout', [], false), 'POST');
+        $request->setLaravelSession($session);
+
+        $response = $this
+            ->app
+            ->make(Handler::class)
+            ->handleAdminAuthTokenMismatch($request);
+
+        $this->assertSame(302, $response->getStatusCode());
+        $this->assertStringEndsWith(route('admin.login', [], false), $response->getTargetUrl());
+        $this->assertGuest('admin-web');
+    }
+
+    public function test_token_mismatch_on_admin_login_redirects_back_to_login_instead_of_419_page(): void
+    {
+        $user = $this->createAdminUser();
+        $session = app('session.store');
+        $session->start();
+        $request = Request::create(route('admin.login', [], false), 'POST', [
+            'email' => $user->email,
+            'password' => 'secret123',
+        ]);
+        $request->setLaravelSession($session);
+
+        $response = $this
+            ->app
+            ->make(Handler::class)
+            ->handleAdminAuthTokenMismatch($request);
+
+        $this->assertSame(302, $response->getStatusCode());
+        $this->assertStringEndsWith(route('admin.login', [], false), $response->getTargetUrl());
+        $this->assertGuest('admin-web');
     }
 
     public function test_dashboard_renders_without_missing_profile_route_errors(): void
@@ -701,6 +777,7 @@ class AdminAccessTest extends TestCase
             ->patch(route('admin.system-settings.invoice-print.update', [], false), [
                 'format' => 'a5',
                 'template' => 'modern',
+                'orientation' => 'landscape',
                 'show_header' => '1',
             ]);
 
@@ -721,6 +798,10 @@ class AdminAccessTest extends TestCase
             'key' => 'invoice_print_template',
             'value' => 'modern',
         ]);
+        $this->assertDatabaseHas('system_settings', [
+            'key' => 'invoice_print_orientation',
+            'value' => 'landscape',
+        ]);
     }
 
     public function test_unauthorized_admin_cannot_update_invoice_print_settings(): void
@@ -732,6 +813,7 @@ class AdminAccessTest extends TestCase
             ->patch(route('admin.system-settings.invoice-print.update', [], false), [
                 'format' => 'a5',
                 'template' => 'compact',
+                'orientation' => 'portrait',
                 'show_header' => '1',
                 'show_footer' => '1',
             ]);

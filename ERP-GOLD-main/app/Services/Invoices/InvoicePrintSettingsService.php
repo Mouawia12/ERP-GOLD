@@ -8,11 +8,14 @@ class InvoicePrintSettingsService
 {
     public const FORMAT_A4 = 'a4';
     public const FORMAT_A5 = 'a5';
+    public const ORIENTATION_PORTRAIT = 'portrait';
+    public const ORIENTATION_LANDSCAPE = 'landscape';
 
     public const FORMAT_KEY = 'invoice_print_format';
     public const SHOW_HEADER_KEY = 'invoice_print_show_header';
     public const SHOW_FOOTER_KEY = 'invoice_print_show_footer';
     public const TEMPLATE_KEY = 'invoice_print_template';
+    public const ORIENTATION_KEY = 'invoice_print_orientation';
 
     /**
      * @return array<int, string>
@@ -38,32 +41,57 @@ class InvoicePrintSettingsService
     }
 
     /**
-     * @return array{format: string, show_header: bool, show_footer: bool, template: string}
+     * @return array<string, string>
+     */
+    public function availableOrientations(): array
+    {
+        return [
+            self::ORIENTATION_PORTRAIT => 'طولي',
+            self::ORIENTATION_LANDSCAPE => 'عرضي',
+        ];
+    }
+
+    /**
+     * @return array{format: string, show_header: bool, show_footer: bool, template: string, orientation: string}
      */
     public function currentSettings(bool $allowRequestOverride = true): array
     {
         $requestedFormat = $allowRequestOverride ? request()->query('paper') : null;
+        $requestedOrientation = $allowRequestOverride ? request()->query('orientation') : null;
         $availableFormats = $this->availableFormats();
+        $availableOrientations = array_keys($this->availableOrientations());
         $format = in_array($requestedFormat, $availableFormats, true)
             ? $requestedFormat
             : SystemSetting::getValue(self::FORMAT_KEY, self::FORMAT_A4);
+        $showHeader = $this->booleanSetting(self::SHOW_HEADER_KEY, true);
+        $showFooter = $this->booleanSetting(self::SHOW_FOOTER_KEY, true);
         $template = SystemSetting::getValue(self::TEMPLATE_KEY, 'classic');
+        $storedOrientation = SystemSetting::getValue(self::ORIENTATION_KEY, '');
         $availableTemplates = array_keys($this->availableTemplates());
+        $resolvedFormat = in_array($format, $availableFormats, true) ? $format : self::FORMAT_A4;
+        $orientation = in_array($requestedOrientation, $availableOrientations, true)
+            ? $requestedOrientation
+            : $storedOrientation;
+        $resolvedOrientation = in_array($orientation, $availableOrientations, true)
+            ? $orientation
+            : $this->defaultOrientation($resolvedFormat, $showHeader, $showFooter);
 
         return [
-            'format' => in_array($format, $availableFormats, true) ? $format : self::FORMAT_A4,
-            'show_header' => $this->booleanSetting(self::SHOW_HEADER_KEY, true),
-            'show_footer' => $this->booleanSetting(self::SHOW_FOOTER_KEY, true),
+            'format' => $resolvedFormat,
+            'show_header' => $showHeader,
+            'show_footer' => $showFooter,
             'template' => in_array($template, $availableTemplates, true) ? $template : 'classic',
+            'orientation' => $resolvedOrientation,
         ];
     }
 
-    public function setSettings(string $format, bool $showHeader, bool $showFooter, string $template): void
+    public function setSettings(string $format, bool $showHeader, bool $showFooter, string $template, string $orientation): void
     {
         SystemSetting::putValue(self::FORMAT_KEY, $format);
         SystemSetting::putValue(self::SHOW_HEADER_KEY, $showHeader ? '1' : '0');
         SystemSetting::putValue(self::SHOW_FOOTER_KEY, $showFooter ? '1' : '0');
         SystemSetting::putValue(self::TEMPLATE_KEY, $template);
+        SystemSetting::putValue(self::ORIENTATION_KEY, $orientation);
     }
 
     private function booleanSetting(string $key, bool $default): bool
@@ -71,5 +99,14 @@ class InvoicePrintSettingsService
         $fallback = $default ? '1' : '0';
 
         return SystemSetting::getValue($key, $fallback) === '1';
+    }
+
+    private function defaultOrientation(string $format, bool $showHeader, bool $showFooter): string
+    {
+        if ($format === self::FORMAT_A5 && ! $showHeader && ! $showFooter) {
+            return self::ORIENTATION_LANDSCAPE;
+        }
+
+        return self::ORIENTATION_PORTRAIT;
     }
 }

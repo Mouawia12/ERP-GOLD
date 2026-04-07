@@ -26,6 +26,14 @@
     span.select2-selection.select2-selection--single{
         padding:2px;
     }
+
+    .response_container .alert {
+        margin-bottom: 1rem;
+    }
+
+    #createForm .invalid-feedback {
+        text-align: right;
+    }
     </style>  
 
     <!-- row opened -->
@@ -183,7 +191,7 @@
                 </button>
             </div>
             <div class="modal-body" id="paymentBody">
-                <div class="response_container">
+                <div class="response_container mb-3">
                     
                 </div>
                 <form id="createForm"   method="POST" action="{{ route('customers.store' , $type) }}"
@@ -370,129 +378,204 @@
 @endsection 
 @section('js')
 <script type="text/javascript">
-    let id = 0 ;
+    let id = 0;
     document.title = "{{$type == 'customer' ? __('main.customers') : __('main.suppliers')}}";
+
     $(document).ready(function(){
-        id = 0 ;
+        const $createModal = $('#createModal');
+        const $createForm = $('#createForm');
+        const $responseContainer = $('.response_container');
+        const createTitle = @json($type == 'customer' ? __('main.create_client') : __('main.create_supplier'));
+        const editTitle = @json($type == 'customer' ? 'تعديل بيانات العميل' : 'تعديل بيانات المورد');
+        const genericSaveError = @json($type == 'customer' ? 'تعذر حفظ العميل. حاول مرة أخرى.' : 'تعذر حفظ المورد. حاول مرة أخرى.');
+        const genericLoadError = @json($type == 'customer' ? 'تعذر تحميل بيانات العميل.' : 'تعذر تحميل بيانات المورد.');
+
+        $('.js-example-basic-single').select2({
+            placeholder: "اختر مما يلى",
+        });
+
+        function clearValidationState() {
+            $responseContainer.empty();
+            $createForm.find('.is-invalid').removeClass('is-invalid');
+            $createForm.find('.dynamic-invalid-feedback').remove();
+        }
+
+        function renderAlert(type, messages) {
+            const normalizedMessages = Array.isArray(messages) ? messages.filter(Boolean) : [messages];
+
+            if (!normalizedMessages.length) {
+                return;
+            }
+
+            const $alert = $('<div>', {
+                class: 'alert alert-' + type,
+                role: 'alert'
+            });
+            const $list = $('<ul>', { class: 'mb-0 pr-3' });
+
+            normalizedMessages.forEach(function(message) {
+                $list.append($('<li>').text(message));
+            });
+
+            $alert.append($list);
+            $responseContainer.html($alert);
+        }
+
+        function appendFieldError(fieldName, messages) {
+            const normalizedMessages = Array.isArray(messages) ? messages.filter(Boolean) : [messages];
+            const $field = $createForm.find('[name="' + fieldName + '"]').first();
+
+            if (!$field.length || !normalizedMessages.length || $field.attr('type') === 'hidden') {
+                return;
+            }
+
+            $field.addClass('is-invalid');
+
+            const $feedback = $('<span>', {
+                class: 'invalid-feedback d-block dynamic-invalid-feedback',
+                role: 'alert'
+            }).text(normalizedMessages[0]);
+
+            const $inputGroup = $field.closest('.input-group');
+
+            if ($inputGroup.length) {
+                $inputGroup.after($feedback);
+                return;
+            }
+
+            $field.after($feedback);
+        }
+
+        function resetCreateForm() {
+            clearValidationState();
+            $createForm[0].reset();
+            $createForm.find('#id').val('');
+            $createForm.find('#type').val(@json($type));
+            $createForm.find('#opening_balance').val(0);
+            $createForm.find('#account_id').val('').trigger('change');
+            $createForm.find('#is_cash_party').prop('checked', false);
+            $('.modelTitle').text(createTitle);
+        }
+
+        function populateEditForm(response) {
+            clearValidationState();
+            $createForm[0].reset();
+            $('.modelTitle').text(editTitle);
+            $(".modal-body #name").val(response.name || '');
+            $(".modal-body #phone").val(response.phone || '');
+            $(".modal-body #is_cash_party").prop('checked', response.is_cash_party == 1 || response.is_cash_party === true);
+            $(".modal-body #identity_number").val(response.identity_number || '');
+            $(".modal-body #email").val(response.email || '');
+            $(".modal-body #id").val(response.id || '');
+            $(".modal-body #type").val(response.type || @json($type));
+            $(".modal-body #account_id").val(response.account_id || '').trigger('change');
+            $(".modal-body #vat_no").val(response.tax_number || '');
+            $(".modal-body #opening_balance").val(0);
+            $(".modal-body #region").val(response.region || '');
+            $(".modal-body #city").val(response.city || '');
+            $(".modal-body #district").val(response.district || '');
+            $(".modal-body #street_name").val(response.street_name || '');
+            $(".modal-body #building_number").val(response.building_number || '');
+            $(".modal-body #plot_identification").val(response.plot_identification || '');
+            $(".modal-body #postal_code").val(response.postal_code || '');
+        }
+
         $(document).on('submit', '#createForm', function(event) {
-            id = 0 ;
+            id = 0;
             event.preventDefault();
-            var thisme = $(this);
-            let href = $(this).attr('action');
-            let method = $(this).attr('method');
+            const href = $(this).attr('action');
+            const method = $(this).attr('method');
+
             $.ajax({
                 url: href,
                 type: method,
                 data: $(this).serialize(),
                 beforeSend: function() {
-                    $('.response_container').html('');
+                    clearValidationState();
                     $('#loader').show();
                 },
                 success: function(result) {
-                    var message = "<div class='alert alert-success'><ul style='margin: 0;'>";
-                    message += "<li>" + result.message + "</li>";
-                    message += "</ul></div>";
-                    $('.response_container').append(message);
-                  setTimeout(function() {
-                    $('#createModal').modal("hide");
-                    thisme[0].reset();
-                    $('.response_container').html('');
-                    window.location.reload();
-                  }, 2000);
-                },
-                complete: function() {
-                    $('#loader').hide();
-                },
-                error: function(jqXHR, testStatus, error) {
-                    var errors = "<div class='alert alert-danger'><ul style='margin: 0;'>";
-                    jqXHR.responseJSON.errors.forEach(function(error) {
-                        errors += "<li>" + error + "</li>";
-                    });
-                    errors += "</ul></div>";
-                    $('.response_container').append(errors);
-                },
-                timeout: 8000
-            })
-        });
-        $(document).on('click', '#createButton', function(event) {
-            id = 0 ;
-            event.preventDefault();
-            let href = $(this).attr('data-attr');
-            $.ajax({
-                url: href,
-                beforeSend: function() {
-                    $('#loader').show();
-                },
-                // return the result
-                success: function(result) {
-                    $('#createModal').modal("show");
-                    $(".modal-body #company").val( "" );
-                    $(".modal-body #name").val( "" );
-                    $(".modal-body #phone").val( "" );
-                    $(".modal-body #is_cash_party").prop('checked', false);
-                    $(".modal-body #identity_number").val( "" );
-                    $(".modal-body #email").val( "" );
-                    $(".modal-body #account_id").val( "" ).trigger("change");;
-                    $(".modal-body #vat_no").val( "" );
-                    $(".modal-body #opening_balance").val(0);
-                    try {
-                        $(".modal-body #customer_group_id").val( "" );
-                        $(".modal-body #credit_amount").val( "" );
-                        $(".modal-body #stop_sale").prop('checked' ,0);
-                    }catch (err){
+                    renderAlert('success', [result.message || '{{ __('main.saved') }}']);
 
-                    }
-                    $(".modal-body #address").val( "" );
-                    $(".modal-body #id").val( 0 );
+                    setTimeout(function() {
+                        $createModal.modal("hide");
+                        resetCreateForm();
+                        window.location.reload();
+                    }, 1200);
                 },
                 complete: function() {
                     $('#loader').hide();
                 },
-                error: function(jqXHR, testStatus, error) {
-                    console.log(error);
-                    alert("Page " + href + " cannot open. Error:" + error);
-                    $('#loader').hide();
+                error: function(jqXHR) {
+                    const response = jqXHR.responseJSON || {};
+                    const messages = Array.isArray(response.errors) && response.errors.length
+                        ? response.errors
+                        : [response.message || genericSaveError];
+                    const fieldErrors = response.field_errors || {};
+
+                    clearValidationState();
+                    renderAlert('danger', messages);
+
+                    Object.keys(fieldErrors).forEach(function(fieldName) {
+                        appendFieldError(fieldName, fieldErrors[fieldName]);
+                    });
                 },
                 timeout: 8000
-            })
+            });
+        });
+
+        $(document).on('click', '#createButton', function(event) {
+            id = 0;
+            event.preventDefault();
+            resetCreateForm();
+            $createModal.modal("show");
         });
 
         $(document).on('click', '.deleteBtn', function(event) {
-            id = event.currentTarget.value ;
-            console.log(id);
+            id = event.currentTarget.value;
             event.preventDefault();
-            let href = $(this).attr('data-attr');
+            $('#deleteModal').modal("show");
+        });
+
+        $(document).on('click', '.cancel-modal', function () {
+            $('#deleteModal').modal("hide");
+            id = 0;
+        });
+
+        $(document).on('click', '.close-create', function () {
+            $('#createModal').modal("hide");
+            clearValidationState();
+            id = 0;
+        });
+
+        $(document).on('click', '.editBtn', function (event) {
+            event.preventDefault();
+            const url = $(this).attr('url');
+
             $.ajax({
-                url: href,
+                type:'get',
+                url: url,
+                dataType: 'json',
                 beforeSend: function() {
                     $('#loader').show();
                 },
-                // return the result
-                success: function(result) {
-                    $('#deleteModal').modal("show");
+                success:function(response){
+                    if(response){
+                        populateEditForm(response);
+                        $('#createModal').modal("show");
+                    }
                 },
                 complete: function() {
                     $('#loader').hide();
                 },
-                error: function(jqXHR, testStatus, error) {
-                    console.log(error);
-                    alert("Page " + href + " cannot open. Error:" + error);
-                    $('#loader').hide();
+                error: function() {
+                    window.erpShowError(genericLoadError, 'تعذر تحميل البيانات');
                 },
                 timeout: 8000
-            })
+            });
         });
-
-        $(document).on('click' , '.cancel-modal' , function (event) {
-            $('#deleteModal').modal("hide");
-            id = 0 ;
-        });
-        $(document).on('click' , '.close-create' , function (event) {
-            $('#createModal').modal("hide");
-            id = 0 ;
-        }); 
-
     });
+
     function confirmDelete(){
         let url = "{{ route('customers.delete', ':id') }}";
         url = url.replace(':id', id);
@@ -502,79 +585,19 @@
             beforeSend: function() {
                 $('#loader').show();
             },
-            // return the result
-            success: function(result) {
+            success: function() {
                 $('#deleteModal').modal("hide");
                 window.location.reload();
             },
             complete: function() {
                 $('#loader').hide();
             },
-            error: function(jqXHR, testStatus, error) {
-                console.log(error);
-                alert("Page " + href + " cannot open. Error:" + error);
-                $('#loader').hide();
+            error: function() {
+                window.erpShowError('تعذر حذف الطرف حاليًا. حاول مرة أخرى.', 'تعذر الحذف');
             },
             timeout: 8000
         });
     }
-
-    $(document).on('click', '.editBtn', function (event) {
-        event.preventDefault();
-        var url = $(this).attr('url');
-        $.ajax({
-            type:'get', 
-            url: url,
-            dataType: 'json',
-
-            success:function(response){
-                console.log(response);
-                if(response){
-                    let href = $(this).attr('data-attr');
-                    $.ajax({
-                        url: href,
-                        beforeSend: function() {
-                            $('#loader').show();
-                        },
-                        // return the result
-                        success: function(result) {
-                            $(".modal-body #name").val( response.name );
-                            $(".modal-body #phone").val( response.phone );
-                            $(".modal-body #is_cash_party").prop('checked', response.is_cash_party == 1 || response.is_cash_party === true);
-                            $(".modal-body #identity_number").val( response.identity_number );
-                            $(".modal-body #email").val( response.email );
-                            $(".modal-body #id").val( response.id );
-                            $(".modal-body #type").val( response.type );
-                            $(".modal-body #account_id").val( response.account_id );
-                            $(".modal-body #vat_no").val( response.tax_number );
-                            $(".modal-body #region").val( response.region );
-                            $(".modal-body #city").val( response.city );
-                            $(".modal-body #district").val( response.district );
-                            $(".modal-body #street_name").val( response.street_name );
-                            $(".modal-body #building_number").val( response.building_number );
-                            $(".modal-body #plot_identification").val( response.plot_identification );
-                            $(".modal-body #postal_code").val( response.postal_code );
-                            $('#createModal').modal("show");
-                        },
-                        complete: function() {
-                            $('#loader').hide();
-                        },
-                        error: function(jqXHR, testStatus, error) {
-                            console.log(error);
-                            alert("Page " + href + " cannot open. Error:" + error);
-                            $('#loader').hide();
-                        },
-                        timeout: 8000
-                    })
-                }  
-            }
-        });
-        $('.js-example-basic-single').select2({
-        placeholder: "اختر مما يلى",
-        
-    });
- 
-    });
 </script>  
 @endsection 
  

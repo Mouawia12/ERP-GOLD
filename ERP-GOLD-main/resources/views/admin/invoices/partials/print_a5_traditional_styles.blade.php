@@ -1,7 +1,7 @@
 <style>
     @page {
-        size: A5 portrait;
-        margin: 5mm 5mm 12mm 5mm;
+        size: A5 {{ $printOrientation ?? 'portrait' }};
+        margin: {{ !empty($compactStandalonePrint) ? '0' : '5mm 5mm 12mm 5mm' }};
     }
 
     @font-face {
@@ -32,8 +32,11 @@
         --invoice-table-head: #e0e0e0;
         --screen-background: #f3f4f6;
         --screen-outline: #d4d4d8;
+        --page-width: 138mm;
+        --page-min-height: 198mm;
         --company-font-size: 8.8px;
         --brand-logo-size: 78px;
+        --header-center-width: 84px;
         --item-font-size: 8.4px;
         --summary-font-size: 8.5px;
         --note-max-height: 30px;
@@ -56,9 +59,25 @@
         --screen-outline: #cbd5e1;
     }
 
+    body.invoice-orientation-landscape {
+        --page-width: 200mm;
+        --page-min-height: 138mm;
+        --company-font-size: 8.2px;
+        --brand-logo-size: 68px;
+        --header-center-width: 76px;
+        --item-font-size: 7.9px;
+        --summary-font-size: 8px;
+        --note-max-height: 24px;
+        --screen-page-padding: 5mm;
+    }
+
+    body.invoice-paper-ready {
+        --screen-page-padding: 5mm;
+    }
+
     .page {
-        width: 138mm;
-        min-height: 198mm;
+        width: var(--page-width);
+        min-height: var(--page-min-height);
         margin: 0 auto;
         display: flex;
         flex-direction: column;
@@ -82,7 +101,7 @@
 
     .invoice-header {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 84px minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr) var(--header-center-width) minmax(0, 1fr);
         column-gap: 8px;
         align-items: start;
     }
@@ -340,6 +359,23 @@
         text-align: left;
     }
 
+    body.invoice-orientation-landscape .invoice-head-meta {
+        grid-template-columns: 27% 32% 41%;
+    }
+
+    body.invoice-orientation-landscape .qr-box {
+        min-height: 96px;
+    }
+
+    body.invoice-orientation-landscape .qr-box img {
+        width: 92px;
+        height: 92px;
+    }
+
+    body.invoice-orientation-landscape .summary-grid {
+        column-gap: 8px;
+    }
+
     .no-print {
         display: none !important;
     }
@@ -353,6 +389,10 @@
         .page {
             padding: var(--screen-page-padding);
             box-shadow: 0 0 0 1px var(--screen-outline);
+        }
+
+        body.invoice-paper-ready .page {
+            padding: 5mm;
         }
     }
 
@@ -382,6 +422,10 @@
         .page {
             width: auto;
             min-height: auto;
+        }
+
+        body.invoice-paper-ready .page {
+            padding: 5mm;
         }
     }
 </style>

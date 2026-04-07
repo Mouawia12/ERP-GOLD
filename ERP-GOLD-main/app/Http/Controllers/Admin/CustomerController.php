@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Models\AccountSetting;
 use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\FinancialVoucher;
@@ -102,25 +103,26 @@ class CustomerController extends Controller
     public function store(Request $request, $type)
     {
         $type = $this->normalizeType($type);
-        $this->authorizeTypePermission($type, $request->filled('id') ? 'edit' : 'add');
+        $existingCustomerId = $this->normalizeExistingCustomerId($request->input('id'));
+        $this->authorizeTypePermission($type, $existingCustomerId ? 'edit' : 'add');
         $request->merge(['type' => $type]);
         $currentUser = $request->user('admin-web');
 
         $validator = Validator::make($request->all(), [
-            'name' => 'required',
-            'phone' => 'nullable',
+            'name' => 'required|string|max:255',
+            'phone' => 'nullable|string|max:50',
             'is_cash_party' => 'nullable|boolean',
             'identity_number' => 'nullable|string|max:100',
-            'email' => 'nullable|',
-            'vat_no' => 'nullable',
-            'region' => 'required_with:vat_no',
-            'city' => 'required_with:vat_no',
-            'district' => 'required_with:vat_no',
-            'street_name' => 'required_with:vat_no',
-            'building_number' => 'required_with:vat_no',
-            'plot_identification' => 'required_with:vat_no',
-            'postal_code' => 'required_with:vat_no',
-            'type' => 'required'
+            'email' => 'nullable|email|max:255',
+            'vat_no' => 'nullable|string|max:255',
+            'region' => 'required_with:vat_no|string|max:255',
+            'city' => 'required_with:vat_no|string|max:255',
+            'district' => 'required_with:vat_no|string|max:255',
+            'street_name' => 'required_with:vat_no|string|max:255',
+            'building_number' => 'required_with:vat_no|string|max:255',
+            'plot_identification' => 'required_with:vat_no|string|max:255',
+            'postal_code' => 'required_with:vat_no|string|max:255',
+            'type' => 'required|in:' . implode(',', self::ALLOWED_TYPES),
         ],
             [
                 'name.required' => __('validations.customer_name_required', ['type' => $request->type == 'customer' ? __('main.customer') : __('main.supplier')]),
@@ -135,8 +137,23 @@ class CustomerController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'status' => false,
-                'errors' => $validator->errors()->all()
+                'message' => 'تعذر حفظ البيانات. يرجى مراجعة الحقول المطلوبة.',
+                'errors' => $validator->errors()->all(),
+                'field_errors' => $validator->errors()->toArray(),
             ], 422);
+        }
+
+        if (! $existingCustomerId) {
+            $accountingError = $this->validateAccountingSetupForParty($type, $currentUser);
+
+            if ($accountingError !== null) {
+                return response()->json([
+                    'status' => false,
+                    'message' => $accountingError,
+                    'errors' => [$accountingError],
+                    'field_errors' => [],
+                ], 422);
+            }
         }
 
         try {
@@ -157,11 +174,11 @@ class CustomerController extends Controller
                 'type' => $request->type,
             ];
 
-            if ($request->filled('id')) {
+            if ($existingCustomerId) {
                 $company = Customer::query()
                     ->visibleToUser($currentUser)
                     ->where('type', $type)
-                    ->findOrFail($request->id);
+                    ->findOrFail($existingCustomerId);
                 $company->update($payload);
             } else {
                 $company = Customer::create($payload);
@@ -174,8 +191,10 @@ class CustomerController extends Controller
         } catch (QueryException $ex) {
             return response()->json([
                 'status' => false,
-                'errors' => [$ex->getMessage()]
-            ]);
+                'message' => sprintf('تعذر حفظ %s بسبب خطأ في البيانات أو الربط المحاسبي.', $this->partyLabel($type)),
+                'errors' => [sprintf('تعذر حفظ %s بسبب خطأ في البيانات أو الربط المحاسبي.', $this->partyLabel($type))],
+                'field_errors' => [],
+            ], 422);
         }
     }
 
@@ -200,6 +219,7 @@ class CustomerController extends Controller
             return response()->json([
                 'status' => false,
                 'errors' => $validator->errors()->all(),
+                'field_errors' => $validator->errors()->toArray(),
             ], 422);
         }
 
@@ -235,6 +255,17 @@ class CustomerController extends Controller
         $created = false;
 
         if (! $customer) {
+            $accountingError = $this->validateAccountingSetupForParty($type, $currentUser);
+
+            if ($accountingError !== null) {
+                return response()->json([
+                    'status' => false,
+                    'message' => $accountingError,
+                    'errors' => [$accountingError],
+                    'field_errors' => [],
+                ], 422);
+            }
+
             $customer = Customer::create([
                 'name' => $name,
                 'phone' => $phone !== '' ? $phone : null,
@@ -504,6 +535,31 @@ class CustomerController extends Controller
         return $type === 'customer' ? 'العميل' : 'المورد';
     }
 
+    private function validateAccountingSetupForParty(string $type, ?User $user): ?string
+    {
+        $branchSetting = AccountSetting::query()
+            ->when(
+                filled($user?->branch_id),
+                fn ($query) => $query->where('branch_id', $user->branch_id)
+            )
+            ->orderBy('branch_id')
+            ->first();
+
+        if (! $branchSetting) {
+            return sprintf('لا يمكن إضافة %s قبل ضبط الروابط المحاسبية للفرع الحالي.', $this->partyLabel($type));
+        }
+
+        $parentAccountId = $type === 'customer'
+            ? $branchSetting->clients_account
+            : $branchSetting->suppliers_account;
+
+        if (! $parentAccountId || ! Account::query()->find($parentAccountId)) {
+            return sprintf('لا يمكن إضافة %s لأن حساب الربط المحاسبي للفرع الحالي غير محدد أو غير صالح.', $this->partyLabel($type));
+        }
+
+        return null;
+    }
+
     private function operationLabel(string $type): string
     {
         return match ($type) {
@@ -529,6 +585,17 @@ class CustomerController extends Controller
             'bank_transfer' => 'تحويل بنكي',
             default => $paymentType ?? '-',
         };
+    }
+
+    private function normalizeExistingCustomerId(mixed $value): ?int
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        $normalized = (int) $value;
+
+        return $normalized > 0 ? $normalized : null;
     }
 
     /**

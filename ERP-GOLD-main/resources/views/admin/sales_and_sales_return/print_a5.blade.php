@@ -22,6 +22,7 @@
         $showHeader = $printSettings['show_header'] ?? true;
         $showFooter = $printSettings['show_footer'] ?? true;
         $compactStandalonePrint = ! $showHeader && ! $showFooter;
+        $printOrientation = $printSettings['orientation'] ?? ($compactStandalonePrint ? 'landscape' : 'portrait');
         $saleOrderNumber = $invoice->serial ?: '---';
         $paymentTypeLabel = [
             'cash' => 'نقدي',
@@ -75,8 +76,8 @@
     data-print-template="{{ $printTemplate }}"
     data-show-header="{{ $showHeader ? '1' : '0' }}"
     data-show-footer="{{ $showFooter ? '1' : '0' }}"
-    data-paper-orientation="{{ $compactStandalonePrint ? 'landscape' : 'portrait' }}"
-    class="invoice-print-format-a5 invoice-template-{{ $printTemplate }}{{ $compactStandalonePrint ? ' invoice-paper-ready' : '' }}"
+    data-paper-orientation="{{ $printOrientation }}"
+    class="invoice-print-format-a5 invoice-template-{{ $printTemplate }} invoice-orientation-{{ $printOrientation }}{{ $compactStandalonePrint ? ' invoice-paper-ready' : '' }}"
 >
     <div class="page">
         <div class="page-content">

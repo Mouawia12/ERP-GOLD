@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Subscriber;
 use App\Services\Subscribers\SubscriberProvisioner;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
 class SubscribersController extends Controller
@@ -109,6 +110,8 @@ class SubscribersController extends Controller
             'notes' => ['nullable', 'string', 'max:5000'],
             'is_trial' => ['nullable', 'boolean'],
             'status' => ['nullable', 'boolean'],
+            'new_password' => ['nullable', 'string', 'min:6', 'same:new_password_confirmation'],
+            'new_password_confirmation' => ['nullable', 'string', 'min:6'],
         ]);
 
         $subscriber->update([
@@ -118,11 +121,17 @@ class SubscribersController extends Controller
         ]);
 
         if ($subscriber->adminUser) {
-            $subscriber->adminUser->update([
+            $adminUserPayload = [
                 'email' => $validated['login_email'],
                 'phone_number' => $validated['contact_phone'] ?? $subscriber->adminUser->phone_number,
                 'status' => (bool) $subscriber->status,
-            ]);
+            ];
+
+            if (! empty($validated['new_password'])) {
+                $adminUserPayload['password'] = Hash::make($validated['new_password']);
+            }
+
+            $subscriber->adminUser->update($adminUserPayload);
         }
 
         return redirect()

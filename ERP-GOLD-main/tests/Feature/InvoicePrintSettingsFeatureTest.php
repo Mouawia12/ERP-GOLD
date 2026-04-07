@@ -54,9 +54,9 @@ class InvoicePrintSettingsFeatureTest extends TestCase
         $response->assertSee('data-show-header="0"', false);
         $response->assertSee('data-show-footer="0"', false);
         $response->assertSee('data-paper-orientation="landscape"', false);
-        $response->assertSee('class="invoice-print-format-a5 invoice-template-compact invoice-paper-ready"', false);
+        $response->assertSee('class="invoice-print-format-a5 invoice-template-compact invoice-orientation-landscape invoice-paper-ready"', false);
         $response->assertSee('size: A5 landscape;', false);
-        $response->assertSee('--page-width: 200mm;', false);
+        $response->assertSee('id="paper-orientation-select"', false);
         $response->assertSee('شروط الفاتورة');
         $response->assertSee('شرط أول');
         $response->assertDontSee('<header class="invoice-header">', false);
@@ -132,9 +132,39 @@ class InvoicePrintSettingsFeatureTest extends TestCase
         $response->assertSee('data-print-template="modern"', false);
         $response->assertSee('data-show-header="1"', false);
         $response->assertSee('data-show-footer="1"', false);
-        $response->assertSee('class="invoice-print-format-a5 invoice-template-modern"', false);
+        $response->assertSee('data-paper-orientation="portrait"', false);
+        $response->assertSee('class="invoice-print-format-a5 invoice-template-modern invoice-orientation-portrait"', false);
         $response->assertSee('<header class="invoice-header">', false);
         $response->assertSee('<footer class="page-footer">', false);
+    }
+
+    public function test_sales_print_page_can_temporarily_override_orientation_from_request(): void
+    {
+        $branch = $this->createBranch('فرع اتجاه الطباعة', 'orientation-override@example.com', '666666666');
+        $user = $this->createUser($branch, 'orientation-override-user@example.com');
+        $invoice = $this->createInvoice($branch, $user, 'sale', [
+            'sale_type' => 'simplified',
+            'invoice_terms' => "سطر أول\nسطر ثاني",
+        ]);
+
+        DB::table('system_settings')->insert([
+            ['key' => 'invoice_print_format', 'value' => 'a5'],
+            ['key' => 'invoice_print_template', 'value' => 'compact'],
+            ['key' => 'invoice_print_show_header', 'value' => '0'],
+            ['key' => 'invoice_print_show_footer', 'value' => '0'],
+            ['key' => 'invoice_print_orientation', 'value' => 'landscape'],
+        ]);
+
+        $response = $this
+            ->actingAs($user, 'admin-web')
+            ->get(route('sales.show', ['id' => $invoice->id, 'paper' => 'a5', 'orientation' => 'portrait'], false));
+
+        $response->assertOk();
+        $response->assertSee('data-paper-orientation="portrait"', false);
+        $response->assertSee('class="invoice-print-format-a5 invoice-template-compact invoice-orientation-portrait invoice-paper-ready"', false);
+        $response->assertSee('size: A5 portrait;', false);
+        $response->assertSee('id="paper-orientation-select"', false);
+        $response->assertDontSee('size: A5 landscape;', false);
     }
 
     public function test_print_page_can_temporarily_override_paper_size_from_request(): void

@@ -44,7 +44,9 @@ class LoginController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return redirect()
+            ->route('admin.login')
+            ->with('success', 'تم تسجيل الخروج بنجاح.');
     }
 
     protected function guard()
@@ -70,7 +72,7 @@ class LoginController extends Controller
 
     public function showLoginForm() {
         if (Auth::guard('admin-web')->check()) {
-            return view('admin.home');
+            return redirect()->route('admin.home');
         }else{
             return view('admin.auth.login');
         }

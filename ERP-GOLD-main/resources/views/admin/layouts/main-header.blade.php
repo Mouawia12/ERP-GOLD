@@ -235,13 +235,11 @@
                         </div>
                         <a class="dropdown-item" href="{{route('admin.profile.edit',Auth::user()->id)}}"><i
                                 class="bx bx-cog"></i> تعديل الملف الشخصى </a> 
-                        <a class="dropdown-item" href="{{ route('admin.logout') }}"
-                           onclick="event.preventDefault();document.getElementById('logout-form').submit();">
-                            <i class="fa fa-power-off"></i> تسجيل الخروج
-                        </a>
-                        <form id="logout-form" action="{{ route('admin.logout') }}" method="POST"
-                              style="display: none;">
+                        <form action="{{ route('admin.logout') }}" method="POST" class="m-0">
                             @csrf
+                            <button type="submit" class="dropdown-item border-0 bg-transparent text-right w-100">
+                                <i class="fa fa-power-off"></i> تسجيل الخروج
+                            </button>
                         </form>
                     </div>
                 </div>
