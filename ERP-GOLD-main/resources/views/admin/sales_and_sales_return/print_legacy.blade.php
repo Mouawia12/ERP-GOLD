@@ -5,6 +5,10 @@
         $printSettings = app(\App\Services\Invoices\InvoicePrintSettingsService::class)->currentSettings();
         $printFormat = $printSettings['format'];
         $printTemplate = $printSettings['template'];
+        $showInvoiceTerms = ! empty($invoice->invoice_terms)
+            && app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowOnInvoice(
+                app(\App\Services\Invoices\InvoiceTermsService::class)->contextForInvoice($invoice)
+            );
         $sheetWidth = $printFormat === 'a5' ? '148mm' : '210mm';
         $screenFontSize = $printFormat === 'a5' ? '12px' : '13px';
         $printFontSize = $printFormat === 'a5' ? '10px' : '11px';
@@ -445,13 +449,13 @@
             </tr>
             <tr>
                 <td class="text-center" colspan="6"></td>
-                <td class="text-center" colspan="3" rowspan="2">شروط الفاتورة</td>
+                <td class="text-center" colspan="3" rowspan="2">{{ $showInvoiceTerms ? 'شروط الفاتورة' : ' ' }}</td>
             </tr>
             <tr>
                 <td class="text-center" colspan="2">{{round($invoice -> taxes_total, 2)}}</td>
                 <td class="text-center" colspan="4"> ضريبة القيمة المضافة  (Add Value Vat)</td>
                 <td class="text-center" colspan="3" rowspan="3" style="white-space: pre-line; vertical-align: top; line-height: 1.7;">
-                    {{ $invoice->invoice_terms ?: '---' }}
+                    {{ $showInvoiceTerms ? ($invoice->invoice_terms ?: '---') : ' ' }}
                 </td>
             </tr>
             <tr>

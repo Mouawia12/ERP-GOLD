@@ -173,6 +173,39 @@ class InvoiceTermsFeatureTest extends TestCase
         $response->assertSee('فواتير البيع المبسطة');
         $response->assertSee('فواتير مبيعات الشركات');
         $response->assertSee('فواتير المشتريات');
+        $response->assertSee('إظهار هذه الشروط عند طباعة الفاتورة');
+    }
+
+    public function test_sales_print_page_can_hide_invoice_terms_without_deleting_saved_template(): void
+    {
+        $branch = $this->createBranch('فرع إخفاء الشروط', 'sales-hide-terms@example.com', '111222333');
+        $user = $this->createUser($branch, 'sales-hide-terms-user@example.com');
+        $invoice = $this->createInvoice($branch, $user, 'sale', [
+            'sale_type' => 'simplified',
+            'invoice_terms' => "هذه الشروط محفوظة\nلكنها يجب ألا تطبع",
+        ]);
+
+        SystemSetting::putValue('invoice_terms_templates', json_encode([
+            [
+                'key' => 'retail-hidden',
+                'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
+                'title' => 'شروط مخفية',
+                'content' => "هذه الشروط محفوظة\nلكنها يجب ألا تطبع",
+                'show_on_invoice' => false,
+            ],
+        ], JSON_UNESCAPED_UNICODE));
+        SystemSetting::putValue('default_invoice_terms_template_keys', json_encode([
+            InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED => 'retail-hidden',
+        ], JSON_UNESCAPED_UNICODE));
+
+        $response = $this
+            ->actingAs($user, 'admin-web')
+            ->get(route('sales.show', ['id' => $invoice->id], false));
+
+        $response->assertOk();
+        $response->assertDontSee('شروط الفاتورة');
+        $response->assertDontSee('هذه الشروط محفوظة');
+        $response->assertDontSee('لكنها يجب ألا تطبع');
     }
 
     public function test_sales_print_page_uses_saved_invoice_terms_snapshot_even_after_setting_changes(): void

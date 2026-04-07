@@ -21,6 +21,8 @@
         $printTemplate = $printSettings['template'] ?? 'classic';
         $showHeader = $printSettings['show_header'] ?? true;
         $showFooter = $printSettings['show_footer'] ?? true;
+        $invoiceTermsContext = app(\App\Services\Invoices\InvoiceTermsService::class)->contextForInvoice($invoice);
+        $showInvoiceTerms = ! empty($invoice->invoice_terms) && app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowOnInvoice($invoiceTermsContext);
         $paymentTypeLabel = [
             'cash' => 'نقدي',
             'credit_card' => 'شبكة / بطاقة',
@@ -273,7 +275,7 @@
 
             <p class="seller-line">الموظف: {{ $invoice->user->name ?: '---' }}</p>
 
-            @if(! empty($invoice->invoice_terms))
+            @if($showInvoiceTerms)
                 <p class="notes-line">ملاحظات: {{ $invoice->invoice_terms }}</p>
             @endif
         </div>

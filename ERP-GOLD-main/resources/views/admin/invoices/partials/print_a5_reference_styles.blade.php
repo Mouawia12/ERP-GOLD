@@ -36,12 +36,38 @@
         --shell-width: 108mm;
         --qr-size: 19mm;
         --terms-max-height: 13mm;
+        --page-padding-top: 6mm;
+        --page-padding-inline: 7mm;
+        --page-padding-bottom: 7mm;
+        --head-gap: 5mm;
+        --head-margin-bottom: 3.2mm;
+        --table-cell-padding-block: 1.3mm;
+        --table-cell-padding-inline: 1mm;
+        --summary-gap: 2mm;
+        --signature-gap: 8mm;
+        --signature-margin-top: 3mm;
     }
 
     body.invoice-template-compact {
         --shell-width: 104mm;
         --qr-size: 17mm;
         --terms-max-height: 11mm;
+    }
+
+    body.invoice-paper-ready {
+        --shell-width: 98mm;
+        --qr-size: 15mm;
+        --terms-max-height: 9mm;
+        --page-padding-top: 16mm;
+        --page-padding-inline: 11mm;
+        --page-padding-bottom: 15mm;
+        --head-gap: 3mm;
+        --head-margin-bottom: 2mm;
+        --table-cell-padding-block: 0.9mm;
+        --table-cell-padding-inline: 0.8mm;
+        --summary-gap: 1.5mm;
+        --signature-gap: 6mm;
+        --signature-margin-top: 2mm;
     }
 
     body.invoice-template-modern {
@@ -59,11 +85,19 @@
         display: flex;
         flex-direction: column;
         background: var(--page-bg);
-        padding: 6mm 7mm 7mm;
+        padding: var(--page-padding-top) var(--page-padding-inline) var(--page-padding-bottom);
     }
 
     .page-content {
         flex: 1;
+    }
+
+    body.invoice-paper-ready .page {
+        justify-content: center;
+    }
+
+    body.invoice-paper-ready .page-content {
+        flex: 0 0 auto;
     }
 
     .invoice-shell {
@@ -103,10 +137,10 @@
     .compact-head {
         display: grid;
         grid-template-columns: var(--qr-size) minmax(0, 1fr) 42mm;
-        gap: 5mm;
+        gap: var(--head-gap);
         align-items: start;
         direction: ltr;
-        margin-bottom: 3.2mm;
+        margin-bottom: var(--head-margin-bottom);
     }
 
     .compact-head > * {
@@ -203,7 +237,7 @@
     .summary-table th,
     .summary-table td {
         border: 1px solid var(--line-color);
-        padding: 1.3mm 1mm;
+        padding: var(--table-cell-padding-block) var(--table-cell-padding-inline);
         vertical-align: middle;
         overflow-wrap: anywhere;
         word-break: break-word;
@@ -259,7 +293,7 @@
     .summary-grid {
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        gap: 2mm;
+        gap: var(--summary-gap);
         margin-bottom: 2.2mm;
     }
 
@@ -305,8 +339,8 @@
     .signatures {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 8mm;
-        margin-top: 3mm;
+        gap: var(--signature-gap);
+        margin-top: var(--signature-margin-top);
         font-size: 6.9px;
     }
 
@@ -355,6 +389,10 @@
             padding: 7mm;
             box-shadow: 0 0 0 1px var(--screen-outline);
         }
+
+        body.invoice-paper-ready .page {
+            padding: 12mm 10mm;
+        }
     }
 
     @media print {
@@ -369,6 +407,10 @@
             min-height: auto;
             padding: 0;
             box-shadow: none;
+        }
+
+        body.invoice-paper-ready .page {
+            padding: 14mm 9mm 13mm;
         }
     }
 </style>

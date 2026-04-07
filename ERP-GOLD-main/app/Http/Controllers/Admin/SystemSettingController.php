@@ -63,6 +63,7 @@ class SystemSettingController extends Controller
             'templates.*.title' => 'nullable|string|max:255',
             'templates.*.content' => 'nullable|string|max:5000',
             'templates.*.context' => 'nullable|string|in:' . $allowedContexts,
+            'templates.*.show_on_invoice' => 'nullable|boolean',
             'default_template_keys' => 'nullable|array',
             'default_template_keys.*' => 'nullable|string|max:100',
         ]);
@@ -73,6 +74,7 @@ class SystemSettingController extends Controller
                 'title' => $template['title'] ?? null,
                 'content' => $template['content'] ?? null,
                 'context' => $template['context'] ?? null,
+                'show_on_invoice' => $template['show_on_invoice'] ?? true,
             ])
             ->all();
 

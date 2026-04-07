@@ -23,6 +23,8 @@
         $printTemplate = $printSettings['template'] ?? 'classic';
         $showHeader = $printSettings['show_header'] ?? true;
         $showFooter = $printSettings['show_footer'] ?? true;
+        $invoiceTermsContext = app(\App\Services\Invoices\InvoiceTermsService::class)->contextForInvoice($invoice);
+        $showInvoiceTerms = ! empty($invoice->invoice_terms) && app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowOnInvoice($invoiceTermsContext);
         $saleOrderNumber = $invoice->serial ?: '---';
         $paymentTypeLabel = [
             'cash' => 'نقدي',
@@ -692,7 +694,7 @@
                 </div>
             </section>
 
-            @if(! empty($invoice->invoice_terms))
+            @if($showInvoiceTerms)
                 <section class="terms-box">
                     <div class="terms-box-title">شروط الفاتورة</div>
                     <div class="terms-box-content">{{ $invoice->invoice_terms }}</div>

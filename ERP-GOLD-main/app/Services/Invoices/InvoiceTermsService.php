@@ -2,6 +2,7 @@
 
 namespace App\Services\Invoices;
 
+use App\Models\Invoice;
 use App\Models\SystemSetting;
 
 class InvoiceTermsService
@@ -44,7 +45,7 @@ class InvoiceTermsService
     }
 
     /**
-     * @return array<int, array{key: string, title: string, content: string, context: string}>
+     * @return array<int, array{key: string, title: string, content: string, context: string, show_on_invoice: bool}>
      */
     public function templates(?string $context = null): array
     {
@@ -100,7 +101,7 @@ class InvoiceTermsService
     }
 
     /**
-     * @return array{key: string, title: string, content: string, context: string}
+     * @return array{key: string, title: string, content: string, context: string, show_on_invoice: bool}
      */
     public function defaultTemplate(string $context): array
     {
@@ -126,8 +127,28 @@ class InvoiceTermsService
         return $this->defaultTemplate($context)['content'];
     }
 
+    public function shouldShowOnInvoice(string $context): bool
+    {
+        $legacyTerms = $this->legacyDefaultTerms();
+
+        if ($legacyTerms !== '' && ! $this->hasScopedTemplates()) {
+            return true;
+        }
+
+        return (bool) ($this->defaultTemplate($context)['show_on_invoice'] ?? true);
+    }
+
+    public function contextForInvoice(Invoice $invoice): string
+    {
+        if (in_array($invoice->type, ['purchase', 'purchase_return'], true)) {
+            return self::CONTEXT_PURCHASES;
+        }
+
+        return $this->salesContext((string) $invoice->sale_type);
+    }
+
     /**
-     * @param  array<int, array{key?: string|null, title?: string|null, content?: string|null, context?: string|null}>  $templates
+     * @param  array<int, array{key?: string|null, title?: string|null, content?: string|null, context?: string|null, show_on_invoice?: bool|string|int|null}>  $templates
      * @param  array<string, string|null>  $defaultTemplateKeys
      */
     public function setTemplates(array $templates, array $defaultTemplateKeys = []): void
@@ -149,6 +170,7 @@ class InvoiceTermsService
                     'title' => $title,
                     'content' => $content,
                     'context' => $context,
+                    'show_on_invoice' => filter_var($template['show_on_invoice'] ?? true, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true,
                 ];
             })
             ->filter()
@@ -226,7 +248,7 @@ class InvoiceTermsService
     }
 
     /**
-     * @return array<int, array{key: string, title: string, content: string, context: string}>
+     * @return array<int, array{key: string, title: string, content: string, context: string, show_on_invoice: bool}>
      */
     private function normalizedStoredTemplates(): array
     {
@@ -257,6 +279,7 @@ class InvoiceTermsService
                     'title' => $title,
                     'content' => $content,
                     'context' => $context,
+                    'show_on_invoice' => filter_var($template['show_on_invoice'] ?? true, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true,
                 ];
             })
             ->filter()
@@ -266,8 +289,8 @@ class InvoiceTermsService
     }
 
     /**
-     * @param  array<int, array{key: string, title: string, content: string, context: string}>  $templates
-     * @return array<int, array{key: string, title: string, content: string, context: string}>
+     * @param  array<int, array{key: string, title: string, content: string, context: string, show_on_invoice: bool}>  $templates
+     * @return array<int, array{key: string, title: string, content: string, context: string, show_on_invoice: bool}>
      */
     private function mergeFallbackTemplates(array $templates): array
     {
@@ -286,7 +309,7 @@ class InvoiceTermsService
     }
 
     /**
-     * @return array<int, array{key: string, title: string, content: string, context: string}>
+     * @return array<int, array{key: string, title: string, content: string, context: string, show_on_invoice: bool}>
      */
     private function defaultTemplates(): array
     {
@@ -296,24 +319,27 @@ class InvoiceTermsService
                 'title' => 'استبدال وبيع تجزئة',
                 'content' => "يحق الاستبدال خلال 3 أيام مع إبراز الفاتورة الأصلية.\nلا تُقبل القطع المعدلة أو التالفة بعد الاستلام.",
                 'context' => self::CONTEXT_SALES_SIMPLIFIED,
+                'show_on_invoice' => true,
             ],
             [
                 'key' => 'company-sales',
                 'title' => 'مبيعات شركات',
                 'content' => "يتم اعتماد الفاتورة بحسب البيانات الضريبية المسجلة للعميل.\nأي تعديل لاحق يتطلب الرجوع إلى الفاتورة الأصلية.",
                 'context' => self::CONTEXT_SALES_STANDARD,
+                'show_on_invoice' => true,
             ],
             [
                 'key' => 'purchase-supplier',
                 'title' => 'شراء من مورد',
                 'content' => "يتم اعتماد الوزن بعد الفحص والمطابقة.\nأي فروقات لاحقة تُسوّى بحسب نتيجة الفحص النهائي.",
                 'context' => self::CONTEXT_PURCHASES,
+                'show_on_invoice' => true,
             ],
         ];
     }
 
     /**
-     * @return array<int, array{key: string, title: string, content: string, context: string}>
+     * @return array<int, array{key: string, title: string, content: string, context: string, show_on_invoice: bool}>
      */
     private function fallbackTemplatesForContext(string $context): array
     {
@@ -325,6 +351,7 @@ class InvoiceTermsService
                 'title' => 'الشروط الافتراضية',
                 'content' => $legacyTerms,
                 'context' => $context,
+                'show_on_invoice' => true,
             ]];
         }
 

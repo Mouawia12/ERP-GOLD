@@ -53,7 +53,7 @@ class InvoicePrintSettingsFeatureTest extends TestCase
         $response->assertSee('data-print-template="compact"', false);
         $response->assertSee('data-show-header="0"', false);
         $response->assertSee('data-show-footer="0"', false);
-        $response->assertSee('class="invoice-print-format-a5 invoice-template-compact"', false);
+        $response->assertSee('class="invoice-print-format-a5 invoice-template-compact invoice-paper-ready"', false);
         $response->assertSee('شروط الفاتورة');
         $response->assertSee('شرط أول');
         $response->assertDontSee('<header class="invoice-header">', false);

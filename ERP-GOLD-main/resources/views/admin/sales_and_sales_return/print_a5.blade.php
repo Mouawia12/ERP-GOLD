@@ -21,6 +21,7 @@
         $printTemplate = $printSettings['template'] ?? 'classic';
         $showHeader = $printSettings['show_header'] ?? true;
         $showFooter = $printSettings['show_footer'] ?? true;
+        $compactStandalonePrint = ! $showHeader && ! $showFooter;
         $saleOrderNumber = $invoice->serial ?: '---';
         $paymentTypeLabel = [
             'cash' => 'نقدي',
@@ -57,6 +58,8 @@
         ];
 
         $invoiceTerms = trim((string) ($invoice->invoice_terms ?? ''));
+        $invoiceTermsContext = app(\App\Services\Invoices\InvoiceTermsService::class)->contextForInvoice($invoice);
+        $showInvoiceTerms = $invoiceTerms !== '' && app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowOnInvoice($invoiceTermsContext);
         $backUrl = route($isSale ? 'sales.index' : 'sales_return.index', $invoice->sale_type);
         $whatsappUrl = ! empty($invoice->client_phone)
             ? route('send.invoice.whatsapp', $invoice->id)
@@ -73,7 +76,7 @@
     data-print-template="{{ $printTemplate }}"
     data-show-header="{{ $showHeader ? '1' : '0' }}"
     data-show-footer="{{ $showFooter ? '1' : '0' }}"
-    class="invoice-print-format-a5 invoice-template-{{ $printTemplate }}"
+    class="invoice-print-format-a5 invoice-template-{{ $printTemplate }}{{ $compactStandalonePrint ? ' invoice-paper-ready' : '' }}"
 >
     <div class="page">
         <div class="page-content">
@@ -241,7 +244,7 @@
                     </table>
                 </section>
 
-                @if($invoiceTerms !== '')
+                @if($showInvoiceTerms)
                     <section class="terms-box">
                         <div class="terms-title">شروط الفاتورة</div>
                         <div class="terms-content">{{ $invoiceTerms }}</div>

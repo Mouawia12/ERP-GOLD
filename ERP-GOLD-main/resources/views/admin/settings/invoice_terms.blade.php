@@ -100,6 +100,13 @@
                                 اجعل هذه الشروط هي الافتراضية لهذه الصفحة
                             </label>
                         </div>
+
+                        <div class="custom-control custom-checkbox mt-2">
+                            <input type="checkbox" class="custom-control-input" id="invoice-terms-template-show-on-invoice" checked>
+                            <label class="custom-control-label" for="invoice-terms-template-show-on-invoice">
+                                إظهار هذه الشروط عند طباعة الفاتورة
+                            </label>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-light" data-dismiss="modal">إلغاء</button>
@@ -127,6 +134,7 @@
         const modalTemplateTitle = document.getElementById('invoice-terms-template-title');
         const modalTemplateContent = document.getElementById('invoice-terms-template-content');
         const modalTemplateDefault = document.getElementById('invoice-terms-template-default');
+        const modalTemplateShowOnInvoice = document.getElementById('invoice-terms-template-show-on-invoice');
         const saveTemplateButton = document.getElementById('save-invoice-terms-template');
         const contexts = @json($invoiceTermContexts);
         const canEdit = @json(auth('admin-web')->user()?->can('employee.system_settings.edit'));
@@ -140,6 +148,17 @@
 
         templates = Array.isArray(templates) ? templates : [];
         defaultTemplateKeys = defaultTemplateKeys && typeof defaultTemplateKeys === 'object' ? defaultTemplateKeys : {};
+        templates = templates.map(function (template) {
+            const showOnInvoice = !(template.show_on_invoice === false
+                || template.show_on_invoice === 0
+                || template.show_on_invoice === '0');
+
+            return Object.assign({
+                show_on_invoice: true,
+            }, template, {
+                show_on_invoice: showOnInvoice,
+            });
+        });
 
         function escapeHtml(value) {
             return String(value || '')
@@ -223,6 +242,9 @@
                 const defaultTemplate = templatesForContext(context.key).find(function (template) {
                     return template.key === defaultKey;
                 });
+                const printStatus = defaultTemplate && defaultTemplate.show_on_invoice
+                    ? '<span class="badge badge-info ml-2">تظهر في الطباعة</span>'
+                    : '<span class="badge badge-secondary ml-2">مخفية في الطباعة</span>';
 
                 return `
                     <div class="col-lg-4 col-md-6 mb-3">
@@ -230,7 +252,10 @@
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <h6 class="mb-0">${escapeHtml(context.title)}</h6>
-                                    <span class="badge badge-success">تلقائي</span>
+                                    <div>
+                                        <span class="badge badge-success">تلقائي</span>
+                                        ${defaultTemplate ? printStatus : ''}
+                                    </div>
                                 </div>
                                 <div class="text-muted small mb-2">
                                     ${defaultTemplate ? escapeHtml(defaultTemplate.title) : 'لا توجد شروط معرفة'}
@@ -274,6 +299,7 @@
                                         <h5 class="mb-0 mr-2">${escapeHtml(template.title)}</h5>
                                         <span class="badge badge-light">${escapeHtml(findContextTitle(template.context))}</span>
                                         ${isDefault ? '<span class="badge badge-success ml-2">المعتمد تلقائيًا</span>' : ''}
+                                        ${template.show_on_invoice ? '<span class="badge badge-info ml-2">يظهر في الطباعة</span>' : '<span class="badge badge-secondary ml-2">مخفي من الطباعة</span>'}
                                     </div>
                                     <small class="text-muted">المعرّف: ${escapeHtml(template.key)}</small>
                                 </div>
@@ -296,6 +322,7 @@
                 hiddenInputs.push(`<input type="hidden" name="templates[${index}][title]" value="${escapeAttribute(template.title)}">`);
                 hiddenInputs.push(`<input type="hidden" name="templates[${index}][content]" value="${escapeAttribute(template.content)}">`);
                 hiddenInputs.push(`<input type="hidden" name="templates[${index}][context]" value="${escapeAttribute(template.context)}">`);
+                hiddenInputs.push(`<input type="hidden" name="templates[${index}][show_on_invoice]" value="${template.show_on_invoice ? '1' : '0'}">`);
             });
 
             Object.keys(defaultTemplateKeys).forEach(function (contextKey) {
@@ -344,6 +371,9 @@
                 modalTemplateTitle.value = '';
                 modalTemplateContent.value = '';
                 modalTemplateDefault.checked = true;
+                if (modalTemplateShowOnInvoice) {
+                    modalTemplateShowOnInvoice.checked = true;
+                }
             } else {
                 const template = templates[editingIndex];
                 modalTitle.textContent = 'تعديل الشروط';
@@ -351,6 +381,9 @@
                 modalTemplateTitle.value = template.title;
                 modalTemplateContent.value = template.content;
                 modalTemplateDefault.checked = defaultTemplateKeys[template.context] === template.key;
+                if (modalTemplateShowOnInvoice) {
+                    modalTemplateShowOnInvoice.checked = template.show_on_invoice !== false;
+                }
             }
 
             window.jQuery(modalElement).modal('show');
@@ -361,6 +394,7 @@
             const title = modalTemplateTitle ? modalTemplateTitle.value.trim() : '';
             const content = modalTemplateContent ? modalTemplateContent.value.trim() : '';
             const makeDefault = modalTemplateDefault ? modalTemplateDefault.checked : false;
+            const showOnInvoice = modalTemplateShowOnInvoice ? modalTemplateShowOnInvoice.checked : true;
 
             resetModalError();
 
@@ -385,6 +419,7 @@
                     title: title,
                     content: content,
                     context: contextKey,
+                    show_on_invoice: showOnInvoice,
                 };
 
                 templates.push(newTemplate);
@@ -405,6 +440,7 @@
                     title: title,
                     content: content,
                     context: contextKey,
+                    show_on_invoice: showOnInvoice,
                 };
 
                 if (defaultTemplateKeys[previousContext] === previousKey) {

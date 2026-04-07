@@ -190,6 +190,12 @@
     page-break-after: avoid;
     page-break-inside: avoid;"
 >
+@php
+    $showInvoiceTerms = ! empty($invoice->invoice_terms)
+        && app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowOnInvoice(
+            app(\App\Services\Invoices\InvoiceTermsService::class)->contextForInvoice($invoice)
+        );
+@endphp
 
 <div class="pos_details  justify-content-center text-center">
     <div class="invoice-print-sheet text-center">
@@ -343,9 +349,11 @@
                 <td class="text-center" colspan="2">{{round($invoice -> taxes_total, 2)}}</td>
                 <td class="text-center" colspan="4"> ضريبة القيمة المضافة  (Add Value Vat)</td>
                 <td class="text-center" colspan="3" rowspan="3" style="white-space: pre-line; vertical-align: top; line-height: 1.7;">
-                    <strong>شروط الفاتورة</strong>
-                    <br>
-                    {{ $invoice->invoice_terms ?: '---' }}
+                    @if($showInvoiceTerms)
+                        <strong>شروط الفاتورة</strong>
+                        <br>
+                        {{ $invoice->invoice_terms ?: '---' }}
+                    @endif
                 </td>
             </tr>
             <tr>
