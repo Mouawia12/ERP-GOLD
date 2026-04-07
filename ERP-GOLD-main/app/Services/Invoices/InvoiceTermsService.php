@@ -138,6 +138,39 @@ class InvoiceTermsService
         return (bool) ($this->defaultTemplate($context)['show_on_invoice'] ?? true);
     }
 
+    public function shouldShowSnapshotOnInvoice(?string $terms, string $context): bool
+    {
+        $normalizedTerms = $this->normalize($terms);
+
+        if ($normalizedTerms === '') {
+            return false;
+        }
+
+        $legacyTerms = $this->legacyDefaultTerms();
+
+        if ($legacyTerms !== '' && ! $this->hasScopedTemplates()) {
+            return true;
+        }
+
+        $matchedTemplate = collect($this->templates($context))->first(function (array $template) use ($normalizedTerms) {
+            return $this->normalize($template['content'] ?? '') === $normalizedTerms;
+        });
+
+        if (is_array($matchedTemplate)) {
+            return (bool) ($matchedTemplate['show_on_invoice'] ?? true);
+        }
+
+        return true;
+    }
+
+    public function shouldShowInvoiceTermsForInvoice(Invoice $invoice): bool
+    {
+        return $this->shouldShowSnapshotOnInvoice(
+            $invoice->invoice_terms,
+            $this->contextForInvoice($invoice),
+        );
+    }
+
     public function contextForInvoice(Invoice $invoice): string
     {
         if (in_array($invoice->type, ['purchase', 'purchase_return'], true)) {

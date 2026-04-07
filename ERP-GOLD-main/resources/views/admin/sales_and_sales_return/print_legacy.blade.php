@@ -5,10 +5,7 @@
         $printSettings = app(\App\Services\Invoices\InvoicePrintSettingsService::class)->currentSettings();
         $printFormat = $printSettings['format'];
         $printTemplate = $printSettings['template'];
-        $showInvoiceTerms = ! empty($invoice->invoice_terms)
-            && app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowOnInvoice(
-                app(\App\Services\Invoices\InvoiceTermsService::class)->contextForInvoice($invoice)
-            );
+        $showInvoiceTerms = app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowInvoiceTermsForInvoice($invoice);
         $sheetWidth = $printFormat === 'a5' ? '148mm' : '210mm';
         $screenFontSize = $printFormat === 'a5' ? '12px' : '13px';
         $printFontSize = $printFormat === 'a5' ? '10px' : '11px';

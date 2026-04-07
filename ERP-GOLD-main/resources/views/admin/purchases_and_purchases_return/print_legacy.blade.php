@@ -191,10 +191,7 @@
     page-break-inside: avoid;"
 >
 @php
-    $showInvoiceTerms = ! empty($invoice->invoice_terms)
-        && app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowOnInvoice(
-            app(\App\Services\Invoices\InvoiceTermsService::class)->contextForInvoice($invoice)
-        );
+    $showInvoiceTerms = app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowInvoiceTermsForInvoice($invoice);
 @endphp
 
 <div class="pos_details  justify-content-center text-center">

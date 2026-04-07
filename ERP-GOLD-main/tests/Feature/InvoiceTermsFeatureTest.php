@@ -208,6 +208,45 @@ class InvoiceTermsFeatureTest extends TestCase
         $response->assertDontSee('لكنها يجب ألا تطبع');
     }
 
+    public function test_sales_print_page_hides_terms_when_invoice_snapshot_matches_hidden_template_even_if_another_template_is_default(): void
+    {
+        $branch = $this->createBranch('فرع مطابقة الشروط', 'sales-terms-match@example.com', '777888999');
+        $user = $this->createUser($branch, 'sales-terms-match-user@example.com');
+        $invoice = $this->createInvoice($branch, $user, 'sale', [
+            'sale_type' => 'simplified',
+            'invoice_terms' => "شروط محفوظة قديمة\nيجب إخفاؤها عند الطباعة",
+        ]);
+
+        SystemSetting::putValue('invoice_terms_templates', json_encode([
+            [
+                'key' => 'retail-visible',
+                'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
+                'title' => 'مرئي',
+                'content' => "شروط مرئية افتراضية\nتخص قالباً آخر",
+                'show_on_invoice' => true,
+            ],
+            [
+                'key' => 'retail-hidden-snapshot',
+                'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
+                'title' => 'مخفي',
+                'content' => "شروط محفوظة قديمة\nيجب إخفاؤها عند الطباعة",
+                'show_on_invoice' => false,
+            ],
+        ], JSON_UNESCAPED_UNICODE));
+        SystemSetting::putValue('default_invoice_terms_template_keys', json_encode([
+            InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED => 'retail-visible',
+        ], JSON_UNESCAPED_UNICODE));
+
+        $response = $this
+            ->actingAs($user, 'admin-web')
+            ->get(route('sales.show', ['id' => $invoice->id], false));
+
+        $response->assertOk();
+        $response->assertDontSee('شروط الفاتورة');
+        $response->assertDontSee('شروط محفوظة قديمة');
+        $response->assertDontSee('يجب إخفاؤها عند الطباعة');
+    }
+
     public function test_sales_print_page_uses_saved_invoice_terms_snapshot_even_after_setting_changes(): void
     {
         $branch = $this->createBranch('فرع المبيعات', 'sales-branch@example.com', '111111111');

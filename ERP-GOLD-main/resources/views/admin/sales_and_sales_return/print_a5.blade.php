@@ -58,8 +58,7 @@
         ];
 
         $invoiceTerms = trim((string) ($invoice->invoice_terms ?? ''));
-        $invoiceTermsContext = app(\App\Services\Invoices\InvoiceTermsService::class)->contextForInvoice($invoice);
-        $showInvoiceTerms = $invoiceTerms !== '' && app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowOnInvoice($invoiceTermsContext);
+        $showInvoiceTerms = app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowInvoiceTermsForInvoice($invoice);
         $backUrl = route($isSale ? 'sales.index' : 'sales_return.index', $invoice->sale_type);
         $whatsappUrl = ! empty($invoice->client_phone)
             ? route('send.invoice.whatsapp', $invoice->id)

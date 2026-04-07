@@ -23,8 +23,7 @@
         $printTemplate = $printSettings['template'] ?? 'classic';
         $showHeader = $printSettings['show_header'] ?? true;
         $showFooter = $printSettings['show_footer'] ?? true;
-        $invoiceTermsContext = app(\App\Services\Invoices\InvoiceTermsService::class)->contextForInvoice($invoice);
-        $showInvoiceTerms = ! empty($invoice->invoice_terms) && app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowOnInvoice($invoiceTermsContext);
+        $showInvoiceTerms = app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowInvoiceTermsForInvoice($invoice);
         $saleOrderNumber = $invoice->serial ?: '---';
         $paymentTypeLabel = [
             'cash' => 'نقدي',
