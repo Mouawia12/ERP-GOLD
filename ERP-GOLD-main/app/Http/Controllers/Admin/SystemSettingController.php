@@ -89,7 +89,7 @@ class SystemSettingController extends Controller
     public function editInvoicePrint(): View
     {
         return view('admin.settings.invoice_print', [
-            'printSettings' => $this->invoicePrintSettingsService->currentSettings(),
+            'printSettings' => $this->invoicePrintSettingsService->currentSettings(false),
             'availableFormats' => $this->invoicePrintSettingsService->availableFormats(),
             'availableTemplates' => $this->invoicePrintSettingsService->availableTemplates(),
         ]);

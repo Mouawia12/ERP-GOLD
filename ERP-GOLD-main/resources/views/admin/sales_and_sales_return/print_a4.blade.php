@@ -20,6 +20,9 @@
         $fmtMoney = fn ($value) => number_format((float) $value, 2);
         $fmtWeight = fn ($value) => number_format((float) $value, 3);
         $currencyLabel = 'ريال';
+        $printTemplate = $printSettings['template'] ?? 'classic';
+        $showHeader = $printSettings['show_header'] ?? true;
+        $showFooter = $printSettings['show_footer'] ?? true;
         $saleOrderNumber = $invoice->serial ?: '---';
         $paymentTypeLabel = [
             'cash' => 'نقدي',
@@ -90,10 +93,41 @@
             margin: 0;
             padding: 0;
             color: #111;
-            background: #fff;
             font-family: 'Almarai', 'DejaVu Sans', sans-serif;
             font-size: 12px;
             line-height: 1.45;
+        }
+
+        body {
+            --invoice-accent: #555;
+            --sheet-background: #fff;
+            --table-header-bg: #e0e0e0;
+            --screen-background: #f3f4f6;
+            --screen-outline: #d4d4d8;
+            --company-font-size: 12px;
+            --logo-frame-width: 168px;
+            --logo-frame-height: 88px;
+            --logo-size: 124px;
+            --meta-list-gap: 10px;
+            --table-cell-padding: 6px;
+            background: var(--sheet-background);
+        }
+
+        body.invoice-template-compact {
+            --company-font-size: 11px;
+            --logo-frame-width: 152px;
+            --logo-frame-height: 80px;
+            --logo-size: 108px;
+            --meta-list-gap: 8px;
+            --table-cell-padding: 4px;
+        }
+
+        body.invoice-template-modern {
+            --invoice-accent: #1f2937;
+            --sheet-background: #f8fafc;
+            --table-header-bg: #dbe4f0;
+            --screen-background: #eef2ff;
+            --screen-outline: #cbd5e1;
         }
 
         .page {
@@ -102,6 +136,7 @@
             margin: 0 auto;
             display: flex;
             flex-direction: column;
+            background: var(--sheet-background);
         }
 
         .page-content {
@@ -116,7 +151,7 @@
 
         .invoice-rule,
         .page-footer {
-            border-top: 1px solid #555;
+            border-top: 1px solid var(--invoice-accent);
         }
 
         .invoice-header {
@@ -128,6 +163,7 @@
 
         .company-block {
             min-height: 88px;
+            font-size: var(--company-font-size);
         }
 
         .company-block.company-en {
@@ -155,8 +191,8 @@
         }
 
         .brand-logo-wrap {
-            width: 168px;
-            height: 88px;
+            width: var(--logo-frame-width);
+            height: var(--logo-frame-height);
             margin: 0 auto 6px;
             overflow: hidden;
             display: flex;
@@ -166,8 +202,8 @@
         }
 
         .brand-logo {
-            width: 124px;
-            height: 124px;
+            width: var(--logo-size);
+            height: var(--logo-size);
             object-fit: contain;
             display: block;
             margin: 0;
@@ -220,7 +256,7 @@
         .carat-table td,
         .carat-table th {
             border: 1px solid #999;
-            padding: 6px;
+            padding: var(--table-cell-padding);
             vertical-align: middle;
         }
 
@@ -228,7 +264,7 @@
         .totals-table th,
         .payment-table th,
         .carat-table th {
-            background: #e0e0e0;
+            background: var(--table-header-bg);
             font-weight: 700;
         }
 
@@ -236,7 +272,7 @@
             direction: rtl;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: var(--meta-list-gap);
             padding-top: 12px;
         }
 
@@ -362,49 +398,74 @@
         @media screen {
             body {
                 padding: 8px 0 18px;
+                background: var(--screen-background);
             }
+
+            .page {
+                box-shadow: 0 0 0 1px var(--screen-outline);
+            }
+        }
+
+        body.invoice-template-compact .items-table td,
+        body.invoice-template-compact .items-table th,
+        body.invoice-template-compact .totals-table td,
+        body.invoice-template-compact .totals-table th,
+        body.invoice-template-compact .payment-table td,
+        body.invoice-template-compact .payment-table th,
+        body.invoice-template-compact .carat-table td,
+        body.invoice-template-compact .carat-table th {
+            padding: 4px;
+        }
+
+        body.invoice-template-modern .invoice-title,
+        body.invoice-template-modern .invoice-title-en,
+        body.invoice-template-modern .company-name {
+            color: #0f172a;
         }
     </style>
 </head>
 <body
     data-print-format="a4"
-    data-print-template="{{ $printSettings['template'] }}"
-    data-show-header="{{ $printSettings['show_header'] ? '1' : '0' }}"
-    data-show-footer="{{ $printSettings['show_footer'] ? '1' : '0' }}"
+    data-print-template="{{ $printTemplate }}"
+    data-show-header="{{ $showHeader ? '1' : '0' }}"
+    data-show-footer="{{ $showFooter ? '1' : '0' }}"
+    class="invoice-print-format-a4 invoice-template-{{ $printTemplate }}"
 >
     <div class="page">
         <div class="page-content">
-            <header class="invoice-header">
-                <section class="company-block company-ar">
-                    <p class="company-line company-name">{{ $companyNameAr }}</p>
-                    <p class="company-line">الرقم الضريبي: <span class="ltr">{{ $branch->tax_number ?: '---' }}</span></p>
-                    <p class="company-line">السجل التجاري: <span class="ltr">{{ $branch->commercial_register ?: '---' }}</span></p>
-                    @if(! empty($branch->license_number))
-                        <p class="company-line">رخصة المعادن: <span class="ltr">{{ $branch->license_number }}</span></p>
-                    @endif
-                    <p class="company-line">الفرع: {{ $branchNameAr }}</p>
-                </section>
+            @if($showHeader)
+                <header class="invoice-header">
+                    <section class="company-block company-ar">
+                        <p class="company-line company-name">{{ $companyNameAr }}</p>
+                        <p class="company-line">الرقم الضريبي: <span class="ltr">{{ $branch->tax_number ?: '---' }}</span></p>
+                        <p class="company-line">السجل التجاري: <span class="ltr">{{ $branch->commercial_register ?: '---' }}</span></p>
+                        @if(! empty($branch->license_number))
+                            <p class="company-line">رخصة المعادن: <span class="ltr">{{ $branch->license_number }}</span></p>
+                        @endif
+                        <p class="company-line">الفرع: {{ $branchNameAr }}</p>
+                    </section>
 
-                <section class="header-center">
-                    <div class="brand-logo-wrap">
-                        <img src="{{ $brandLogoUrl }}" alt="Logo" class="brand-logo">
-                    </div>
-                    <h1 class="invoice-title">فاتورة ضريبية مبسطة</h1>
-                    <p class="invoice-title-en">Simplified Tax Invoice</p>
-                </section>
+                    <section class="header-center">
+                        <div class="brand-logo-wrap">
+                            <img src="{{ $brandLogoUrl }}" alt="Logo" class="brand-logo">
+                        </div>
+                        <h1 class="invoice-title">{{ $documentTitle }}</h1>
+                        <p class="invoice-title-en">{{ $invoice->sale_type === 'standard' ? 'Tax Invoice' : 'Simplified Tax Invoice' }}</p>
+                    </section>
 
-                <section class="company-block company-en">
-                    <p class="company-line company-name">{{ $companyNameEn }}</p>
-                    <p class="company-line">Tax Number: <span class="ltr">{{ $branch->tax_number ?: '---' }}</span></p>
-                    <p class="company-line">Commercial Registry: <span class="ltr">{{ $branch->commercial_register ?: '---' }}</span></p>
-                    @if(! empty($branch->license_number))
-                        <p class="company-line">Mineral License: <span class="ltr">{{ $branch->license_number }}</span></p>
-                    @endif
-                    <p class="company-line">Branch: {{ $branchNameEn }}</p>
-                </section>
-            </header>
+                    <section class="company-block company-en">
+                        <p class="company-line company-name">{{ $companyNameEn }}</p>
+                        <p class="company-line">Tax Number: <span class="ltr">{{ $branch->tax_number ?: '---' }}</span></p>
+                        <p class="company-line">Commercial Registry: <span class="ltr">{{ $branch->commercial_register ?: '---' }}</span></p>
+                        @if(! empty($branch->license_number))
+                            <p class="company-line">Mineral License: <span class="ltr">{{ $branch->license_number }}</span></p>
+                        @endif
+                        <p class="company-line">Branch: {{ $branchNameEn }}</p>
+                    </section>
+                </header>
 
-            <div class="invoice-rule"></div>
+                <div class="invoice-rule"></div>
+            @endif
 
             <section class="invoice-head-meta">
                 <div class="{{ ! empty($invoice->zatcaQrCode) ? 'qr-box' : 'qr-box is-placeholder' }}">
@@ -556,10 +617,12 @@
             <p class="seller-line">البائع: {{ $invoice->user->name ?: '---' }}</p>
         </div>
 
-        <footer class="page-footer">
-            <div class="footer-right">{{ $branchAddressAr }}</div>
-            <div class="footer-left">{{ $branchAddressEn }}</div>
-        </footer>
+        @if($showFooter)
+            <footer class="page-footer">
+                <div class="footer-right">{{ $branchAddressAr }}</div>
+                <div class="footer-left">{{ $branchAddressEn }}</div>
+            </footer>
+        @endif
     </div>
 
     @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl'))

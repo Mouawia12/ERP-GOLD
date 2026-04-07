@@ -52,9 +52,9 @@ class InvoicePrintSettingsFeatureTest extends TestCase
         $response->assertSee('data-print-template="compact"', false);
         $response->assertSee('data-show-header="0"', false);
         $response->assertSee('data-show-footer="0"', false);
-        $response->assertDontSee('<style type="text/css" media="screen">', false);
-        $response->assertDontSee('<header class="print-header-section"', false);
-        $response->assertDontSee('<div class="row print-footer-section"', false);
+        $response->assertSee('class="invoice-print-format-a5 invoice-template-compact"', false);
+        $response->assertDontSee('<header class="invoice-header">', false);
+        $response->assertDontSee('<footer class="page-footer">', false);
     }
 
     public function test_purchases_print_page_uses_a4_with_header_and_footer_when_enabled(): void
@@ -92,6 +92,43 @@ class InvoicePrintSettingsFeatureTest extends TestCase
         $response->assertDontSee('<style type="text/css" media="screen">', false);
         $response->assertSee('<header class="print-header-section"', false);
         $response->assertSee('<div class="row print-footer-section"', false);
+    }
+
+    public function test_purchases_print_page_uses_a5_template_and_honors_header_and_footer_settings(): void
+    {
+        $branch = $this->createBranch('فرع شراء A5', 'purchase-a5-print-settings@example.com', '555555555');
+        $user = $this->createUser($branch, 'purchase-a5-print-user@example.com');
+        $supplierId = DB::table('customers')->insertGetId([
+            'name' => 'مورد A5',
+            'type' => 'supplier',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $invoice = $this->createInvoice($branch, $user, 'purchase', [
+            'customer_id' => $supplierId,
+            'supplier_bill_number' => 'SUP-A5-01',
+        ]);
+
+        DB::table('system_settings')->insert([
+            ['key' => 'invoice_print_format', 'value' => 'a5'],
+            ['key' => 'invoice_print_template', 'value' => 'modern'],
+            ['key' => 'invoice_print_show_header', 'value' => '1'],
+            ['key' => 'invoice_print_show_footer', 'value' => '1'],
+        ]);
+
+        $response = $this
+            ->actingAs($user, 'admin-web')
+            ->get(route('purchases.show', ['id' => $invoice->id], false));
+
+        $response->assertOk();
+        $response->assertSee('data-print-format="a5"', false);
+        $response->assertSee('data-print-template="modern"', false);
+        $response->assertSee('data-show-header="1"', false);
+        $response->assertSee('data-show-footer="1"', false);
+        $response->assertSee('class="invoice-print-format-a5 invoice-template-modern"', false);
+        $response->assertSee('<header class="invoice-header">', false);
+        $response->assertSee('<footer class="page-footer">', false);
     }
 
     public function test_print_page_can_temporarily_override_paper_size_from_request(): void
@@ -143,9 +180,12 @@ class InvoicePrintSettingsFeatureTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('data-print-format="a4"', false);
+        $response->assertSee('class="invoice-print-format-a4 invoice-template-classic"', false);
         $response->assertSee('class="page"', false);
         $response->assertSee('class="page-content"', false);
         $response->assertSee('Simplified Tax Invoice');
+        $response->assertSee('<header class="invoice-header">', false);
+        $response->assertSee('<footer class="page-footer">', false);
         $response->assertSee('class="items-table"', false);
         $response->assertDontSee('invoice-print-table', false);
     }

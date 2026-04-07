@@ -18,6 +18,9 @@
         $fmtMoney = fn ($value) => number_format((float) $value, 2);
         $fmtWeight = fn ($value) => number_format((float) $value, 3);
         $currencyLabel = 'ريال';
+        $printTemplate = $printSettings['template'] ?? 'classic';
+        $showHeader = $printSettings['show_header'] ?? true;
+        $showFooter = $printSettings['show_footer'] ?? true;
         $paymentTypeLabel = [
             'cash' => 'نقدي',
             'credit_card' => 'شبكة / بطاقة',
@@ -87,41 +90,44 @@
 </head>
 <body
     data-print-format="a5"
-    data-print-template="{{ $printSettings['template'] }}"
-    data-show-header="{{ $printSettings['show_header'] ? '1' : '0' }}"
-    data-show-footer="{{ $printSettings['show_footer'] ? '1' : '0' }}"
+    data-print-template="{{ $printTemplate }}"
+    data-show-header="{{ $showHeader ? '1' : '0' }}"
+    data-show-footer="{{ $showFooter ? '1' : '0' }}"
+    class="invoice-print-format-a5 invoice-template-{{ $printTemplate }}"
 >
     <div class="page">
         <div class="page-content">
-            <header class="invoice-header">
-                <section class="company-block company-ar">
-                    <p class="company-line company-name">{{ $companyNameAr }}</p>
-                    <p class="company-line">الرقم الضريبي: <span class="ltr">{{ $branch->tax_number ?: '---' }}</span></p>
-                    <p class="company-line">السجل التجاري: <span class="ltr">{{ $branch->commercial_register ?: '---' }}</span></p>
-                    @if(! empty($branch->license_number))
-                        <p class="company-line">رخصة المعادن: <span class="ltr">{{ $branch->license_number }}</span></p>
-                    @endif
-                    <p class="company-line">الفرع: {{ $branchNameAr }}</p>
-                </section>
+            @if($showHeader)
+                <header class="invoice-header">
+                    <section class="company-block company-ar">
+                        <p class="company-line company-name">{{ $companyNameAr }}</p>
+                        <p class="company-line">الرقم الضريبي: <span class="ltr">{{ $branch->tax_number ?: '---' }}</span></p>
+                        <p class="company-line">السجل التجاري: <span class="ltr">{{ $branch->commercial_register ?: '---' }}</span></p>
+                        @if(! empty($branch->license_number))
+                            <p class="company-line">رخصة المعادن: <span class="ltr">{{ $branch->license_number }}</span></p>
+                        @endif
+                        <p class="company-line">الفرع: {{ $branchNameAr }}</p>
+                    </section>
 
-                <section class="header-center">
-                    <img src="{{ $brandLogoUrl }}" alt="Logo" class="brand-logo">
-                    <h1 class="invoice-title">{{ $documentTitle }}</h1>
-                    <p class="invoice-title-en">{{ $isPurchase ? 'Purchase Invoice' : 'Purchase Return' }}</p>
-                </section>
+                    <section class="header-center">
+                        <img src="{{ $brandLogoUrl }}" alt="Logo" class="brand-logo">
+                        <h1 class="invoice-title">{{ $documentTitle }}</h1>
+                        <p class="invoice-title-en">{{ $isPurchase ? 'Purchase Invoice' : 'Purchase Return' }}</p>
+                    </section>
 
-                <section class="company-block company-en">
-                    <p class="company-line company-name">{{ $companyNameEn }}</p>
-                    <p class="company-line">Tax Number: <span class="ltr">{{ $branch->tax_number ?: '---' }}</span></p>
-                    <p class="company-line">Commercial Registry: <span class="ltr">{{ $branch->commercial_register ?: '---' }}</span></p>
-                    @if(! empty($branch->license_number))
-                        <p class="company-line">Mineral License: <span class="ltr">{{ $branch->license_number }}</span></p>
-                    @endif
-                    <p class="company-line">Branch: {{ $branchNameEn }}</p>
-                </section>
-            </header>
+                    <section class="company-block company-en">
+                        <p class="company-line company-name">{{ $companyNameEn }}</p>
+                        <p class="company-line">Tax Number: <span class="ltr">{{ $branch->tax_number ?: '---' }}</span></p>
+                        <p class="company-line">Commercial Registry: <span class="ltr">{{ $branch->commercial_register ?: '---' }}</span></p>
+                        @if(! empty($branch->license_number))
+                            <p class="company-line">Mineral License: <span class="ltr">{{ $branch->license_number }}</span></p>
+                        @endif
+                        <p class="company-line">Branch: {{ $branchNameEn }}</p>
+                    </section>
+                </header>
 
-            <div class="invoice-rule"></div>
+                <div class="invoice-rule"></div>
+            @endif
 
             <section class="invoice-head-meta">
                 <div class="{{ ! empty($invoice->zatcaQrCode) ? 'qr-box' : 'qr-box is-placeholder' }}">
@@ -272,10 +278,12 @@
             @endif
         </div>
 
-        <footer class="page-footer">
-            <div class="footer-right">{{ $branchAddressAr }}</div>
-            <div class="footer-left">{{ $branchAddressEn }}</div>
-        </footer>
+        @if($showFooter)
+            <footer class="page-footer">
+                <div class="footer-right">{{ $branchAddressAr }}</div>
+                <div class="footer-left">{{ $branchAddressEn }}</div>
+            </footer>
+        @endif
     </div>
 
     @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl'))

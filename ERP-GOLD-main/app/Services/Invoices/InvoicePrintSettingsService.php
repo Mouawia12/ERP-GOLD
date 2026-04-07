@@ -40,9 +40,9 @@ class InvoicePrintSettingsService
     /**
      * @return array{format: string, show_header: bool, show_footer: bool, template: string}
      */
-    public function currentSettings(): array
+    public function currentSettings(bool $allowRequestOverride = true): array
     {
-        $requestedFormat = request()->query('paper');
+        $requestedFormat = $allowRequestOverride ? request()->query('paper') : null;
         $availableFormats = $this->availableFormats();
         $format = in_array($requestedFormat, $availableFormats, true)
             ? $requestedFormat

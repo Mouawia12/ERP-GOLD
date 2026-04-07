@@ -26,12 +26,43 @@
         line-height: 1.3;
     }
 
+    body {
+        --invoice-accent: #555;
+        --invoice-surface: #fff;
+        --invoice-table-head: #e0e0e0;
+        --screen-background: #f3f4f6;
+        --screen-outline: #d4d4d8;
+        --company-font-size: 8.8px;
+        --brand-logo-size: 78px;
+        --item-font-size: 8.4px;
+        --summary-font-size: 8.5px;
+        --note-max-height: 30px;
+        --screen-page-padding: 4mm;
+    }
+
+    body.invoice-template-compact {
+        --company-font-size: 8.2px;
+        --brand-logo-size: 68px;
+        --item-font-size: 7.9px;
+        --summary-font-size: 8px;
+        --note-max-height: 24px;
+    }
+
+    body.invoice-template-modern {
+        --invoice-accent: #1f2937;
+        --invoice-surface: #f8fafc;
+        --invoice-table-head: #dbe4f0;
+        --screen-background: #eef2ff;
+        --screen-outline: #cbd5e1;
+    }
+
     .page {
         width: 138mm;
         min-height: 198mm;
         margin: 0 auto;
         display: flex;
         flex-direction: column;
+        background: var(--invoice-surface);
     }
 
     .page-content {
@@ -46,7 +77,7 @@
 
     .invoice-rule,
     .page-footer {
-        border-top: 1px solid #555;
+        border-top: 1px solid var(--invoice-accent);
     }
 
     .invoice-header {
@@ -58,7 +89,7 @@
 
     .company-block {
         min-height: 82px;
-        font-size: 8.8px;
+        font-size: var(--company-font-size);
         line-height: 1.45;
     }
 
@@ -85,8 +116,8 @@
     }
 
     .brand-logo {
-        width: 78px;
-        height: 78px;
+        width: var(--brand-logo-size);
+        height: var(--brand-logo-size);
         object-fit: contain;
         display: block;
         margin: 0 auto 5px;
@@ -145,7 +176,7 @@
     .totals-table th,
     .payment-table th,
     .carat-table th {
-        background: #e0e0e0;
+        background: var(--invoice-table-head);
         font-weight: 700;
     }
 
@@ -206,7 +237,7 @@
 
     .items-table {
         margin-bottom: 6px;
-        font-size: 8.4px;
+        font-size: var(--item-font-size);
     }
 
     .items-table th,
@@ -274,7 +305,7 @@
     .totals-table,
     .payment-table,
     .carat-table {
-        font-size: 8.5px;
+        font-size: var(--summary-font-size);
     }
 
     .seller-line {
@@ -289,7 +320,7 @@
         border-top: 1px solid #999;
         font-size: 8px;
         line-height: 1.35;
-        max-height: 30px;
+        max-height: var(--note-max-height);
         overflow: hidden;
         white-space: pre-line;
     }
@@ -316,14 +347,30 @@
     @media screen {
         body {
             padding: 8px 0 20px;
-            background: #f3f4f6;
+            background: var(--screen-background);
         }
 
         .page {
-            background: #fff;
-            padding: 4mm;
-            box-shadow: 0 0 0 1px #d4d4d8;
+            padding: var(--screen-page-padding);
+            box-shadow: 0 0 0 1px var(--screen-outline);
         }
+    }
+
+    body.invoice-template-compact .items-table td,
+    body.invoice-template-compact .items-table th,
+    body.invoice-template-compact .totals-table td,
+    body.invoice-template-compact .totals-table th,
+    body.invoice-template-compact .payment-table td,
+    body.invoice-template-compact .payment-table th,
+    body.invoice-template-compact .carat-table td,
+    body.invoice-template-compact .carat-table th {
+        padding: 2px 3px;
+    }
+
+    body.invoice-template-modern .invoice-title,
+    body.invoice-template-modern .invoice-title-en,
+    body.invoice-template-modern .company-name {
+        color: #0f172a;
     }
 
     @media print {
