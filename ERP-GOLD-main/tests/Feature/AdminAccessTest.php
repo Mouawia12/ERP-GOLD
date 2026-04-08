@@ -470,6 +470,43 @@ class AdminAccessTest extends TestCase
         $response->assertSessionHasErrors(['name']);
     }
 
+    public function test_branch_create_form_keeps_old_input_and_renders_inline_errors_after_validation_failure(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.branches.add',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->from(route('admin.branches.create', [], false))
+            ->followingRedirects()
+            ->post(route('admin.branches.store', [], false), $this->branchRequestData([
+                'name' => 'فرع يحتفظ بالمدخلات',
+                'email' => 'keep-branch@example.com',
+                'commercial_register' => '123456789',
+                'tax_number' => '12345678901234',
+                'building_number' => '123',
+                'plot_identification' => '12',
+                'postal_code' => '1234',
+                'street_name' => 'شارع الاحتفاظ',
+                'country' => 'السعودية',
+                'region' => 'الرياض',
+                'city' => 'الرياض',
+                'district' => 'الملز',
+                'short_address' => 'عنوان محفوظ',
+            ]));
+
+        $response->assertOk();
+        $response->assertSee('data-branch-validation-form="create"', false);
+        $response->assertSee('value="فرع يحتفظ بالمدخلات"', false);
+        $response->assertSee('value="keep-branch@example.com"', false);
+        $response->assertSee('value="123456789"', false);
+        $response->assertSee('value="12345678901234"', false);
+        $response->assertSee(__('dashboard.tax_settings.validations.commercial_register_digits', ['digits' => 10]));
+        $response->assertSee(__('dashboard.tax_settings.validations.tax_number_digits', ['digits' => 15]));
+        $response->assertSee('data-feedback-for="commercial_register"', false);
+    }
+
     public function test_branch_update_rejects_duplicate_branch_name_for_same_subscriber(): void
     {
         $admin = $this->createAdminUser([
@@ -502,6 +539,40 @@ class AdminAccessTest extends TestCase
 
         $response->assertRedirect(route('admin.branches.edit', $branchToUpdate->id, false));
         $response->assertSessionHasErrors(['name']);
+    }
+
+    public function test_branch_edit_form_keeps_old_input_and_renders_inline_errors_after_validation_failure(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.branches.edit',
+        ]);
+
+        $branch = Branch::create($this->branchFormData([
+            'name' => ['ar' => 'فرع التعديل', 'en' => 'Editable Branch'],
+            'email' => 'editable-branch@example.com',
+        ]));
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->from(route('admin.branches.edit', $branch->id, false))
+            ->followingRedirects()
+            ->patch(route('admin.branches.update', $branch->id, false), $this->branchRequestData([
+                'name' => 'فرع التعديل',
+                'email' => 'updated-invalid@example.com',
+                'commercial_register' => '123456789',
+                'tax_number' => '12345678901234',
+                'building_number' => '123',
+                'plot_identification' => '12',
+                'postal_code' => '1234',
+            ]));
+
+        $response->assertOk();
+        $response->assertSee('data-branch-validation-form="edit"', false);
+        $response->assertSee('value="updated-invalid@example.com"', false);
+        $response->assertSee('value="123456789"', false);
+        $response->assertSee(__('dashboard.tax_settings.validations.commercial_register_digits', ['digits' => 10]));
+        $response->assertSee(__('dashboard.tax_settings.validations.tax_number_digits', ['digits' => 15]));
+        $response->assertSee('data-feedback-for="tax_number"', false);
     }
 
     public function test_branch_index_counts_only_active_assigned_users(): void

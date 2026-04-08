@@ -53,71 +53,11 @@ class BranchController extends Controller
         $subscriber = $this->currentSubscriber($request);
         $this->ensureSubscriberCanAddBranch($subscriber);
 
-        $validated = $this->validate($request, [
-            'name' => [
-                'required',
-                'string',
-                function ($attribute, $value, $fail) use ($subscriber) {
-                    $duplicateExists = Branch::query()
-                        ->when(
-                            filled($subscriber?->id),
-                            fn ($query) => $query->where('subscriber_id', $subscriber->id)
-                        )
-                        ->get()
-                        ->contains(fn (Branch $branch) => trim((string) $branch->name) === trim((string) $value));
-
-                    if ($duplicateExists) {
-                        $fail('اسم الفرع مستخدم مسبقًا لهذا المشترك.');
-                    }
-                },
-            ],
-            'email' => 'required|email',
-            'phone' => 'required|string',
-            'commercial_register' => 'required|digits:10',
-            'tax_number' => 'required|digits:15',
-            'street_name' => 'required|string',
-            'building_number' => 'required|digits:4',
-            'plot_identification' => 'required|digits:4',
-            'country' => 'required|string',
-            'region' => 'required|string',
-            'city' => 'required|string',
-            'district' => 'required|string',
-            'postal_code' => 'required|digits:5',
-            'short_address' => 'required|string',
-        ], [
-            'name.required' => __('dashboard.tax_settings.validations.name_required'),
-            'name.unique' => 'اسم الفرع مستخدم مسبقًا لهذا المشترك.',
-            'email' => [
-                'required' => __('dashboard.tax_settings.validations.email_required'),
-                'email' => __('dashboard.tax_settings.validations.email_email'),
-            ],
-            'commercial_register' => [
-                'required' => __('dashboard.tax_settings.validations.commercial_register_required'),
-                'digits' => __('dashboard.tax_settings.validations.commercial_register_digits', ['digits' => 10]),
-            ],
-            'tax_number' => [
-                'required' => __('dashboard.tax_settings.validations.tax_number_required'),
-                'digits' => __('dashboard.tax_settings.validations.tax_number_digits', ['digits' => 15]),
-            ],
-            'street_name.required' => __('dashboard.tax_settings.validations.street_name_required'),
-            'building_number' => [
-                'required' => __('dashboard.tax_settings.validations.building_number_required'),
-                'digits' => __('dashboard.tax_settings.validations.building_number_digits', ['digits' => 4]),
-            ],
-            'plot_identification' => [
-                'required' => __('dashboard.tax_settings.validations.plot_identification_required'),
-                'digits' => __('dashboard.tax_settings.validations.plot_identification_digits', ['digits' => 4]),
-            ],
-            'country.required' => __('dashboard.tax_settings.validations.country_required'),
-            'region.required' => __('dashboard.tax_settings.validations.region_required'),
-            'city.required' => __('dashboard.tax_settings.validations.city_required'),
-            'district.required' => __('dashboard.tax_settings.validations.district_required'),
-            'postal_code' => [
-                'required' => __('dashboard.tax_settings.validations.postal_code_required'),
-                'digits' => __('dashboard.tax_settings.validations.postal_code_digits', ['digits' => 5]),
-            ],
-            'short_address.required' => __('dashboard.tax_settings.validations.short_address_required'),
-        ]);
+        $validated = $this->validate(
+            $request,
+            $this->branchValidationRules($subscriber),
+            $this->branchValidationMessages(),
+        );
         try {
             DB::beginTransaction();
             $branch = Branch::create([
@@ -135,7 +75,8 @@ class BranchController extends Controller
             DB::rollBack();
             return redirect()
                 ->back()
-                ->with('error', 'حدث خطأ اثناء اضافة الفرع');
+                ->withInput()
+                ->with('error', 'حدث خطأ أثناء إضافة الفرع.');
         }
     }
 
@@ -247,72 +188,11 @@ class BranchController extends Controller
         $subscriber = $this->currentSubscriber($request);
         $this->ensureBranchBelongsToSubscriber($subscriber?->id, $branch);
 
-        $validated = $this->validate($request, [
-            'name' => [
-                'required',
-                'string',
-                function ($attribute, $value, $fail) use ($subscriber, $branch) {
-                    $duplicateExists = Branch::query()
-                        ->whereKeyNot($branch->id)
-                        ->when(
-                            filled($subscriber?->id),
-                            fn ($query) => $query->where('subscriber_id', $subscriber->id)
-                        )
-                        ->get()
-                        ->contains(fn (Branch $candidate) => trim((string) $candidate->name) === trim((string) $value));
-
-                    if ($duplicateExists) {
-                        $fail('اسم الفرع مستخدم مسبقًا لهذا المشترك.');
-                    }
-                },
-            ],
-            'email' => 'required|email',
-            'phone' => 'required|string',
-            'commercial_register' => 'required|digits:10',
-            'tax_number' => 'required|digits:15',
-            'street_name' => 'required|string',
-            'building_number' => 'required|digits:4',
-            'plot_identification' => 'required|digits:4',
-            'country' => 'required|string',
-            'region' => 'required|string',
-            'city' => 'required|string',
-            'district' => 'required|string',
-            'postal_code' => 'required|digits:5',
-            'short_address' => 'required|string',
-        ], [
-            'name.required' => __('dashboard.tax_settings.validations.name_required'),
-            'name.unique' => 'اسم الفرع مستخدم مسبقًا لهذا المشترك.',
-            'email' => [
-                'required' => __('dashboard.tax_settings.validations.email_required'),
-                'email' => __('dashboard.tax_settings.validations.email_email'),
-            ],
-            'commercial_register' => [
-                'required' => __('dashboard.tax_settings.validations.commercial_register_required'),
-                'digits' => __('dashboard.tax_settings.validations.commercial_register_digits', ['digits' => 10]),
-            ],
-            'tax_number' => [
-                'required' => __('dashboard.tax_settings.validations.tax_number_required'),
-                'digits' => __('dashboard.tax_settings.validations.tax_number_digits', ['digits' => 15]),
-            ],
-            'street_name.required' => __('dashboard.tax_settings.validations.street_name_required'),
-            'building_number' => [
-                'required' => __('dashboard.tax_settings.validations.building_number_required'),
-                'digits' => __('dashboard.tax_settings.validations.building_number_digits', ['digits' => 4]),
-            ],
-            'plot_identification' => [
-                'required' => __('dashboard.tax_settings.validations.plot_identification_required'),
-                'digits' => __('dashboard.tax_settings.validations.plot_identification_digits', ['digits' => 4]),
-            ],
-            'country.required' => __('dashboard.tax_settings.validations.country_required'),
-            'region.required' => __('dashboard.tax_settings.validations.region_required'),
-            'city.required' => __('dashboard.tax_settings.validations.city_required'),
-            'district.required' => __('dashboard.tax_settings.validations.district_required'),
-            'postal_code' => [
-                'required' => __('dashboard.tax_settings.validations.postal_code_required'),
-                'digits' => __('dashboard.tax_settings.validations.postal_code_digits', ['digits' => 5]),
-            ],
-            'short_address.required' => __('dashboard.tax_settings.validations.short_address_required'),
-        ]);
+        $validated = $this->validate(
+            $request,
+            $this->branchValidationRules($subscriber, $branch),
+            $this->branchValidationMessages(),
+        );
         try {
             DB::beginTransaction();
             Branch::updateOrCreate([
@@ -329,7 +209,8 @@ class BranchController extends Controller
             DB::rollBack();
             return redirect()
                 ->back()
-                ->with('error', 'حدث خطأ اثناء تعديل بيانات الفرع');
+                ->withInput()
+                ->with('error', 'حدث خطأ أثناء تعديل بيانات الفرع.');
         }
     }
 
@@ -378,5 +259,78 @@ class BranchController extends Controller
             403,
             'لا يمكنك الوصول إلى فرع خارج حساب المشترك الحالي.'
         );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function branchValidationRules(?Subscriber $subscriber, ?Branch $branch = null): array
+    {
+        return [
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                function ($attribute, $value, $fail) use ($subscriber, $branch) {
+                    $duplicateExists = Branch::query()
+                        ->when(
+                            filled($subscriber?->id),
+                            fn ($query) => $query->where('subscriber_id', $subscriber->id)
+                        )
+                        ->when(
+                            filled($branch?->id),
+                            fn ($query) => $query->whereKeyNot($branch->id)
+                        )
+                        ->get()
+                        ->contains(fn (Branch $candidate) => trim((string) $candidate->name) === trim((string) $value));
+
+                    if ($duplicateExists) {
+                        $fail('اسم الفرع مستخدم مسبقًا لهذا المشترك.');
+                    }
+                },
+            ],
+            'email' => 'required|email|max:255',
+            'phone' => 'required|string|max:50',
+            'commercial_register' => 'required|digits:10',
+            'tax_number' => 'required|digits:15',
+            'street_name' => 'required|string|max:255',
+            'building_number' => 'required|digits:4',
+            'plot_identification' => 'required|digits:4',
+            'country' => 'required|string|max:255',
+            'region' => 'required|string|max:255',
+            'city' => 'required|string|max:255',
+            'district' => 'required|string|max:255',
+            'postal_code' => 'required|digits:5',
+            'short_address' => 'required|string|max:255',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function branchValidationMessages(): array
+    {
+        return [
+            'name.required' => __('dashboard.tax_settings.validations.name_required'),
+            'phone.required' => __('dashboard.tax_settings.validations.phone_required'),
+            'email.required' => __('dashboard.tax_settings.validations.email_required'),
+            'email.email' => __('dashboard.tax_settings.validations.email_email'),
+            'commercial_register.required' => __('dashboard.tax_settings.validations.commercial_register_required'),
+            'commercial_register.digits' => __('dashboard.tax_settings.validations.commercial_register_digits', ['digits' => 10]),
+            'tax_number.required' => __('dashboard.tax_settings.validations.tax_number_required'),
+            'tax_number.digits' => __('dashboard.tax_settings.validations.tax_number_digits', ['digits' => 15]),
+            'street_name.required' => __('dashboard.tax_settings.validations.street_name_required'),
+            'building_number.required' => __('dashboard.tax_settings.validations.building_number_required'),
+            'building_number.digits' => __('dashboard.tax_settings.validations.building_number_digits', ['digits' => 4]),
+            'plot_identification.required' => __('dashboard.tax_settings.validations.plot_identification_required'),
+            'plot_identification.digits' => __('dashboard.tax_settings.validations.plot_identification_digits', ['digits' => 4]),
+            'country.required' => __('dashboard.tax_settings.validations.country_required'),
+            'region.required' => __('dashboard.tax_settings.validations.region_required'),
+            'city.required' => __('dashboard.tax_settings.validations.city_required'),
+            'district.required' => __('dashboard.tax_settings.validations.district_required'),
+            'postal_code.required' => __('dashboard.tax_settings.validations.postal_code_required'),
+            'postal_code.digits' => __('dashboard.tax_settings.validations.postal_code_digits', ['digits' => 5]),
+            'short_address.required' => __('dashboard.tax_settings.validations.short_address_required'),
+        ];
     }
 }
