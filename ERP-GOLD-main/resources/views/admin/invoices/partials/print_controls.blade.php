@@ -20,8 +20,17 @@
         box-shadow: 0 14px 30px rgba(15, 23, 42, 0.22);
     }
 
-    .print-control-bar.no-print {
-        display: flex !important;
+    @media screen {
+        .print-control-bar.no-print {
+            display: flex !important;
+        }
+    }
+
+    body.print-mode-active .print-control-bar,
+    body.print-mode-active .print-control-bar.no-print {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
     }
 
     .print-control-group {
@@ -85,8 +94,12 @@
     }
 
     @media print {
-        .print-control-bar {
+        .no-print,
+        .print-control-bar,
+        .print-control-bar.no-print {
             display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
         }
     }
 </style>
@@ -127,6 +140,11 @@
         var sizeSelect = document.getElementById('paper-size-select');
         var orientationSelect = document.getElementById('paper-orientation-select');
         var printButton = document.getElementById('print-now-button');
+        var setPrintMode = function (isPrinting) {
+            if (document.body) {
+                document.body.classList.toggle('print-mode-active', isPrinting);
+            }
+        };
         var updatePreviewUrl = function () {
             var url = new URL(window.location.href);
 
@@ -155,8 +173,17 @@
             });
         }
 
+        window.addEventListener('beforeprint', function () {
+            setPrintMode(true);
+        });
+
+        window.addEventListener('afterprint', function () {
+            setPrintMode(false);
+        });
+
         if (printButton) {
             printButton.addEventListener('click', function () {
+                setPrintMode(true);
                 window.print();
             });
         }

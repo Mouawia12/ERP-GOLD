@@ -38,6 +38,9 @@
         --shell-width: 108mm;
         --qr-size: 19mm;
         --meta-width: 42mm;
+        --safe-print-width: auto;
+        --safe-print-height: auto;
+        --safe-print-offset-top: 0;
         --terms-max-height: 13mm;
         --page-padding-top: 6mm;
         --page-padding-inline: 7mm;
@@ -95,22 +98,25 @@
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape {
-        --page-width: 200mm;
-        --page-min-height: 138mm;
-        --shell-width: 188mm;
-        --qr-size: 20mm;
-        --meta-width: 60mm;
-        --terms-max-height: 10mm;
-        --page-padding-top: 5mm;
-        --page-padding-inline: 5mm;
-        --page-padding-bottom: 4mm;
-        --head-gap: 4.2mm;
-        --head-margin-bottom: 2.2mm;
-        --table-cell-padding-block: 0.9mm;
-        --table-cell-padding-inline: 0.9mm;
-        --summary-gap: 1.6mm;
-        --signature-gap: 7mm;
-        --signature-margin-top: 2mm;
+        --page-width: 210mm;
+        --page-min-height: 148mm;
+        --safe-print-width: 200mm;
+        --safe-print-height: 100mm;
+        --safe-print-offset-top: 21mm;
+        --shell-width: 194mm;
+        --qr-size: 22mm;
+        --meta-width: 63mm;
+        --terms-max-height: 12.5mm;
+        --page-padding-top: 0;
+        --page-padding-inline: 0;
+        --page-padding-bottom: 0;
+        --head-gap: 5mm;
+        --head-margin-bottom: 2.5mm;
+        --table-cell-padding-block: 1.02mm;
+        --table-cell-padding-inline: 0.95mm;
+        --summary-gap: 1.95mm;
+        --signature-gap: 8mm;
+        --signature-margin-top: 2.3mm;
     }
 
     body.invoice-template-modern {
@@ -141,6 +147,20 @@
 
     body.invoice-paper-ready .page-content {
         flex: 0 0 auto;
+    }
+
+    body.invoice-paper-ready.invoice-orientation-landscape .page {
+        justify-content: flex-start;
+    }
+
+    body.invoice-paper-ready.invoice-orientation-landscape .page-content {
+        width: min(100%, var(--safe-print-width));
+        max-width: var(--safe-print-width);
+        min-height: var(--safe-print-height);
+        margin: var(--safe-print-offset-top) auto 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .invoice-shell {
@@ -529,98 +549,99 @@
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .compact-title-block {
-        padding-top: 0.8mm;
+        padding-top: 1mm;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .compact-title {
-        font-size: 10.9px;
-        line-height: 1.16;
+        font-size: 11.15px;
+        line-height: 1.14;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .compact-subtitle {
         margin-top: 0.45mm;
-        font-size: 6px;
+        font-size: 6.05px;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .compact-meta {
-        font-size: 6.8px;
-        line-height: 1.46;
+        font-size: 6.95px;
+        line-height: 1.44;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .reference-table {
-        margin-bottom: 1.9mm;
-        font-size: 7px;
+        margin-bottom: 2.1mm;
+        font-size: 7.15px;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .description-main {
-        font-size: 7px;
-        line-height: 1.14;
+        font-size: 7.15px;
+        line-height: 1.13;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .description-sub {
-        margin-top: 0.3mm;
-        font-size: 5.5px;
-        line-height: 1.1;
+        margin-top: 0.25mm;
+        font-size: 5.55px;
+        line-height: 1.08;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .summary-grid {
-        grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
-        margin-bottom: 1.75mm;
+        grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+        margin-bottom: 1.9mm;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .summary-table th,
     body.invoice-paper-ready.invoice-orientation-landscape .summary-table td {
-        line-height: 1.14;
+        line-height: 1.12;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .payment-table .summary-label {
-        width: 56%;
+        width: 52%;
         font-size: 6.45px;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .payment-table .summary-value {
-        width: 44%;
+        width: 48%;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .invoice-summary-table .summary-label {
-        width: 79%;
+        width: 81%;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .invoice-summary-table .summary-value {
-        width: 21%;
+        width: 19%;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .invoice-summary-table .summary-sub {
         margin-inline-start: 0.4mm;
-        font-size: 5px;
+        font-size: 4.95px;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .terms-box {
-        margin-bottom: 1.6mm;
-        padding: 1mm 1.35mm;
+        margin-bottom: 1.75mm;
+        padding: 1.05mm 1.35mm;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .terms-title {
-        margin-bottom: 0.35mm;
-        font-size: 6.6px;
+        margin-bottom: 0.3mm;
+        font-size: 6.5px;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .terms-content {
-        font-size: 5.9px;
-        line-height: 1.24;
+        font-size: 5.8px;
+        line-height: 1.18;
+        overflow-wrap: anywhere;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .signatures {
-        font-size: 6.9px;
+        font-size: 6.95px;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .signature-label {
-        margin-bottom: 1.2mm;
+        margin-bottom: 1.15mm;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .signature-line {
-        min-height: 6.2mm;
-        padding-top: 2.4mm;
+        min-height: 6.1mm;
+        padding-top: 2.25mm;
     }
 
     .micro-footer {
@@ -652,6 +673,10 @@
         body.invoice-paper-ready .page {
             padding: 5mm;
         }
+
+        body.invoice-paper-ready.invoice-orientation-landscape .page {
+            padding: 0;
+        }
     }
 
     @media print {
@@ -670,6 +695,10 @@
 
         body.invoice-paper-ready .page {
             padding: 5mm;
+        }
+
+        body.invoice-paper-ready.invoice-orientation-landscape .page {
+            padding: 0;
         }
     }
 </style>
