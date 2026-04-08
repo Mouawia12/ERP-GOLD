@@ -100,12 +100,12 @@
     body.invoice-paper-ready.invoice-orientation-landscape {
         --page-width: 210mm;
         --page-min-height: 148mm;
-        --safe-print-width: 200mm;
+        --safe-print-width: 194mm;
         --safe-print-height: 100mm;
-        --safe-print-offset-top: 21mm;
-        --shell-width: 194mm;
+        --safe-print-offset-top: 24mm;
+        --shell-width: 188mm;
         --qr-size: 22mm;
-        --meta-width: 63mm;
+        --meta-width: 61mm;
         --terms-max-height: 12.5mm;
         --page-padding-top: 0;
         --page-padding-inline: 0;
@@ -565,6 +565,8 @@
     body.invoice-paper-ready.invoice-orientation-landscape .compact-meta {
         font-size: 6.95px;
         line-height: 1.44;
+        font-weight: 700;
+        color: #000;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .reference-table {
@@ -575,12 +577,15 @@
     body.invoice-paper-ready.invoice-orientation-landscape .description-main {
         font-size: 7.15px;
         line-height: 1.13;
+        font-weight: 700;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .description-sub {
         margin-top: 0.25mm;
         font-size: 5.55px;
         line-height: 1.08;
+        font-weight: 600;
+        color: #000;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .summary-grid {
@@ -591,6 +596,16 @@
     body.invoice-paper-ready.invoice-orientation-landscape .summary-table th,
     body.invoice-paper-ready.invoice-orientation-landscape .summary-table td {
         line-height: 1.12;
+    }
+
+    body.invoice-paper-ready.invoice-orientation-landscape .reference-table td,
+    body.invoice-paper-ready.invoice-orientation-landscape .summary-table td,
+    body.invoice-paper-ready.invoice-orientation-landscape .summary-label,
+    body.invoice-paper-ready.invoice-orientation-landscape .summary-value,
+    body.invoice-paper-ready.invoice-orientation-landscape .terms-content,
+    body.invoice-paper-ready.invoice-orientation-landscape .signature-line {
+        font-weight: 700;
+        color: #000;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .payment-table .summary-label {

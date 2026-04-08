@@ -56,9 +56,9 @@ class InvoicePrintSettingsFeatureTest extends TestCase
         $response->assertSee('data-paper-orientation="landscape"', false);
         $response->assertSee('class="invoice-print-format-a5 invoice-template-compact invoice-orientation-landscape invoice-paper-ready"', false);
         $response->assertSee('size: A5 landscape;', false);
-        $response->assertSee('--safe-print-width: 200mm;', false);
+        $response->assertSee('--safe-print-width: 194mm;', false);
         $response->assertSee('--safe-print-height: 100mm;', false);
-        $response->assertSee('--safe-print-offset-top: 21mm;', false);
+        $response->assertSee('--safe-print-offset-top: 24mm;', false);
         $response->assertSee('id="paper-orientation-select"', false);
         $response->assertSee('body.print-mode-active .print-control-bar.no-print {', false);
         $response->assertSee("window.addEventListener('beforeprint'", false);
