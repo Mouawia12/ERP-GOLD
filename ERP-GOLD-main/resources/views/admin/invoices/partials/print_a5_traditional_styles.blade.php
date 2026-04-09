@@ -22,8 +22,8 @@
         color: #111;
         background: #fff;
         font-family: 'Almarai', 'DejaVu Sans', sans-serif;
-        font-size: 10px;
-        line-height: 1.3;
+        font-size: 10.35px;
+        line-height: 1.24;
     }
 
     body {
@@ -34,20 +34,20 @@
         --screen-outline: #d4d4d8;
         --page-width: 138mm;
         --page-min-height: 198mm;
-        --company-font-size: 8.8px;
+        --company-font-size: 9.2px;
         --brand-logo-size: 78px;
         --header-center-width: 84px;
-        --item-font-size: 8.4px;
-        --summary-font-size: 8.5px;
+        --item-font-size: 8.8px;
+        --summary-font-size: 8.9px;
         --note-max-height: 30px;
         --screen-page-padding: 4mm;
     }
 
     body.invoice-template-compact {
-        --company-font-size: 8.2px;
+        --company-font-size: 8.5px;
         --brand-logo-size: 68px;
-        --item-font-size: 7.9px;
-        --summary-font-size: 8px;
+        --item-font-size: 8.3px;
+        --summary-font-size: 8.4px;
         --note-max-height: 24px;
     }
 
@@ -62,11 +62,11 @@
     body.invoice-orientation-landscape {
         --page-width: 200mm;
         --page-min-height: 138mm;
-        --company-font-size: 8.2px;
+        --company-font-size: 8.5px;
         --brand-logo-size: 68px;
         --header-center-width: 76px;
-        --item-font-size: 7.9px;
-        --summary-font-size: 8px;
+        --item-font-size: 8.25px;
+        --summary-font-size: 8.4px;
         --note-max-height: 24px;
         --screen-page-padding: 5mm;
     }
@@ -109,7 +109,7 @@
     .company-block {
         min-height: 82px;
         font-size: var(--company-font-size);
-        line-height: 1.45;
+        line-height: 1.32;
     }
 
     .company-block.company-en {
@@ -122,7 +122,7 @@
     }
 
     .company-line {
-        margin: 0 0 3px;
+        margin: 0 0 2px;
         word-break: break-word;
     }
 
@@ -139,25 +139,25 @@
         height: var(--brand-logo-size);
         object-fit: contain;
         display: block;
-        margin: 0 auto 5px;
+        margin: 0 auto 4px;
     }
 
     .invoice-title {
         margin: 0;
-        font-size: 14px;
+        font-size: 14.8px;
         font-weight: 700;
-        line-height: 1.25;
+        line-height: 1.16;
     }
 
     .invoice-title-en {
         margin: 2px 0 0;
-        font-size: 10px;
+        font-size: 10.4px;
         font-weight: 700;
-        line-height: 1.2;
+        line-height: 1.12;
     }
 
     .invoice-rule {
-        margin: 8px 0 9px;
+        margin: 7px 0 8px;
     }
 
     .invoice-head-meta {
@@ -187,7 +187,7 @@
     .carat-table td,
     .carat-table th {
         border: 1px solid #999;
-        padding: 3px 4px;
+        padding: 2px 3px;
         vertical-align: middle;
     }
 
@@ -203,16 +203,16 @@
         direction: rtl;
         display: flex;
         flex-direction: column;
-        gap: 7px;
-        padding-top: 4px;
+        gap: 5px;
+        padding-top: 3px;
     }
 
     .invoice-meta-row {
         display: flex;
         align-items: flex-start;
         gap: 4px;
-        font-size: 9px;
-        line-height: 1.5;
+        font-size: 9.35px;
+        line-height: 1.34;
         font-weight: 700;
     }
 
@@ -250,7 +250,7 @@
     }
 
     .qr-placeholder {
-        font-size: 8px;
+        font-size: 8.3px;
         color: #666;
     }
 
@@ -275,23 +275,23 @@
 
     .description-main {
         display: block;
-        font-size: 8.6px;
-        line-height: 1.25;
+        font-size: 9.05px;
+        line-height: 1.14;
         font-weight: 700;
     }
 
     .sub-line {
         display: block;
         margin-top: 1px;
-        font-size: 7.5px;
-        line-height: 1.2;
+        font-size: 7.85px;
+        line-height: 1.08;
     }
 
     .summary-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        column-gap: 6px;
-        margin-bottom: 6px;
+        column-gap: 5px;
+        margin-bottom: 5px;
     }
 
     .reference-summary-grid {
@@ -306,7 +306,7 @@
     .summary-stack {
         display: flex;
         flex-direction: column;
-        gap: 5px;
+        gap: 4px;
     }
 
     .totals-table td:first-child,
@@ -329,16 +329,16 @@
 
     .seller-line {
         margin: 0 0 4px;
-        font-size: 8.8px;
+        font-size: 9.2px;
         font-weight: 700;
     }
 
     .notes-line {
         margin: 0 0 5px;
-        padding-top: 4px;
+        padding-top: 3px;
         border-top: 1px solid #999;
-        font-size: 8px;
-        line-height: 1.35;
+        font-size: 8.3px;
+        line-height: 1.2;
         max-height: var(--note-max-height);
         overflow: hidden;
         white-space: pre-line;
@@ -346,12 +346,12 @@
 
     .page-footer {
         margin-top: auto;
-        padding-top: 5px;
+        padding-top: 4px;
         display: flex;
         justify-content: space-between;
         gap: 6px;
-        font-size: 8px;
-        line-height: 1.25;
+        font-size: 8.3px;
+        line-height: 1.16;
     }
 
     .page-footer .footer-left {
@@ -404,7 +404,7 @@
     body.invoice-template-compact .payment-table th,
     body.invoice-template-compact .carat-table td,
     body.invoice-template-compact .carat-table th {
-        padding: 2px 3px;
+        padding: 2px 2px;
     }
 
     body.invoice-template-modern .invoice-title,
@@ -416,7 +416,7 @@
     @media print {
         html,
         body {
-            font-size: 9.4px;
+            font-size: 9.85px;
         }
 
         .page {
