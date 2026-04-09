@@ -1,5 +1,12 @@
 @extends('admin.layouts.master')
 @section('content')
+@php
+    $userFilterLocked = $userFilterLocked ?? false;
+    $selectedUserId = old('user_id', $defaultFilters['user_id'] ?? '');
+    $legacyInvoiceNumber = old('invoice_number', $defaultFilters['invoice_number'] ?? '');
+    $invoiceNumberFromValue = old('invoice_number_from', $defaultFilters['invoice_number_from'] ?? $legacyInvoiceNumber);
+    $invoiceNumberToValue = old('invoice_number_to', $defaultFilters['invoice_number_to'] ?? $legacyInvoiceNumber);
+@endphp
 <div class="row row-sm">
     <div class="col-xl-12">
         <div class="card shadow-sm">
@@ -41,39 +48,48 @@
                         </div>
                         <div class="col-lg-2 col-md-3">
                             <div class="form-group">
-                                <label>رقم الفاتورة</label>
-                                <input type="text" name="invoice_number" class="form-control" value="{{ old('invoice_number', $defaultFilters['invoice_number'] ?? '') }}" placeholder="مثال: SALE-1001">
+                                <label>من رقم الفاتورة</label>
+                                <input type="text" name="invoice_number_from" class="form-control" value="{{ $invoiceNumberFromValue }}" placeholder="مثال: SALE-1001">
                             </div>
                         </div>
                         <div class="col-lg-2 col-md-3">
                             <div class="form-group">
-                                <label>الفرع</label>
-                                @if(auth('admin-web')->user()?->is_admin)
-                                    <select class="form-control" name="branch_id" id="branch_id">
-                                        <option value="">جميع الفروع</option>
-                                        @foreach($branches as $branch)
-                                            <option value="{{ $branch->id }}" @selected(old('branch_id', $defaultFilters['branch_id'] ?? '') == $branch->id)>
-                                                {{ $branch->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                @else
-                                    <input class="form-control" type="text" readonly value="{{ auth('admin-web')->user()?->branch?->name }}"/>
-                                    <input type="hidden" name="branch_id" value="{{ old('branch_id', $defaultFilters['branch_id'] ?? auth('admin-web')->user()?->branch_id) }}">
-                                @endif
+                                <label>إلى رقم الفاتورة</label>
+                                <input type="text" name="invoice_number_to" class="form-control" value="{{ $invoiceNumberToValue }}" placeholder="مثال: SALE-1099">
                             </div>
+                        </div>
+                        <div class="col-lg-2 col-md-3">
+                            @include('admin.reports.partials.branch_filter', [
+                                'branches' => $branches,
+                                'defaultFilters' => $defaultFilters,
+                                'branchFieldId' => 'sold_items_branch_ids',
+                                'branchHiddenFieldId' => 'sold_items_branch_id',
+                                'branchLabelText' => 'الفرع',
+                            ])
                         </div>
                         <div class="col-lg-2 col-md-3">
                             <div class="form-group">
                                 <label>المستخدم</label>
-                                <select name="user_id" class="form-control">
-                                    <option value="">الكل</option>
-                                    @foreach($users as $user)
-                                        <option value="{{ $user->id }}" @selected(old('user_id', $defaultFilters['user_id'] ?? '') == $user->id)>
-                                            {{ $user->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
+                                @if($userFilterLocked)
+                                    <select class="form-control" disabled aria-disabled="true">
+                                        @foreach($users as $user)
+                                            <option value="{{ $user->id }}" @selected($selectedUserId == $user->id)>
+                                                {{ $user->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <input type="hidden" name="user_id" value="{{ $selectedUserId }}">
+                                    <small class="text-muted d-block mt-2">يمكنك عرض تقارير المستخدم الحالي فقط.</small>
+                                @else
+                                    <select name="user_id" class="form-control">
+                                        <option value="">الكل</option>
+                                        @foreach($users as $user)
+                                            <option value="{{ $user->id }}" @selected($selectedUserId == $user->id)>
+                                                {{ $user->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                @endif
                             </div>
                         </div>
                         <div class="col-lg-2 col-md-3">

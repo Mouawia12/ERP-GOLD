@@ -36,7 +36,7 @@
                                    {{__('main.balance_report')}}
                                 </h4>
                                 <h4 class="text-center"> [ {{$periodFrom}} - {{$periodTo}} ] </h4>
-                                <h6 class="text-center">{{ $branch?->name ? 'الفرع: ' . $branch->name : 'جميع الفروع' }}</h6>
+                                <h6 class="text-center">الفرع: {{ $branchLabel ?? ($branch?->name ?: 'جميع الفروع') }}</h6>
                             </div>
                             <div class="col-3 text-left">  
                                  <img src=""   id="profile-img-tag" width="70px" height="70px" class="profile-img"/>

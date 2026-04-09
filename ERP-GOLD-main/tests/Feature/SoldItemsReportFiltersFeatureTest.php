@@ -36,8 +36,11 @@ class SoldItemsReportFiltersFeatureTest extends TestCase
         $response->assertOk();
         $response->assertSee('name="from_time"', false);
         $response->assertSee('name="to_time"', false);
-        $response->assertSee('name="invoice_number"', false);
+        $response->assertSee('name="invoice_number_from"', false);
+        $response->assertSee('name="invoice_number_to"', false);
+        $response->assertDontSee('name="invoice_number"', false);
         $response->assertSee('name="user_id"', false);
+        $response->assertSee('name="branch_ids[]"', false);
         $response->assertSee('name="branch_id"', false);
         $response->assertSee('name="inventory_classification"', false);
     }
@@ -166,7 +169,8 @@ class SoldItemsReportFiltersFeatureTest extends TestCase
                 'to_time' => '16:00',
                 'branch_id' => $admin->branch_id,
                 'user_id' => $admin->id,
-                'invoice_number' => 'SALE-DUP-001',
+                'invoice_number_from' => 'SALE-DUP-001',
+                'invoice_number_to' => 'SALE-DUP-001',
                 'inventory_classification' => 'gold',
                 'carat' => $caratId,
                 'category' => $matchingCategoryId,

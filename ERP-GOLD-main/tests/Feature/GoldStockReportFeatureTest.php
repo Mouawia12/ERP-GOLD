@@ -40,6 +40,7 @@ class GoldStockReportFeatureTest extends TestCase
             ->get(route('reports.gold_stock.search', [], false));
 
         $response->assertOk();
+        $response->assertSee('name="branch_ids[]"', false);
         $response->assertSee('name="branch_id"', false);
         $response->assertSee('name="date_from"', false);
         $response->assertSee('name="date_to"', false);

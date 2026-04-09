@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Branch;
+use App\Models\GoldPrice;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
@@ -238,6 +239,120 @@ class GoldPriceManagementFeatureTest extends TestCase
 
         $response->assertRedirect(route('gold.stock.market.prices', [], false));
         $response->assertSessionHas('success');
+    }
+
+    public function test_live_endpoint_auto_refreshes_stale_gold_snapshot_and_returns_live_payload(): void
+    {
+        Config::set('services.gold_api.key', 'test-gold-api-key');
+        Config::set('services.gold_api.base_url', 'https://fake-gold.example');
+
+        Http::fake([
+            'https://fake-gold.example/api/XAU/SAR' => Http::response([
+                'timestamp' => '2026-04-09T00:15:00.000Z',
+                'metal' => 'XAU',
+                'currency' => 'SAR',
+                'price' => 12650.40,
+                'price_gram_14k' => 183.42,
+                'price_gram_18k' => 235.80,
+                'price_gram_21k' => 275.11,
+                'price_gram_22k' => 288.00,
+                'price_gram_24k' => 313.44,
+            ], 200),
+        ]);
+
+        GoldPrice::query()->create([
+            'ounce_price' => 11111.11,
+            'ounce_14_price' => 160.00,
+            'ounce_18_price' => 205.00,
+            'ounce_21_price' => 240.00,
+            'ounce_22_price' => 250.00,
+            'ounce_24_price' => 272.00,
+            'currency' => 'SAR',
+            'source' => 'manual',
+            'source_currency' => 'SAR',
+            'last_update' => now()->subMinutes(20),
+        ]);
+
+        $admin = $this->createAdminUser();
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('gold.prices.live', ['refresh' => 1], false));
+
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+        $response->assertJsonPath('auto_refreshed', true);
+        $response->assertJsonPath('refresh_interval_minutes', 15);
+        $response->assertJsonPath('current.ounce_21_price_label', '275.11');
+        $response->assertJsonPath('latest_market_snapshot.currency', 'SAR');
+
+        Http::assertSentCount(1);
+
+        $this->assertDatabaseHas('gold_prices', [
+            'source' => 'remote',
+            'ounce_21_price' => 275.11,
+            'ounce_24_price' => 313.44,
+        ]);
+    }
+
+    public function test_live_endpoint_does_not_hit_remote_service_when_snapshot_is_still_fresh(): void
+    {
+        Config::set('services.gold_api.key', 'test-gold-api-key');
+        Config::set('services.gold_api.base_url', 'https://fake-gold.example');
+
+        Http::fake([
+            'https://fake-gold.example/api/XAU/SAR' => Http::response([
+                'timestamp' => '2026-04-09T00:30:00.000Z',
+                'metal' => 'XAU',
+                'currency' => 'SAR',
+                'price' => 12800.00,
+                'price_gram_14k' => 185.00,
+                'price_gram_18k' => 238.00,
+                'price_gram_21k' => 277.00,
+                'price_gram_22k' => 289.00,
+                'price_gram_24k' => 315.00,
+            ], 200),
+        ]);
+
+        GoldPrice::query()->create([
+            'ounce_price' => 12200.00,
+            'ounce_14_price' => 176.10,
+            'ounce_18_price' => 226.70,
+            'ounce_21_price' => 264.90,
+            'ounce_22_price' => 276.20,
+            'ounce_24_price' => 301.30,
+            'currency' => 'SAR',
+            'source' => 'manual',
+            'source_currency' => 'SAR',
+            'last_update' => now()->subMinutes(5),
+        ]);
+
+        $admin = $this->createAdminUser();
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('gold.prices.live', ['refresh' => 1], false));
+
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+        $response->assertJsonPath('auto_refreshed', false);
+        $response->assertJsonPath('current.ounce_21_price_label', '264.90');
+
+        Http::assertNothingSent();
+    }
+
+    public function test_dashboard_contains_live_gold_ticker_markup(): void
+    {
+        $admin = $this->createAdminUser();
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('admin.home', [], false));
+
+        $response->assertOk();
+        $response->assertSee('data-gold-live-endpoint', false);
+        $response->assertSee(route('gold.prices.live', [], false), false);
+        $response->assertSee('data-gold-ticker-root', false);
     }
 
     /**

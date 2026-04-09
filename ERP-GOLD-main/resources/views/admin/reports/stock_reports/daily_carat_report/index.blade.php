@@ -33,9 +33,7 @@
                         {{ $toTime ?: '23:59:59' }}
                     </span>
                 @endif
-                @if($branch)
-                    <span class="mr-3">| الفرع: {{ $branch->name }}</span>
-                @endif
+                <span class="mr-3">| الفرع: {{ $branchLabel ?? ($branch?->name ?: 'جميع الفروع') }}</span>
                 @if($user)
                     <span class="mr-3">| المستخدم: {{ $user->name }}</span>
                 @endif

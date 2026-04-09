@@ -36,6 +36,7 @@
                                         </h4>
                                         <h5 class="text-center"> [ {{$periodFrom}} - {{$periodTo}} ]</h5>
                                         <h4 class="text-center"><strong>{{$account->name}} </strong></h4>   
+                                        <h6 class="text-center">الفرع: {{ $branchSelection['branch_label'] ?? 'جميع الفروع' }}</h6>
                                     </div>
                                     <div class="col-4 c">
                                         <span style="text-align: right;">

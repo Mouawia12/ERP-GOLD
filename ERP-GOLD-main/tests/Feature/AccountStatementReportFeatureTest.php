@@ -45,6 +45,7 @@ class AccountStatementReportFeatureTest extends TestCase
         $response->assertSee('name="from_time"', false);
         $response->assertSee('name="to_time"', false);
         $response->assertSee('name="invoice_number"', false);
+        $response->assertSee('name="branch_ids[]"', false);
         $response->assertSee('name="branch_id"', false);
         $response->assertSee('name="user_id"', false);
         $response->assertSee('name="source_type"', false);

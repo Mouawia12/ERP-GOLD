@@ -28,24 +28,13 @@
                                 @csrf
                                 <div class="row">
                                     <div class="col-md-4">
-                                        <div class="form-group"> 
-                                            <label>{{ __('الفرع') }}</label>
-                                            @if(empty(Auth::user()->branch_id))
-                                                <select required  class="js-example-basic-single w-100" name="branch_id" id="branch_id">
-                                                    <option value="">جميع الفروع</option>
-                                                    @foreach($branches as $branch)
-                                                        <option value="{{$branch->id}}" @selected(($defaultFilters['branch_id'] ?? '') == $branch->id)>{{$branch->name}}</option>
-                                                    @endforeach
-                                                </select>
-                                            @else
-                                                <input class="form-control" type="text" readonly
-                                                       value="{{Auth::user()->branch->name}}"/>
-                                                <input required class="form-control" type="hidden" id="branch_id"
-                                                       name="branch_id"
-                                                       value="{{ $defaultFilters['branch_id'] }}"/>
-                                            @endif
-                    
-                                        </div>
+                                        @include('admin.reports.partials.branch_filter', [
+                                            'branches' => $branches,
+                                            'defaultFilters' => $defaultFilters,
+                                            'branchFieldId' => 'item_list_branch_ids',
+                                            'branchHiddenFieldId' => 'item_list_branch_id',
+                                            'branchLabelText' => 'الفرع',
+                                        ])
                                     </div>
                                     <div class="col-md-4">
                                         <div class="form-group">

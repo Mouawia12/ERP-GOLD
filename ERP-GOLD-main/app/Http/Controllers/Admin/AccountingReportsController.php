@@ -11,7 +11,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceDetail;
 use App\Models\JournalEntryDocument;
 use App\Models\User;
-use App\Services\Branches\BranchContextService;
+use App\Services\Reports\ReportBranchSelectionService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use DB;
@@ -25,6 +25,7 @@ class AccountingReportsController extends Controller
 
     public function trail_balance_search(Request $request)
     {
+        $branchSelection = $this->branchSelection($request);
         [$periodFrom, $periodTo] = $this->resolvePeriod(
             $request,
             Carbon::now()->startOfYear()->format('Y-m-d'),
@@ -34,7 +35,8 @@ class AccountingReportsController extends Controller
         $filters = [
             'period_from' => $periodFrom,
             'period_to' => $periodTo,
-            'branch_id' => $this->normalizeOptionalFilter($request->input('branch_id')),
+            'branch_ids' => $branchSelection['effective_branch_ids'],
+            'branch_scope_all' => $branchSelection['selects_all'],
         ];
 
         $accounts = Account::query()
@@ -56,9 +58,10 @@ class AccountingReportsController extends Controller
             })
             ->all();
 
-        $branch = $filters['branch_id'] ? $this->branchesQuery()->find($filters['branch_id']) : null;
+        $branch = $branchSelection['single_branch'];
+        $branchLabel = $branchSelection['branch_label'];
 
-        return view('admin.reports.trail_balance.index', compact('periodFrom', 'periodTo', 'accounts', 'accountMetrics', 'branch'));
+        return view('admin.reports.trail_balance.index', compact('periodFrom', 'periodTo', 'accounts', 'accountMetrics', 'branch', 'branchLabel'));
     }
 
     public function income_statement()
@@ -68,6 +71,7 @@ class AccountingReportsController extends Controller
 
     public function income_statement_search(Request $request)
     {
+        $branchSelection = $this->branchSelection($request);
         [$periodFrom, $periodTo] = $this->resolvePeriod(
             $request,
             Carbon::now()->startOfYear()->format('Y-m-d'),
@@ -76,7 +80,8 @@ class AccountingReportsController extends Controller
         $filters = [
             'period_from' => $periodFrom,
             'period_to' => $periodTo,
-            'branch_id' => $this->normalizeOptionalFilter($request->input('branch_id')),
+            'branch_ids' => $branchSelection['effective_branch_ids'],
+            'branch_scope_all' => $branchSelection['selects_all'],
         ];
 
         $revenuesAccount = Account::where('parent_account_id', null)->where('account_type', 'revenues')->where('transfer_side', 'income_statement')->first();
@@ -94,7 +99,8 @@ class AccountingReportsController extends Controller
         $profitTotal = abs($accountMetrics[$revenuesAccount->id]['closing_net'])
             - abs($accountMetrics[$expensesAccount->id]['closing_net']);
 
-        $branch = $filters['branch_id'] ? $this->branchesQuery()->find($filters['branch_id']) : null;
+        $branch = $branchSelection['single_branch'];
+        $branchLabel = $branchSelection['branch_label'];
 
         return view('admin.reports.income_statement.index', compact(
             'periodFrom',
@@ -103,7 +109,8 @@ class AccountingReportsController extends Controller
             'expensesAccount',
             'profitTotal',
             'accountMetrics',
-            'branch'
+            'branch',
+            'branchLabel'
         ));
     }
 
@@ -114,6 +121,7 @@ class AccountingReportsController extends Controller
 
     public function balance_sheet_search(Request $request)
     {
+        $branchSelection = $this->branchSelection($request);
         [$periodFrom, $periodTo] = $this->resolvePeriod(
             $request,
             Carbon::now()->startOfYear()->format('Y-m-d'),
@@ -122,7 +130,8 @@ class AccountingReportsController extends Controller
         $filters = [
             'period_from' => $periodFrom,
             'period_to' => $periodTo,
-            'branch_id' => $this->normalizeOptionalFilter($request->input('branch_id')),
+            'branch_ids' => $branchSelection['effective_branch_ids'],
+            'branch_scope_all' => $branchSelection['selects_all'],
         ];
 
         $assetsAccount = Account::where('parent_account_id', null)->where('account_type', 'assets')->where('transfer_side', 'budget')->first();
@@ -144,7 +153,8 @@ class AccountingReportsController extends Controller
         $equityTotal = abs($accountMetrics[$equityAccount->id]['closing_net']);
         $profitTotal = $assetsTotal - ($liabilitiesTotal + $equityTotal);
 
-        $branch = $filters['branch_id'] ? $this->branchesQuery()->find($filters['branch_id']) : null;
+        $branch = $branchSelection['single_branch'];
+        $branchLabel = $branchSelection['branch_label'];
 
         return view('admin.reports.balance_sheet.index', compact(
             'periodFrom',
@@ -154,7 +164,8 @@ class AccountingReportsController extends Controller
             'liabilitiesAccount',
             'profitTotal',
             'accountMetrics',
-            'branch'
+            'branch',
+            'branchLabel'
         ));
     }
 
@@ -169,6 +180,7 @@ class AccountingReportsController extends Controller
 
     public function account_statement_search(Request $request)
     {
+        $branchSelection = $this->branchSelection($request);
         [$periodFrom, $periodTo] = $this->resolvePeriod(
             $request,
             Carbon::now()->startOfYear()->format('Y-m-d'),
@@ -179,7 +191,8 @@ class AccountingReportsController extends Controller
             'period_from' => $periodFrom,
             'period_to' => $periodTo,
             'account_id' => (int) $request->input('account_id'),
-            'branch_id' => $this->normalizeOptionalFilter($request->input('branch_id')),
+            'branch_ids' => $branchSelection['effective_branch_ids'],
+            'branch_scope_all' => $branchSelection['selects_all'],
             'user_id' => $this->normalizeOptionalFilter($request->input('user_id')),
             'invoice_number' => $this->normalizeOptionalFilter($request->input('invoice_number', $request->input('billNumber'))),
             'source_type' => $this->normalizeOptionalFilter($request->input('source_type')),
@@ -204,7 +217,8 @@ class AccountingReportsController extends Controller
             'periodTo',
             'account',
             'documents',
-            'openingBalance'
+            'openingBalance',
+            'branchSelection'
         ));
     }
 
@@ -215,12 +229,14 @@ class AccountingReportsController extends Controller
 
     public function tax_declaration_search(Request $request)
     {
+        $branchSelection = $this->branchSelection($request);
         [$periodFrom, $periodTo] = $this->resolvePeriod($request, Carbon::now()->format('Y-m-d'), Carbon::now()->format('Y-m-d'));
 
         $filters = [
             'period_from' => $periodFrom,
             'period_to' => $periodTo,
-            'branch_id' => $this->normalizeOptionalFilter($request->input('branch_id')),
+            'branch_ids' => $branchSelection['effective_branch_ids'],
+            'branch_scope_all' => $branchSelection['selects_all'],
             'user_id' => $this->normalizeOptionalFilter($request->input('user_id')),
             'invoice_number' => $this->normalizeOptionalFilter($request->input('invoice_number', $request->input('billNumber'))),
             'from_time' => $this->normalizeTime($request->input('from_time')),
@@ -275,18 +291,19 @@ class AccountingReportsController extends Controller
             'purchaseFinalTaxTotal',
             'purchaseFinalTotal',
             'fullTaxTotal',
-            'fullTotal'
+            'fullTotal',
+            'branchSelection'
         ));
     }
 
     private function taxDeclarationFiltersData(): array
     {
-        $currentUser = auth('admin-web')->user();
         $today = Carbon::now()->format('Y-m-d');
+        $branchSelection = $this->availableBranchSelection();
 
         return [
-            'branches' => $this->branchesQuery()->where('status', 1)->orderBy('id')->get(),
-            'users' => $this->usersQuery()->orderBy('name')->get(),
+            'branches' => $branchSelection['branches']->where('status', 1)->values(),
+            'users' => $this->usersQuery($branchSelection['visible_branch_ids'])->orderBy('name')->get(),
             'defaultFilters' => [
                 'date_from' => $today,
                 'date_to' => $today,
@@ -294,32 +311,34 @@ class AccountingReportsController extends Controller
                 'to_time' => '',
                 'invoice_number' => '',
                 'user_id' => '',
-                'branch_id' => $currentUser?->is_admin ? '' : $currentUser?->branch_id,
+                'branch_id' => $branchSelection['legacy_branch_id'],
+                'branch_ids' => $branchSelection['selected_branch_ids'],
             ],
         ];
     }
 
     private function summaryReportFiltersData(): array
     {
-        $currentUser = auth('admin-web')->user();
+        $branchSelection = $this->availableBranchSelection();
 
         return [
-            'branches' => $this->branchesQuery()->where('status', 1)->orderBy('id')->get(),
+            'branches' => $branchSelection['branches']->where('status', 1)->values(),
             'defaultFilters' => [
                 'date_from' => Carbon::now()->startOfYear()->format('Y-m-d'),
                 'date_to' => Carbon::now()->endOfYear()->format('Y-m-d'),
-                'branch_id' => $currentUser?->is_admin ? '' : $currentUser?->branch_id,
+                'branch_id' => $branchSelection['legacy_branch_id'],
+                'branch_ids' => $branchSelection['selected_branch_ids'],
             ],
         ];
     }
 
     private function accountStatementFiltersData(): array
     {
-        $currentUser = auth('admin-web')->user();
+        $branchSelection = $this->availableBranchSelection();
 
         return [
-            'branches' => $this->branchesQuery()->where('status', 1)->orderBy('id')->get(),
-            'users' => $this->usersQuery()->orderBy('name')->get(),
+            'branches' => $branchSelection['branches']->where('status', 1)->values(),
+            'users' => $this->usersQuery($branchSelection['visible_branch_ids'])->orderBy('name')->get(),
             'defaultFilters' => [
                 'date_from' => Carbon::now()->startOfYear()->format('Y-m-d'),
                 'date_to' => Carbon::now()->endOfYear()->format('Y-m-d'),
@@ -328,7 +347,8 @@ class AccountingReportsController extends Controller
                 'invoice_number' => '',
                 'source_type' => '',
                 'user_id' => '',
-                'branch_id' => $currentUser?->is_admin ? '' : $currentUser?->branch_id,
+                'branch_id' => $branchSelection['legacy_branch_id'],
+                'branch_ids' => $branchSelection['selected_branch_ids'],
                 'account_id' => '',
             ],
         ];
@@ -355,22 +375,16 @@ class AccountingReportsController extends Controller
      */
     private function taxDeclarationTotals(string $invoiceType, int $taxRate, array $filters): object
     {
-        $accessibleBranchIds = $this->accessibleBranchIds();
-
         return InvoiceDetail::query()
             ->whereHas('tax', function ($query) use ($taxRate) {
                 $query->where('rate', $taxRate);
             })
-            ->whereHas('invoice', function ($query) use ($invoiceType, $filters, $accessibleBranchIds) {
+            ->whereHas('invoice', function ($query) use ($invoiceType, $filters) {
                 $query->where('type', $invoiceType)
                     ->whereBetween('date', [$filters['period_from'], $filters['period_to']]);
 
-                if ($accessibleBranchIds !== []) {
-                    $query->whereIn('branch_id', $accessibleBranchIds);
-                }
-
-                if ($filters['branch_id'] !== null) {
-                    $query->where('branch_id', $filters['branch_id']);
+                if (($filters['branch_ids'] ?? []) !== []) {
+                    $query->whereIn('branch_id', $filters['branch_ids']);
                 }
 
                 if ($filters['user_id'] !== null) {
@@ -407,17 +421,9 @@ class AccountingReportsController extends Controller
 
     private function applyAccountStatementFilters($query, array $filters): void
     {
-        $accessibleBranchIds = $this->accessibleBranchIds();
-
-        if ($accessibleBranchIds !== []) {
-            $query->whereHas('journal_entry', function ($journalQuery) use ($accessibleBranchIds) {
-                $journalQuery->whereIn('branch_id', $accessibleBranchIds);
-            });
-        }
-
-        if ($filters['branch_id'] !== null) {
+        if (($filters['branch_ids'] ?? []) !== []) {
             $query->whereHas('journal_entry', function ($journalQuery) use ($filters) {
-                $journalQuery->where('branch_id', $filters['branch_id']);
+                $journalQuery->whereIn('branch_id', $filters['branch_ids']);
             });
         }
 
@@ -524,7 +530,7 @@ class AccountingReportsController extends Controller
 
     private function canUseGlobalOpeningBalance(array $filters): bool
     {
-        return $filters['branch_id'] === null
+        return ($filters['branch_scope_all'] ?? false) === true
             && $filters['user_id'] === null
             && $filters['invoice_number'] === null
             && $filters['source_type'] === null
@@ -541,7 +547,7 @@ class AccountingReportsController extends Controller
         $openingDebit = 0.0;
         $openingCredit = 0.0;
 
-        if (($filters['branch_id'] ?? null) === null) {
+        if (($filters['branch_scope_all'] ?? false) === true) {
             $openingTotals = DB::table('opening_balances')
                 ->whereIn('account_id', $account->childrensIds)
                 ->select(DB::raw('COALESCE(SUM(debit), 0) as debit_total, COALESCE(SUM(credit), 0) as credit_total'))
@@ -601,18 +607,11 @@ class AccountingReportsController extends Controller
 
     private function summaryDocumentsQuery(Account $account, array $filters)
     {
-        $accessibleBranchIds = $this->accessibleBranchIds();
-
         return JournalEntryDocument::query()
             ->whereIn('account_id', $account->childrensIds)
-            ->when($accessibleBranchIds !== [], function ($query) use ($accessibleBranchIds) {
-                return $query->whereHas('journal_entry', function ($journalQuery) use ($accessibleBranchIds) {
-                    $journalQuery->whereIn('branch_id', $accessibleBranchIds);
-                });
-            })
-            ->when(($filters['branch_id'] ?? null) !== null, function ($query) use ($filters) {
+            ->when(($filters['branch_ids'] ?? []) !== [], function ($query) use ($filters) {
                 return $query->whereHas('journal_entry', function ($journalQuery) use ($filters) {
-                    $journalQuery->where('branch_id', $filters['branch_id']);
+                    $journalQuery->whereIn('branch_id', $filters['branch_ids']);
                 });
             });
     }
@@ -664,34 +663,15 @@ class AccountingReportsController extends Controller
         return strlen($value) === 5 ? $value . ':00' : $value;
     }
 
-    /**
-     * @return array<int>
-     */
-    private function accessibleBranchIds(): array
-    {
-        $user = auth('admin-web')->user();
-
-        if (! $user) {
-            return [];
-        }
-
-        return app(BranchContextService::class)->accessibleBranchIds($user);
-    }
-
     private function branchesQuery()
     {
-        $user = auth('admin-web')->user();
-        $accessibleBranchIds = $this->accessibleBranchIds();
+        $visibleBranchIds = $this->availableBranchSelection()['visible_branch_ids'];
 
         return Branch::query()
-            ->when(
-                filled($user?->subscriber_id),
-                fn ($query) => $query->where('subscriber_id', $user->subscriber_id)
-            )
-            ->when($accessibleBranchIds !== [], fn ($query) => $query->whereIn('id', $accessibleBranchIds));
+            ->when($visibleBranchIds !== [], fn ($query) => $query->whereIn('id', $visibleBranchIds));
     }
 
-    private function usersQuery()
+    private function usersQuery(array $visibleBranchIds = [])
     {
         $user = auth('admin-web')->user();
 
@@ -700,5 +680,23 @@ class AccountingReportsController extends Controller
                 filled($user?->subscriber_id),
                 fn ($query) => $query->where('subscriber_id', $user->subscriber_id)
             );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function availableBranchSelection(): array
+    {
+        $request = Request::create('/', 'GET');
+
+        return app(ReportBranchSelectionService::class)->resolve($request, auth('admin-web')->user());
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function branchSelection(Request $request): array
+    {
+        return app(ReportBranchSelectionService::class)->resolve($request, auth('admin-web')->user());
     }
 }

@@ -30,11 +30,7 @@
                                 <h4  class="alert alert-primary text-center">
                                     {{__('main.sales_total_report')}}
                                 </h4>
-                                @if(isset($branch) && $branch)
-                                <h5 class="text-center"> [ الفرع: {{$branch->name}} ] </h5>
-                                @else
-                                <h5 class="text-center"> [ جميع الفروع ] </h5>
-                                @endif
+                                <h5 class="text-center"> [ الفرع: {{ $branchLabel ?? ($branch?->name ?: 'جميع الفروع') }} ] </h5>
                                 <h5 class="text-center">  {{ $periodFrom . ' - ' . $periodTo}} </h5>
                             </div>
                             <div class="col-3 text-left"> 
@@ -200,4 +196,3 @@
         document.title = "{{__('main.sales_total_report')}}";
     });
 </script>
-

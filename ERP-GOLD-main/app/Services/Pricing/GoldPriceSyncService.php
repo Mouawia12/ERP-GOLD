@@ -5,6 +5,7 @@ namespace App\Services\Pricing;
 use App\Models\GoldPrice;
 use App\Models\GoldPriceHistory;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -12,6 +13,7 @@ use RuntimeException;
 class GoldPriceSyncService
 {
     private const OUNCE_GRAMS = 31.1034768;
+    public const AUTO_REFRESH_INTERVAL_MINUTES = 15;
 
     public function current(): ?GoldPrice
     {
@@ -36,6 +38,54 @@ class GoldPriceSyncService
             ->orderByDesc('id')
             ->limit($limit)
             ->get();
+    }
+
+    public function autoRefreshIntervalMinutes(): int
+    {
+        return self::AUTO_REFRESH_INTERVAL_MINUTES;
+    }
+
+    public function remoteSyncConfigured(): bool
+    {
+        return trim((string) config('services.gold_api.key', '')) !== '';
+    }
+
+    public function isRefreshDue(?GoldPrice $current = null, ?int $intervalMinutes = null): bool
+    {
+        $intervalMinutes = $intervalMinutes ?: self::AUTO_REFRESH_INTERVAL_MINUTES;
+        $current ??= $this->current();
+
+        if (! $current?->last_update) {
+            return true;
+        }
+
+        return $current->last_update->lte(now()->subMinutes($intervalMinutes));
+    }
+
+    public function refreshCurrentSnapshotIfDue(?int $userId = null, bool $force = false, ?int $intervalMinutes = null): ?GoldPrice
+    {
+        $intervalMinutes = $intervalMinutes ?: self::AUTO_REFRESH_INTERVAL_MINUTES;
+        $current = $this->current();
+
+        if (! $this->remoteSyncConfigured()) {
+            return $current;
+        }
+
+        if (! $force && ! $this->isRefreshDue($current, $intervalMinutes)) {
+            return $current;
+        }
+
+        $refreshed = Cache::lock('gold-prices:auto-refresh', 45)->get(function () use ($userId, $force, $intervalMinutes) {
+            $freshCurrent = $this->current();
+
+            if (! $force && ! $this->isRefreshDue($freshCurrent, $intervalMinutes)) {
+                return $freshCurrent;
+            }
+
+            return $this->syncCurrentSaudiPrice($userId);
+        });
+
+        return $refreshed instanceof GoldPrice ? $refreshed : $this->current();
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Branch;
+use App\Models\Subscriber;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +37,7 @@ class ItemListReportFeatureTest extends TestCase
             ->get(route('reports.items.list', [], false));
 
         $response->assertOk();
+        $response->assertSee('name="branch_ids[]"', false);
         $response->assertSee('name="branch_id"', false);
         $response->assertSee('name="inventory_classification"', false);
         $response->assertSee('name="carat"', false);
@@ -108,6 +110,80 @@ class ItemListReportFeatureTest extends TestCase
         $response->assertDontSee('فرع آخر');
     }
 
+    public function test_subscriber_primary_account_can_choose_specific_branches_in_item_list_report(): void
+    {
+        [$subscriber, $mainBranch, $primaryUser] = $this->createSubscriberPrimaryUser();
+        $secondBranch = $this->createSubscriberBranch($subscriber->id, 'فرع أصناف ثان');
+        $foreignSubscriber = Subscriber::create([
+            'name' => 'مشترك أصناف أجنبي',
+            'login_email' => uniqid('foreign-items-subscriber-', true).'@example.com',
+            'status' => true,
+        ]);
+        $foreignBranch = $this->createSubscriberBranch($foreignSubscriber->id, 'فرع أصناف أجنبي');
+
+        [$categoryId, $otherCategoryId, $caratId, $otherCaratId] = $this->createCatalogLookups($subscriber->id);
+
+        $this->insertItem([
+            'branch_id' => $mainBranch->id,
+            'published_branch_ids' => [$mainBranch->id],
+            'inventory_classification' => 'gold',
+            'category_id' => $categoryId,
+            'gold_carat_id' => $caratId,
+            'code' => '010001',
+            'title' => ['ar' => 'خاتم الفرع الرئيسي', 'en' => 'Main Branch Ring'],
+            'status' => true,
+        ]);
+
+        $this->insertItem([
+            'branch_id' => $secondBranch->id,
+            'published_branch_ids' => [$secondBranch->id],
+            'inventory_classification' => 'gold',
+            'category_id' => $categoryId,
+            'gold_carat_id' => $caratId,
+            'code' => '010002',
+            'title' => ['ar' => 'خاتم الفرع الثاني', 'en' => 'Second Branch Ring'],
+            'status' => true,
+        ]);
+
+        $this->insertItem([
+            'branch_id' => $foreignBranch->id,
+            'published_branch_ids' => [$foreignBranch->id],
+            'inventory_classification' => 'gold',
+            'category_id' => $otherCategoryId,
+            'gold_carat_id' => $otherCaratId,
+            'code' => '019999',
+            'title' => ['ar' => 'خاتم أجنبي', 'en' => 'Foreign Ring'],
+            'status' => true,
+        ]);
+
+        $filtersResponse = $this
+            ->actingAs($primaryUser->fresh(), 'admin-web')
+            ->get(route('reports.items.list', [], false));
+
+        $filtersResponse->assertOk();
+        $filtersResponse->assertSee('name="branch_ids[]"', false);
+        $filtersResponse->assertSee($mainBranch->getTranslation('name', 'ar'));
+        $filtersResponse->assertSee($secondBranch->getTranslation('name', 'ar'));
+        $filtersResponse->assertDontSee($foreignBranch->getTranslation('name', 'ar'));
+
+        $response = $this
+            ->actingAs($primaryUser->fresh(), 'admin-web')
+            ->post(route('reports.items.list.search', [], false), [
+                'branch_ids' => [$secondBranch->id],
+                'inventory_classification' => 'gold',
+                'carat' => $caratId,
+                'category' => $categoryId,
+                'status' => '1',
+            ]);
+
+        $response->assertOk();
+        $response->assertSee('خاتم الفرع الثاني');
+        $response->assertSee('فرع أصناف ثان');
+        $response->assertDontSee('خاتم الفرع الرئيسي');
+        $response->assertDontSee('خاتم أجنبي');
+        $response->assertDontSee('فرع أصناف أجنبي');
+    }
+
     private function createBranch(string $name): Branch
     {
         return Branch::create([
@@ -131,9 +207,50 @@ class ItemListReportFeatureTest extends TestCase
     }
 
     /**
+     * @return array{0:Subscriber,1:Branch,2:User}
+     */
+    private function createSubscriberPrimaryUser(): array
+    {
+        $subscriber = Subscriber::create([
+            'name' => 'مشترك تقارير الأصناف',
+            'login_email' => uniqid('item-list-subscriber-', true).'@example.com',
+            'status' => true,
+        ]);
+
+        $branch = $this->createSubscriberBranch($subscriber->id, 'الفرع الرئيسي للأصناف');
+
+        $user = User::create([
+            'subscriber_id' => $subscriber->id,
+            'name' => 'مدير تقارير الأصناف',
+            'email' => uniqid('item-list-primary-', true).'@example.com',
+            'password' => Hash::make('secret123'),
+            'branch_id' => $branch->id,
+            'status' => true,
+            'is_admin' => false,
+            'profile_pic' => 'default.png',
+        ]);
+
+        $subscriber->update([
+            'admin_user_id' => $user->id,
+        ]);
+
+        return [$subscriber->fresh(), $branch, $user->fresh()];
+    }
+
+    private function createSubscriberBranch(int $subscriberId, string $name): Branch
+    {
+        return Branch::create([
+            'subscriber_id' => $subscriberId,
+            'name' => ['ar' => $name, 'en' => $name],
+            'phone' => '123456789',
+            'status' => true,
+        ]);
+    }
+
+    /**
      * @return array{0:int,1:int,2:int,3:int}
      */
-    private function createCatalogLookups(): array
+    private function createCatalogLookups(?int $subscriberId = null): array
     {
         $taxId = DB::table('taxes')->insertGetId([
             'title' => 'VAT 15%',
@@ -164,6 +281,7 @@ class ItemListReportFeatureTest extends TestCase
         ]);
 
         $categoryId = DB::table('item_categories')->insertGetId([
+            'subscriber_id' => $subscriberId,
             'title' => json_encode(['ar' => 'خواتم', 'en' => 'Rings'], JSON_UNESCAPED_UNICODE),
             'code' => 'CAT-1',
             'description' => json_encode(['ar' => 'قسم الخواتم', 'en' => 'Rings category'], JSON_UNESCAPED_UNICODE),
@@ -172,6 +290,7 @@ class ItemListReportFeatureTest extends TestCase
         ]);
 
         $otherCategoryId = DB::table('item_categories')->insertGetId([
+            'subscriber_id' => $subscriberId,
             'title' => json_encode(['ar' => 'أساور', 'en' => 'Bracelets'], JSON_UNESCAPED_UNICODE),
             'code' => 'CAT-2',
             'description' => json_encode(['ar' => 'قسم الأساور', 'en' => 'Bracelets category'], JSON_UNESCAPED_UNICODE),

@@ -60,6 +60,7 @@
                                 <br>
                                 <h4> <b>الاقرار الضريبي </b>
                                        <br><br>[ {{$periodFrom}} - {{$periodTo}} ]</h4>
+                                <h6>الفرع: {{ $branchSelection['branch_label'] ?? 'جميع الفروع' }}</h6>
  
                             </div>
                             <div class="col-3 text-left"> 
@@ -268,6 +269,5 @@
     }
 </script> 
  
-
 
 

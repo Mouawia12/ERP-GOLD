@@ -233,6 +233,7 @@ Route::group(
 
                     Route::get('/prices', [PricingController::class, 'index'])->name('prices');
                     Route::get('/gold-stock-market-prices', [PricingController::class, 'get_gold_stock_market_prices'])->name('gold.stock.market.prices');
+                    Route::get('/gold-prices/live', [PricingController::class, 'live'])->name('gold.prices.live');
                     Route::post('/updatePrices', [PricingController::class, 'sync'])->name('updatePrices');
                     Route::post('/updatePricesManual', [PricingController::class, 'update'])->name('updatePricesManual');
                     Route::get('/gold-price-api', [PricingController::class, 'Gold_Price_Api'])->name('gold.price.api');

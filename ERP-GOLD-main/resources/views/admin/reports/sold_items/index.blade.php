@@ -33,11 +33,7 @@
                                 <h4  class="alert alert-primary text-center">
                                     {{__('main.sold_items_report')}}
                                 </h4>
-                                @if(isset($branch))
-                                <h5 class="text-center"> [ {{$branch->name}} ] </h5>
-                                @else
-                                <h5 class="text-center"> [ جميع الفروع ] </h5>
-                                @endif
+                                <h5 class="text-center"> [ {{ $branchLabel ?? ($branch?->name ?: 'جميع الفروع') }} ] </h5>
                                 @if(isset($selectedUser) && $selectedUser)
                                 <h6 class="text-center"> المستخدم: {{ $selectedUser->name }} </h6>
                                 @endif

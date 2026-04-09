@@ -53,11 +53,7 @@
                                 <h4  class="alert alert-primary text-center">
                                     {{__('main.sales_report')}}
                                 </h4>  
-                                @if(isset($branch))
-                                <h5 class="text-center"> [ {{$branch->name}} ] </h5>
-                                @else
-                                <h5 class="text-center"> [ {{__('main.all_branches')}} ] </h5>
-                                @endif
+                                <h5 class="text-center"> [ {{ $branchLabel ?? ($branch?->name ?: __('main.all_branches')) }} ] </h5>
                                 <h5 class="text-center"> {{$periodFrom}} - {{$periodTo}} </h5>
                                 
                             </div> 
@@ -212,6 +208,5 @@
 </script> 
         
 @endsection 
-
 
 

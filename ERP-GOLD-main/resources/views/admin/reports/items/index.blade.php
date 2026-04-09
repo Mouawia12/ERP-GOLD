@@ -34,11 +34,7 @@
                                 <h4  class="alert alert-primary text-center">
                                 {{__('main.item_list_report')}}
                                 </h4> 
-                                @if(isset($branch))
-                                <h5 class="text-center"> [ {{$branch->name}} ] </h5>
-                                @else
-                                <h5 class="text-center"> [ جميع الفروع ] </h5>
-                                @endif
+                                <h5 class="text-center"> [ {{ $branchLabel ?? ($branch?->name ?: 'جميع الفروع') }} ] </h5>
                                 @php
                                     $activeFilters = collect([
                                         !empty($filters['carat'] ?? null) ? 'عيار محدد' : null,
@@ -89,9 +85,9 @@
                                             <td class="text-center">{{$loop -> index + 1}}</td>
                                             <td class="text-center">{{$item -> code}}</td>
                                             <td class="text-center">{{$item -> title}}</td>
-                                            <td class="text-center">{{$item -> category -> title}}</td>
+                                            <td class="text-center">{{ $item->category?->title ?? '-' }}</td>
                                             <td class="text-center">{{ $item->inventory_classification_label }}</td>
-                                            <td class="text-center">{{$item -> goldCarat -> title}}</td>
+                                            <td class="text-center">{{ $item->goldCarat?->title ?? '-' }}</td>
                                             <td class="text-center">{{$item -> labor_cost_per_gram}}</td>
                                             <td class="text-center">{{$item -> no_metal}}</td>
                                             <td class="text-center">{{$item -> actual_balance}}</td>

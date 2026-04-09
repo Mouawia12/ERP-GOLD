@@ -8,8 +8,9 @@ use App\Models\GoldCarat;
 use App\Models\InvoiceDetail;
 use App\Models\Item;
 use App\Models\ItemCategory;
+use App\Models\Subscriber;
 use App\Models\User;
-use App\Services\Branches\BranchContextService;
+use App\Services\Reports\ReportBranchSelectionService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use DB;
@@ -24,8 +25,9 @@ class ItemsReportsController extends Controller
     public function item_list_report_search(Request $request)
     {
         $subscriberId = $this->currentSubscriberId();
+        $branchSelection = $this->branchSelection($request, $subscriberId);
         $filters = [
-            'branch_id' => $this->normalizeOptionalFilter($request->input('branch_id')),
+            'branch_ids' => $branchSelection['effective_branch_ids'],
             'inventory_classification' => $this->normalizeOptionalFilter($request->input('inventory_classification')),
             'carat' => $this->normalizeOptionalFilter($request->input('carat')),
             'category' => $this->normalizeOptionalFilter($request->input('category')),
@@ -41,8 +43,13 @@ class ItemsReportsController extends Controller
             ->when($subscriberId, function ($query, $value) {
                 return $query->whereHas('branch', fn ($branchQuery) => $branchQuery->where('subscriber_id', $value));
             })
-            ->when($filters['branch_id'], function ($query, $value) {
-                return $query->publishedToBranch((int) $value);
+            ->when($filters['branch_ids'] !== [], function ($query) use ($filters) {
+                return $query->whereHas('branchPublications', function ($publicationQuery) use ($filters) {
+                    $publicationQuery
+                        ->whereIn('branch_id', $filters['branch_ids'])
+                        ->where('is_active', true)
+                        ->where('is_visible', true);
+                });
             })
             ->when($filters['inventory_classification'], function ($query, $value) {
                 return $query->where('inventory_classification', $value);
@@ -76,10 +83,11 @@ class ItemsReportsController extends Controller
             ->orderBy('code')
             ->get();
 
-        $branch = $filters['branch_id'] ? $this->branchesQuery($subscriberId)->find($filters['branch_id']) : null;
+        $branch = $branchSelection['single_branch'];
+        $branchLabel = $branchSelection['branch_label'];
         $inventoryClassifications = Item::inventoryClassificationOptions();
 
-        return view('admin.reports.items.index', compact('items', 'branch', 'filters', 'inventoryClassifications'));
+        return view('admin.reports.items.index', compact('items', 'branch', 'branchLabel', 'filters', 'inventoryClassifications'));
     }
 
     public function sold_items_report()
@@ -90,6 +98,7 @@ class ItemsReportsController extends Controller
     public function sold_items_report_search(Request $request)
     {
         $subscriberId = $this->currentSubscriberId();
+        $branchSelection = $this->branchSelection($request, $subscriberId);
         [$periodFrom, $periodTo] = $this->resolvePeriod(
             $request,
             Carbon::now()->startOfYear()->format('Y-m-d'),
@@ -97,14 +106,15 @@ class ItemsReportsController extends Controller
         );
 
         $filters = [
-            'branch_id' => $this->normalizeOptionalFilter($request->input('branch_id')),
-            'user_id' => $this->normalizeOptionalFilter($request->input('user_id')),
+            'branch_ids' => $branchSelection['effective_branch_ids'],
+            'user_id' => $this->resolvedReportUserId($request, $subscriberId, $branchSelection['visible_branch_ids']),
             'inventory_classification' => $this->normalizeOptionalFilter($request->input('inventory_classification')),
             'carat' => $this->normalizeOptionalFilter($request->input('carat')),
             'category' => $this->normalizeOptionalFilter($request->input('category')),
             'code' => $this->normalizeOptionalFilter($request->input('code')),
             'name' => $this->normalizeOptionalFilter($request->input('name')),
-            'invoice_number' => $this->normalizeOptionalFilter($request->input('invoice_number', $request->input('billNumber'))),
+            'invoice_number_from' => $this->normalizeOptionalFilter($request->input('invoice_number_from', $request->input('FromBillNumber', $request->input('invoice_number', $request->input('billNumber'))))),
+            'invoice_number_to' => $this->normalizeOptionalFilter($request->input('invoice_number_to', $request->input('ToBillNumber', $request->input('invoice_number', $request->input('billNumber'))))),
             'from_time' => $this->normalizeTime($request->input('from_time')),
             'to_time' => $this->normalizeTime($request->input('to_time')),
         ];
@@ -117,14 +127,22 @@ class ItemsReportsController extends Controller
                     ->when($subscriberId, function ($builder, $value) {
                         return $builder->whereHas('branch', fn ($branchQuery) => $branchQuery->where('subscriber_id', $value));
                     })
-                    ->when($filters['branch_id'], function ($builder, $value) {
-                        return $builder->where('branch_id', $value);
+                    ->when($filters['branch_ids'] !== [], function ($builder) use ($filters) {
+                        return $builder->whereIn('branch_id', $filters['branch_ids']);
                     })
                     ->when($filters['user_id'], function ($builder, $value) {
                         return $builder->where('user_id', $value);
                     })
-                    ->when($filters['invoice_number'], function ($builder, $value) {
-                        return $builder->where('bill_number', $value);
+                    ->when($filters['invoice_number_from'] || $filters['invoice_number_to'], function ($builder) use ($filters) {
+                        if ($filters['invoice_number_from'] && $filters['invoice_number_to']) {
+                            return $builder->whereBetween('bill_number', [$filters['invoice_number_from'], $filters['invoice_number_to']]);
+                        }
+
+                        if ($filters['invoice_number_from']) {
+                            return $builder->where('bill_number', '>=', $filters['invoice_number_from']);
+                        }
+
+                        return $builder->where('bill_number', '<=', $filters['invoice_number_to']);
                     })
                     ->when($filters['from_time'], function ($builder, $value) {
                         return $builder->where('time', '>=', $value);
@@ -166,14 +184,16 @@ class ItemsReportsController extends Controller
             })
             ->values();
 
-        $branch = $filters['branch_id'] ? $this->branchesQuery($subscriberId)->find($filters['branch_id']) : null;
-        $selectedUser = $filters['user_id'] ? $this->usersQuery($subscriberId)->find($filters['user_id']) : null;
+        $branch = $branchSelection['single_branch'];
+        $branchLabel = $branchSelection['branch_label'];
+        $selectedUser = $filters['user_id'] ? $this->usersQuery($subscriberId, $branchSelection['visible_branch_ids'])->find($filters['user_id']) : null;
 
         return view('admin.reports.sold_items.index', compact(
             'itemsTransactions',
             'periodFrom',
             'periodTo',
             'branch',
+            'branchLabel',
             'selectedUser',
             'filters'
         ));
@@ -181,12 +201,14 @@ class ItemsReportsController extends Controller
 
     private function soldItemsFiltersData(): array
     {
-        $currentUser = auth('admin-web')->user();
         $subscriberId = $this->currentSubscriberId();
+        $branchSelection = $this->availableBranchSelection($subscriberId);
+        $userFilterOptions = $this->soldItemsUserFilterOptions($subscriberId, $branchSelection['visible_branch_ids']);
 
         return [
-            'branches' => $this->branchesQuery($subscriberId)->orderBy('id')->get(),
-            'users' => $this->usersQuery($subscriberId)->orderBy('name')->get(),
+            'branches' => $branchSelection['branches'],
+            'users' => $userFilterOptions['users'],
+            'userFilterLocked' => $userFilterOptions['locked'],
             'carats' => GoldCarat::query()->orderBy('id')->get(),
             'categories' => ItemCategory::query()->orderBy('id')->get(),
             'inventoryClassifications' => Item::inventoryClassificationOptions(),
@@ -195,9 +217,11 @@ class ItemsReportsController extends Controller
                 'date_to' => Carbon::now()->endOfYear()->format('Y-m-d'),
                 'from_time' => '',
                 'to_time' => '',
-                'invoice_number' => '',
-                'user_id' => '',
-                'branch_id' => $currentUser?->is_admin ? '' : $currentUser?->branch_id,
+                'invoice_number_from' => '',
+                'invoice_number_to' => '',
+                'user_id' => $userFilterOptions['selected_user_id'],
+                'branch_id' => $branchSelection['legacy_branch_id'],
+                'branch_ids' => $branchSelection['selected_branch_ids'],
                 'inventory_classification' => '',
                 'carat' => '',
                 'category' => '',
@@ -209,16 +233,17 @@ class ItemsReportsController extends Controller
 
     private function itemListFiltersData(): array
     {
-        $currentUser = auth('admin-web')->user();
         $subscriberId = $this->currentSubscriberId();
+        $branchSelection = $this->availableBranchSelection($subscriberId);
 
         return [
-            'branches' => $this->branchesQuery($subscriberId)->orderBy('id')->get(),
+            'branches' => $branchSelection['branches'],
             'carats' => GoldCarat::query()->orderBy('id')->get(),
             'categories' => ItemCategory::query()->orderBy('id')->get(),
             'inventoryClassifications' => Item::inventoryClassificationOptions(),
             'defaultFilters' => [
-                'branch_id' => $currentUser?->is_admin ? '' : $currentUser?->branch_id,
+                'branch_id' => $branchSelection['legacy_branch_id'],
+                'branch_ids' => $branchSelection['selected_branch_ids'],
                 'inventory_classification' => '',
                 'carat' => '',
                 'category' => '',
@@ -282,20 +307,88 @@ class ItemsReportsController extends Controller
 
     private function branchesQuery(?int $subscriberId)
     {
-        $user = auth('admin-web')->user();
-        $accessibleBranchIds = $user
-            ? app(BranchContextService::class)->accessibleBranchIds($user)
-            : [];
+        $visibleBranchIds = $this->availableBranchSelection($subscriberId)['visible_branch_ids'];
 
         return Branch::query()
             ->where('status', 1)
             ->when($subscriberId, fn ($query) => $query->where('subscriber_id', $subscriberId))
-            ->when($accessibleBranchIds !== [], fn ($query) => $query->whereIn('id', $accessibleBranchIds));
+            ->when($visibleBranchIds !== [], fn ($query) => $query->whereIn('id', $visibleBranchIds));
     }
 
-    private function usersQuery(?int $subscriberId)
+    private function usersQuery(?int $subscriberId, array $visibleBranchIds = [])
     {
+        $user = auth('admin-web')->user();
+
         return User::query()
+            ->when(
+                $subscriberId && ! $this->isSubscriberPrimaryAccount($user),
+                fn ($query) => $query->whereKey($user?->id)
+            )
             ->when($subscriberId, fn ($query) => $query->where('subscriber_id', $subscriberId));
+    }
+
+    /**
+     * @return array{users:\Illuminate\Support\Collection<int,User>,locked:bool,selected_user_id:string}
+     */
+    private function soldItemsUserFilterOptions(?int $subscriberId, array $visibleBranchIds = []): array
+    {
+        $user = auth('admin-web')->user();
+        $locked = $subscriberId !== null && ! $this->isSubscriberPrimaryAccount($user);
+
+        return [
+            'users' => $this->usersQuery($subscriberId, $visibleBranchIds)->orderBy('name')->get(),
+            'locked' => $locked,
+            'selected_user_id' => $locked && $user ? (string) $user->id : '',
+        ];
+    }
+
+    private function resolvedReportUserId(Request $request, ?int $subscriberId, array $visibleBranchIds = []): ?int
+    {
+        $user = auth('admin-web')->user();
+
+        if ($subscriberId !== null && ! $this->isSubscriberPrimaryAccount($user)) {
+            return $user ? (int) $user->id : null;
+        }
+
+        $userId = $this->normalizeOptionalFilter($request->input('user_id'));
+
+        if ($userId === null) {
+            return null;
+        }
+
+        return $this->usersQuery($subscriberId, $visibleBranchIds)->whereKey((int) $userId)->exists()
+            ? (int) $userId
+            : null;
+    }
+
+    private function isSubscriberPrimaryAccount(?User $user): bool
+    {
+        if (! $user || blank($user->subscriber_id)) {
+            return false;
+        }
+
+        $subscriber = $user->relationLoaded('subscriber')
+            ? $user->subscriber
+            : Subscriber::query()->select('id', 'admin_user_id')->find($user->subscriber_id);
+
+        return (int) ($subscriber?->admin_user_id ?? 0) === (int) $user->id;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function availableBranchSelection(?int $subscriberId): array
+    {
+        $request = Request::create('/', 'GET');
+
+        return app(ReportBranchSelectionService::class)->resolve($request, auth('admin-web')->user(), $subscriberId);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function branchSelection(Request $request, ?int $subscriberId): array
+    {
+        return app(ReportBranchSelectionService::class)->resolve($request, auth('admin-web')->user(), $subscriberId);
     }
 }

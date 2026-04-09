@@ -51,28 +51,26 @@
                                 <div class="card-body">
                                     <h5 class="alert alert-info text-center">آخر Snapshot بالدولار</h5>
 
-                                    @if($latestUsdSnapshot)
-                                        <table class="table table-bordered text-center mb-0">
-                                            <thead>
-                                            <tr>
-                                                <th>الأونصة</th>
-                                                <th>عيار 21</th>
-                                                <th>عيار 24</th>
-                                                <th>التوقيت</th>
-                                            </tr>
-                                            </thead>
-                                            <tbody>
-                                            <tr>
-                                                <td>{{ number_format($latestUsdSnapshot->ounce_price, 2) }}</td>
-                                                <td>{{ number_format($latestUsdSnapshot->ounce_21_price, 2) }}</td>
-                                                <td>{{ number_format($latestUsdSnapshot->ounce_24_price, 2) }}</td>
-                                                <td>{{ optional($latestUsdSnapshot->synced_at)->format('Y-m-d H:i:s') }}</td>
-                                            </tr>
-                                            </tbody>
-                                        </table>
-                                    @else
-                                        <div class="alert alert-light text-center mb-0">لا يوجد Snapshot بالدولار حتى الآن.</div>
-                                    @endif
+                                    <table class="table table-bordered text-center mb-0 {{ $latestUsdSnapshot ? '' : 'd-none' }}" id="stock-market-usd-table">
+                                        <thead>
+                                        <tr>
+                                            <th>الأونصة</th>
+                                            <th>عيار 21</th>
+                                            <th>عيار 24</th>
+                                            <th>التوقيت</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        <tr>
+                                            <td id="stock-market-usd-ounce">{{ $latestUsdSnapshot ? number_format($latestUsdSnapshot->ounce_price, 2) : '--' }}</td>
+                                            <td id="stock-market-usd-21">{{ $latestUsdSnapshot ? number_format($latestUsdSnapshot->ounce_21_price, 2) : '--' }}</td>
+                                            <td id="stock-market-usd-24">{{ $latestUsdSnapshot ? number_format($latestUsdSnapshot->ounce_24_price, 2) : '--' }}</td>
+                                            <td id="stock-market-usd-updated">{{ $latestUsdSnapshot ? optional($latestUsdSnapshot->synced_at)->format('Y-m-d H:i:s') : 'لا يوجد تحديث' }}</td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+
+                                    <div class="alert alert-light text-center mb-0 {{ $latestUsdSnapshot ? 'd-none' : '' }}" id="stock-market-usd-empty">لا يوجد Snapshot بالدولار حتى الآن.</div>
                                 </div>
                             </div>
                         </div>
@@ -82,28 +80,26 @@
                                 <div class="card-body">
                                     <h5 class="alert alert-info text-center">آخر Snapshot بالريال السعودي</h5>
 
-                                    @if($latestSarSnapshot)
-                                        <table class="table table-bordered text-center mb-0">
-                                            <thead>
-                                            <tr>
-                                                <th>الأونصة</th>
-                                                <th>عيار 21</th>
-                                                <th>عيار 24</th>
-                                                <th>التوقيت</th>
-                                            </tr>
-                                            </thead>
-                                            <tbody>
-                                            <tr>
-                                                <td>{{ number_format($latestSarSnapshot->ounce_price, 2) }}</td>
-                                                <td>{{ number_format($latestSarSnapshot->ounce_21_price, 2) }}</td>
-                                                <td>{{ number_format($latestSarSnapshot->ounce_24_price, 2) }}</td>
-                                                <td>{{ optional($latestSarSnapshot->synced_at)->format('Y-m-d H:i:s') }}</td>
-                                            </tr>
-                                            </tbody>
-                                        </table>
-                                    @else
-                                        <div class="alert alert-light text-center mb-0">لا يوجد Snapshot بالريال حتى الآن.</div>
-                                    @endif
+                                    <table class="table table-bordered text-center mb-0 {{ $latestSarSnapshot ? '' : 'd-none' }}" id="stock-market-sar-table">
+                                        <thead>
+                                        <tr>
+                                            <th>الأونصة</th>
+                                            <th>عيار 21</th>
+                                            <th>عيار 24</th>
+                                            <th>التوقيت</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        <tr>
+                                            <td id="stock-market-sar-ounce">{{ $latestSarSnapshot ? number_format($latestSarSnapshot->ounce_price, 2) : '--' }}</td>
+                                            <td id="stock-market-sar-21">{{ $latestSarSnapshot ? number_format($latestSarSnapshot->ounce_21_price, 2) : '--' }}</td>
+                                            <td id="stock-market-sar-24">{{ $latestSarSnapshot ? number_format($latestSarSnapshot->ounce_24_price, 2) : '--' }}</td>
+                                            <td id="stock-market-sar-updated">{{ $latestSarSnapshot ? optional($latestSarSnapshot->synced_at)->format('Y-m-d H:i:s') : 'لا يوجد تحديث' }}</td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+
+                                    <div class="alert alert-light text-center mb-0 {{ $latestSarSnapshot ? 'd-none' : '' }}" id="stock-market-sar-empty">لا يوجد Snapshot بالريال حتى الآن.</div>
                                 </div>
                             </div>
                         </div>
@@ -146,4 +142,49 @@
             </div>
         </div>
     </div>
+@endsection
+
+@section('js')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            window.addEventListener('gold-price:ticker-updated', function (event) {
+                var market = (event.detail || {}).market_snapshots || {};
+
+                function applySnapshot(prefix, snapshot) {
+                    if (!snapshot || !snapshot.exists) {
+                        return;
+                    }
+
+                    var bindings = {
+                        [prefix + '-ounce']: snapshot.ounce_price_label,
+                        [prefix + '-21']: snapshot.ounce_21_price_label,
+                        [prefix + '-24']: snapshot.ounce_24_price_label,
+                        [prefix + '-updated']: snapshot.synced_at_label
+                    };
+
+                    Object.keys(bindings).forEach(function (id) {
+                        var node = document.getElementById(id);
+
+                        if (node && bindings[id]) {
+                            node.textContent = bindings[id];
+                        }
+                    });
+
+                    var table = document.getElementById(prefix + '-table');
+                    var empty = document.getElementById(prefix + '-empty');
+
+                    if (table) {
+                        table.classList.remove('d-none');
+                    }
+
+                    if (empty) {
+                        empty.classList.add('d-none');
+                    }
+                }
+
+                applySnapshot('stock-market-usd', market.USD || {});
+                applySnapshot('stock-market-sar', market.SAR || {});
+            });
+        });
+    </script>
 @endsection

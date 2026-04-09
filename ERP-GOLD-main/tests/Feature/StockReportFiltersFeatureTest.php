@@ -29,6 +29,22 @@ class StockReportFiltersFeatureTest extends TestCase
         ]);
     }
 
+    public function test_sales_report_search_page_exposes_invoice_number_range_filters(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.inventory_reports.show',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('reports.sales_report.search', [], false));
+
+        $response->assertOk();
+        $response->assertSee('name="invoice_number_from"', false);
+        $response->assertSee('name="invoice_number_to"', false);
+        $response->assertDontSee('name="invoice_number"', false);
+    }
+
     public function test_sales_report_respects_user_time_and_invoice_number_filters(): void
     {
         $admin = $this->createAdminUser([
@@ -115,7 +131,8 @@ class StockReportFiltersFeatureTest extends TestCase
                 'date_to' => '2026-03-22',
                 'from_time' => '14:00',
                 'to_time' => '14:59',
-                'invoice_number' => 'SALE-FILTER-002',
+                'invoice_number_from' => 'SALE-FILTER-002',
+                'invoice_number_to' => 'SALE-FILTER-002',
             ]);
 
         $response->assertOk();
@@ -187,7 +204,8 @@ class StockReportFiltersFeatureTest extends TestCase
                 'date_to' => '2026-03-22',
                 'from_time' => '15:00',
                 'to_time' => '16:30',
-                'invoice_number' => 'SALE-TOTAL-002',
+                'invoice_number_from' => 'SALE-TOTAL-002',
+                'invoice_number_to' => 'SALE-TOTAL-002',
                 'netMoney' => 920,
             ]);
 
@@ -261,7 +279,8 @@ class StockReportFiltersFeatureTest extends TestCase
                 'date_to' => '2026-03-22',
                 'from_time' => '12:00',
                 'to_time' => '14:00',
-                'invoice_number' => 'PUR-TOTAL-002',
+                'invoice_number_from' => 'PUR-TOTAL-002',
+                'invoice_number_to' => 'PUR-TOTAL-002',
                 'netMoney' => 1035,
             ]);
 
@@ -333,7 +352,8 @@ class StockReportFiltersFeatureTest extends TestCase
                 'date_to' => '2026-03-22',
                 'from_time' => '12:00',
                 'to_time' => '14:00',
-                'invoice_number' => 'DAY-FILTER-002',
+                'invoice_number_from' => 'DAY-FILTER-002',
+                'invoice_number_to' => 'DAY-FILTER-002',
             ]);
 
         $response->assertOk();

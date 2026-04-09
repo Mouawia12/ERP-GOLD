@@ -69,22 +69,13 @@
                             </div>
                         </div>
                         <div class="col-lg-2 col-md-3">
-                            <div class="form-group">
-                                <label>الفرع</label>
-                                @if(auth('admin-web')->user()?->is_admin)
-                                    <select class="form-control" name="branch_id">
-                                        <option value="">الكل</option>
-                                        @foreach($branches as $branch)
-                                            <option value="{{ $branch->id }}" @selected(old('branch_id', $defaultFilters['branch_id'] ?? '') == $branch->id)>
-                                                {{ $branch->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                @else
-                                    <input class="form-control" type="text" readonly value="{{ auth('admin-web')->user()?->branch?->name }}"/>
-                                    <input type="hidden" name="branch_id" value="{{ old('branch_id', $defaultFilters['branch_id'] ?? auth('admin-web')->user()?->branch_id) }}">
-                                @endif
-                            </div>
+                            @include('admin.reports.partials.branch_filter', [
+                                'branches' => $branches,
+                                'defaultFilters' => $defaultFilters,
+                                'branchFieldId' => 'account_statement_branch_ids',
+                                'branchHiddenFieldId' => 'account_statement_branch_id',
+                                'branchLabelText' => 'الفرع',
+                            ])
                         </div>
                         <div class="col-lg-2 col-md-3">
                             <div class="form-group">

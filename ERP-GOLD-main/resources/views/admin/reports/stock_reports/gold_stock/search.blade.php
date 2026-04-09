@@ -27,24 +27,13 @@
                                 @csrf
                                 <div class="row">
                                     <div class="col-6">
-                                        <div class="form-group"> 
-                                            <label>{{ __('main.branch') }}</label>
-                                            @if(Auth::user()->is_admin)
-                                                <select class="js-example-basic-single w-100" name="branch_id" id="branch_id">
-                                                    <option value="">{{__('main.all_branches')}}</option>
-                                                    @foreach($branches as $branch)
-                                                        <option value="{{$branch->id}}" @selected(($defaultFilters['branch_id'] ?? '') == $branch->id)>{{$branch->name}}</option>
-                                                    @endforeach
-                                                </select>
-                                            @else
-                                                <input class="form-control" type="text" readonly
-                                                       value="{{Auth::user()->branch->name}}"/>
-                                                <input class="form-control" type="hidden" id="branch_id"
-                                                       name="branch_id"
-                                                       value="{{ $defaultFilters['branch_id'] }}"/>
-                                            @endif
-                    
-                                        </div>
+                                        @include('admin.reports.partials.branch_filter', [
+                                            'branches' => $branches,
+                                            'defaultFilters' => $defaultFilters,
+                                            'branchFieldId' => 'gold_stock_branch_ids',
+                                            'branchHiddenFieldId' => 'gold_stock_branch_id',
+                                            'branchLabelText' => __('main.branch'),
+                                        ])
                                     </div>
                                     <div class="col-3">
                                         <div class="form-group">

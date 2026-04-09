@@ -43,6 +43,69 @@ class PricingController extends Controller
         return view('admin.pricing.stock_market', compact('latestUsdSnapshot', 'latestSarSnapshot', 'remoteHistory'));
     }
 
+    public function live(Request $request): JsonResponse
+    {
+        $request->validate([
+            'refresh' => ['nullable', 'boolean'],
+            'force' => ['nullable', 'boolean'],
+        ]);
+
+        $beforeRefresh = $this->goldPriceSyncService->current();
+        $beforeRefreshTimestamp = $beforeRefresh?->last_update?->toIso8601String();
+        $autoRefreshed = false;
+        $message = null;
+        $hasError = false;
+
+        if ($request->boolean('refresh') || $request->boolean('force')) {
+            try {
+                $this->goldPriceSyncService->refreshCurrentSnapshotIfDue(
+                    auth('admin-web')->id(),
+                    $request->boolean('force')
+                );
+            } catch (RuntimeException $exception) {
+                $message = $exception->getMessage();
+                $hasError = true;
+            }
+        }
+
+        $currentGoldPrice = $this->goldPriceSyncService->current();
+        $currentTimestamp = $currentGoldPrice?->last_update?->toIso8601String();
+        $autoRefreshed = $beforeRefreshTimestamp !== null
+            ? $beforeRefreshTimestamp !== $currentTimestamp
+            : $currentTimestamp !== null;
+
+        if (! $message) {
+            if (! $currentGoldPrice) {
+                $message = $this->goldPriceSyncService->remoteSyncConfigured()
+                    ? 'لا يوجد Snapshot أسعار محفوظ حتى الآن.'
+                    : 'التحديث التلقائي لأسعار الذهب متوقف حتى يتم ضبط مفتاح الخدمة.';
+            } elseif (! $this->goldPriceSyncService->remoteSyncConfigured()) {
+                $message = 'يتم عرض آخر Snapshot محفوظ، لكن التحديث التلقائي متوقف حتى يتم ضبط مفتاح الخدمة.';
+            } else {
+                $message = $autoRefreshed
+                    ? 'تم تحديث أسعار الذهب تلقائيًا.'
+                    : 'الأسعار المعروضة هي أحدث Snapshot محفوظ حاليًا.';
+            }
+        }
+
+        return response()->json([
+            'success' => ! $hasError,
+            'message' => $message,
+            'auto_refreshed' => $autoRefreshed,
+            'refresh_interval_minutes' => $this->goldPriceSyncService->autoRefreshIntervalMinutes(),
+            'remote_sync_configured' => $this->goldPriceSyncService->remoteSyncConfigured(),
+            'current' => $this->serializeCurrentGoldPrice($currentGoldPrice),
+            'latest_market_snapshot' => $this->serializeHistorySnapshot(
+                $this->goldPriceSyncService->latestRemoteSnapshot('SAR')
+                ?? $this->goldPriceSyncService->latestRemoteSnapshot()
+            ),
+            'market_snapshots' => [
+                'USD' => $this->serializeHistorySnapshot($this->goldPriceSyncService->latestRemoteSnapshot('USD')),
+                'SAR' => $this->serializeHistorySnapshot($this->goldPriceSyncService->latestRemoteSnapshot('SAR')),
+            ],
+        ]);
+    }
+
     public function pricing()
     {
         $pricings = GoldPrice::query()->orderByDesc('last_update')->limit(1)->get();
@@ -111,5 +174,61 @@ class PricingController extends Controller
                 'message' => $exception->getMessage(),
             ], 422);
         }
+    }
+
+    private function serializeCurrentGoldPrice(?GoldPrice $goldPrice): array
+    {
+        if (! $goldPrice) {
+            return [
+                'exists' => false,
+                'last_update_label' => 'لا يوجد تحديث',
+            ];
+        }
+
+        return [
+            'exists' => true,
+            'currency' => $goldPrice->currency,
+            'source' => $goldPrice->source,
+            'source_label' => $goldPrice->source_label,
+            'last_update' => $goldPrice->last_update?->toIso8601String(),
+            'last_update_label' => $goldPrice->last_update?->format('Y-m-d H:i:s') ?? 'لا يوجد تحديث',
+            'ounce_price' => (float) $goldPrice->ounce_price,
+            'ounce_price_label' => number_format((float) $goldPrice->ounce_price, 2),
+            'ounce_14_price' => (float) $goldPrice->ounce_14_price,
+            'ounce_14_price_label' => number_format((float) $goldPrice->ounce_14_price, 2),
+            'ounce_18_price' => (float) $goldPrice->ounce_18_price,
+            'ounce_18_price_label' => number_format((float) $goldPrice->ounce_18_price, 2),
+            'ounce_21_price' => (float) $goldPrice->ounce_21_price,
+            'ounce_21_price_label' => number_format((float) $goldPrice->ounce_21_price, 2),
+            'ounce_22_price' => (float) $goldPrice->ounce_22_price,
+            'ounce_22_price_label' => number_format((float) $goldPrice->ounce_22_price, 2),
+            'ounce_24_price' => (float) $goldPrice->ounce_24_price,
+            'ounce_24_price_label' => number_format((float) $goldPrice->ounce_24_price, 2),
+        ];
+    }
+
+    private function serializeHistorySnapshot($snapshot): array
+    {
+        if (! $snapshot) {
+            return [
+                'exists' => false,
+                'synced_at_label' => 'لا يوجد تحديث',
+            ];
+        }
+
+        return [
+            'exists' => true,
+            'currency' => $snapshot->currency,
+            'source' => $snapshot->source,
+            'source_label' => $snapshot->source_label,
+            'synced_at' => $snapshot->synced_at?->toIso8601String(),
+            'synced_at_label' => $snapshot->synced_at?->format('Y-m-d H:i:s') ?? 'لا يوجد تحديث',
+            'ounce_price' => (float) $snapshot->ounce_price,
+            'ounce_price_label' => number_format((float) $snapshot->ounce_price, 2),
+            'ounce_21_price' => (float) $snapshot->ounce_21_price,
+            'ounce_21_price_label' => number_format((float) $snapshot->ounce_21_price, 2),
+            'ounce_24_price' => (float) $snapshot->ounce_24_price,
+            'ounce_24_price_label' => number_format((float) $snapshot->ounce_24_price, 2),
+        ];
     }
 }

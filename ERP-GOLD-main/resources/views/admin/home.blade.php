@@ -338,9 +338,7 @@
                     <h1 class="owner-dashboard__title">{{ $isOwnerView ? 'إدارة المشتركين' : 'تشغيل ' . $scopeLabel }}</h1>
                     <p class="owner-dashboard__subtitle">
                         تاريخ العمل: {{ $today->format('Y-m-d') }}
-                        @if($latestGoldPrice)
-                            | آخر تحديث سعر: {{ optional($latestGoldPrice->last_update)->format('Y-m-d H:i') }}
-                        @endif
+                        | آخر تحديث سعر: <span id="dashboard-gold-hero-time">{{ $latestGoldPrice ? optional($latestGoldPrice->last_update)->format('Y-m-d H:i') : 'لا يوجد تحديث' }}</span>
                     </p>
                 </div>
                 <div class="col-xl-5">
@@ -394,40 +392,40 @@
                                 <h3 class="dashboard-panel__title">آخر تحديث لأسعار الذهب</h3>
                                 <p class="dashboard-panel__subtitle">Snapshot واحد واضح لآخر سعر تم اعتماده داخل النظام.</p>
                             </div>
-                            <span class="dashboard-chip">
+                            <span class="dashboard-chip" id="dashboard-gold-chip">
                                 <i class="fa fa-clock"></i>
-                                {{ $latestGoldPrice ? optional($latestGoldPrice->last_update)->format('Y-m-d H:i') : 'لا يوجد تحديث' }}
+                                <span id="dashboard-gold-chip-time">{{ $latestGoldPrice ? optional($latestGoldPrice->last_update)->format('Y-m-d H:i') : 'لا يوجد تحديث' }}</span>
                             </span>
                         </div>
 
-                        @if($latestGoldPrice)
-                            <div class="table-responsive">
-                                <table class="table dashboard-table mb-0">
-                                    <thead>
-                                        <tr>
-                                            <th>الأونصة</th>
-                                            <th>عيار 18</th>
-                                            <th>عيار 21</th>
-                                            <th>عيار 24</th>
-                                            <th>العملة</th>
-                                            <th>المصدر</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td>{{ number_format($latestGoldPrice->ounce_price, 2) }}</td>
-                                            <td>{{ number_format($latestGoldPrice->ounce_18_price, 2) }}</td>
-                                            <td>{{ number_format($latestGoldPrice->ounce_21_price, 2) }}</td>
-                                            <td>{{ number_format($latestGoldPrice->ounce_24_price, 2) }}</td>
-                                            <td>{{ $latestGoldPrice->currency }}</td>
-                                            <td>{{ $latestGoldPrice->source_label }}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        @else
-                            <div class="dashboard-empty">لا يوجد Snapshot أسعار محفوظ حتى الآن.</div>
-                        @endif
+                        <div class="table-responsive {{ $latestGoldPrice ? '' : 'd-none' }}" id="dashboard-gold-table-wrapper">
+                            <table class="table dashboard-table mb-0" id="dashboard-gold-table">
+                                <thead>
+                                    <tr>
+                                        <th>الأونصة</th>
+                                        <th>عيار 18</th>
+                                        <th>عيار 21</th>
+                                        <th>عيار 24</th>
+                                        <th>العملة</th>
+                                        <th>المصدر</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td id="dashboard-gold-ounce">{{ $latestGoldPrice ? number_format($latestGoldPrice->ounce_price, 2) : '--' }}</td>
+                                        <td id="dashboard-gold-18">{{ $latestGoldPrice ? number_format($latestGoldPrice->ounce_18_price, 2) : '--' }}</td>
+                                        <td id="dashboard-gold-21">{{ $latestGoldPrice ? number_format($latestGoldPrice->ounce_21_price, 2) : '--' }}</td>
+                                        <td id="dashboard-gold-24">{{ $latestGoldPrice ? number_format($latestGoldPrice->ounce_24_price, 2) : '--' }}</td>
+                                        <td id="dashboard-gold-currency">{{ $latestGoldPrice->currency ?? '--' }}</td>
+                                        <td id="dashboard-gold-source">{{ $latestGoldPrice->source_label ?? '--' }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="dashboard-empty {{ $latestGoldPrice ? 'd-none' : '' }}" id="dashboard-gold-empty">
+                            لا يوجد Snapshot أسعار محفوظ حتى الآن.
+                        </div>
                     </div>
                 </div>
             </div>
@@ -595,4 +593,57 @@
             </div>
         </div>
     </div>
+@endsection
+
+@section('js')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            window.addEventListener('gold-price:ticker-updated', function (event) {
+                var payload = event.detail || {};
+                var current = payload.current || {};
+
+                if (!current.exists) {
+                    return;
+                }
+
+                var heroTime = document.getElementById('dashboard-gold-hero-time');
+                var chipTime = document.getElementById('dashboard-gold-chip-time');
+                var emptyState = document.getElementById('dashboard-gold-empty');
+                var tableWrapper = document.getElementById('dashboard-gold-table-wrapper');
+
+                if (heroTime && current.last_update_label) {
+                    heroTime.textContent = current.last_update_label.slice(0, 16);
+                }
+
+                if (chipTime && current.last_update_label) {
+                    chipTime.textContent = current.last_update_label.slice(0, 16);
+                }
+
+                if (tableWrapper) {
+                    tableWrapper.classList.remove('d-none');
+                }
+
+                if (emptyState) {
+                    emptyState.classList.add('d-none');
+                }
+
+                var bindings = {
+                    'dashboard-gold-ounce': current.ounce_price_label,
+                    'dashboard-gold-18': current.ounce_18_price_label,
+                    'dashboard-gold-21': current.ounce_21_price_label,
+                    'dashboard-gold-24': current.ounce_24_price_label,
+                    'dashboard-gold-currency': current.currency,
+                    'dashboard-gold-source': current.source_label
+                };
+
+                Object.keys(bindings).forEach(function (id) {
+                    var node = document.getElementById(id);
+
+                    if (node && bindings[id]) {
+                        node.textContent = bindings[id];
+                    }
+                });
+            });
+        });
+    </script>
 @endsection

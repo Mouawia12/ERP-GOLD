@@ -46,17 +46,13 @@
                             </div>
                         </div>
                         <div class="col-lg-2 col-md-3">
-                            <div class="form-group">
-                                <label>الفرع</label>
-                                <select name="branch_id" class="form-control">
-                                    <option value="">الكل</option>
-                                    @foreach($branches as $branch)
-                                        <option value="{{ $branch->id }}" @selected(old('branch_id', $defaultFilters['branch_id'] ?? '') == $branch->id)>
-                                            {{ $branch->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
+                            @include('admin.reports.partials.branch_filter', [
+                                'branches' => $branches,
+                                'defaultFilters' => $defaultFilters,
+                                'branchFieldId' => 'tax_declaration_branch_ids',
+                                'branchHiddenFieldId' => 'tax_declaration_branch_id',
+                                'branchLabelText' => 'الفرع',
+                            ])
                         </div>
                         <div class="col-lg-2 col-md-3">
                             <div class="form-group">

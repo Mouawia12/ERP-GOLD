@@ -1,39 +1,48 @@
 @php
     $showCarat = $showCarat ?? false;
     $showNetMoney = $showNetMoney ?? false;
+    $userFilterLocked = $userFilterLocked ?? false;
+    $selectedUserId = old('user_id', $defaultFilters['user_id'] ?? '');
+    $legacyInvoiceNumber = old('invoice_number', $defaultFilters['invoice_number'] ?? '');
+    $invoiceNumberFromValue = old('invoice_number_from', $defaultFilters['invoice_number_from'] ?? $legacyInvoiceNumber);
+    $invoiceNumberToValue = old('invoice_number_to', $defaultFilters['invoice_number_to'] ?? $legacyInvoiceNumber);
+    $invoiceRangeColumnClass = $showNetMoney ? 'col-md-3' : 'col-md-6';
 @endphp
 
 <div class="row">
     <div class="col-md-4">
-        <div class="form-group">
-            <label>{{ __('main.branch') }}</label>
-            @if(Auth::user()->is_admin)
-                <select class="js-example-basic-single w-100" name="branch_id">
-                    <option value="">{{ __('main.all_branches') }}</option>
-                    @foreach($branches as $branch)
-                        <option value="{{ $branch->id }}" @selected(old('branch_id', $defaultFilters['branch_id'] ?? '') == $branch->id)>
-                            {{ $branch->name }}
-                        </option>
-                    @endforeach
-                </select>
-            @else
-                <input class="form-control" type="text" readonly value="{{ Auth::user()->branch->name }}"/>
-                <input type="hidden" name="branch_id" value="{{ Auth::user()->branch_id }}"/>
-            @endif
-        </div>
+        @include('admin.reports.partials.branch_filter', [
+            'branches' => $branches,
+            'defaultFilters' => $defaultFilters,
+            'branchFieldId' => 'stock_report_branch_ids',
+            'branchHiddenFieldId' => 'stock_report_branch_id',
+            'branchLabelText' => __('main.branch'),
+        ])
     </div>
 
     <div class="col-md-4">
         <div class="form-group">
             <label>المستخدم</label>
-            <select class="js-example-basic-single w-100" name="user_id">
-                <option value="">جميع المستخدمين</option>
-                @foreach($users as $user)
-                    <option value="{{ $user->id }}" @selected(old('user_id', $defaultFilters['user_id'] ?? '') == $user->id)>
-                        {{ $user->name }}
-                    </option>
-                @endforeach
-            </select>
+            @if($userFilterLocked)
+                <select class="js-example-basic-single w-100" disabled aria-disabled="true">
+                    @foreach($users as $user)
+                        <option value="{{ $user->id }}" @selected($selectedUserId == $user->id)>
+                            {{ $user->name }}
+                        </option>
+                    @endforeach
+                </select>
+                <input type="hidden" name="user_id" value="{{ $selectedUserId }}">
+                <small class="text-muted d-block mt-2">يمكنك عرض تقارير المستخدم الحالي فقط.</small>
+            @else
+                <select class="js-example-basic-single w-100" name="user_id">
+                    <option value="">جميع المستخدمين</option>
+                    @foreach($users as $user)
+                        <option value="{{ $user->id }}" @selected($selectedUserId == $user->id)>
+                            {{ $user->name }}
+                        </option>
+                    @endforeach
+                </select>
+            @endif
         </div>
     </div>
 
@@ -82,10 +91,17 @@
 </div>
 
 <div class="row">
-    <div class="col-md-6">
+    <div class="{{ $invoiceRangeColumnClass }}">
         <div class="form-group">
-            <label>رقم الفاتورة</label>
-            <input type="text" name="invoice_number" class="form-control" value="{{ old('invoice_number', $defaultFilters['invoice_number'] ?? '') }}">
+            <label>من رقم الفاتورة</label>
+            <input type="text" name="invoice_number_from" class="form-control" value="{{ $invoiceNumberFromValue }}" placeholder="مثال: SALE-1001">
+        </div>
+    </div>
+
+    <div class="{{ $invoiceRangeColumnClass }}">
+        <div class="form-group">
+            <label>إلى رقم الفاتورة</label>
+            <input type="text" name="invoice_number_to" class="form-control" value="{{ $invoiceNumberToValue }}" placeholder="مثال: SALE-1099">
         </div>
     </div>
 

@@ -31,7 +31,7 @@ class SubscriberAdminStockIsolationFeatureTest extends TestCase
         ]);
     }
 
-    public function test_subscriber_user_only_sees_his_subscriber_users_in_stock_filters(): void
+    public function test_subscriber_user_only_sees_his_own_name_in_stock_user_filter(): void
     {
         [$subscriber, $mainBranch, $user] = $this->createSubscriberOperator('مخزون المشترك', [
             'employee.inventory_reports.show',
@@ -49,8 +49,111 @@ class SubscriberAdminStockIsolationFeatureTest extends TestCase
 
         $response->assertOk();
         $response->assertSee($mainBranch->getTranslation('name', 'ar'));
-        $response->assertSee($ownUser->name);
+        $response->assertSee($user->name);
+        $response->assertSee('يمكنك عرض تقارير المستخدم الحالي فقط.');
+        $response->assertSee('name="user_id"', false);
         $response->assertDontSee($foreignUser->name);
+        $response->assertDontSee($ownUser->name);
+    }
+
+    public function test_subscriber_primary_account_sees_all_his_subscriber_users_in_stock_user_filter(): void
+    {
+        [$subscriber, $mainBranch, $user] = $this->createSubscriberOperator('مستخدمو المشترك', [
+            'employee.inventory_reports.show',
+        ]);
+        $subscriber->update([
+            'admin_user_id' => $user->id,
+        ]);
+
+        $secondBranch = $this->createBranch($subscriber->id, 'فرع مستخدمين ثان');
+        [$foreignSubscriber, $foreignBranch] = $this->createSubscriberOperator('مستخدمون أجانب');
+
+        $ownUser = $this->createUser($subscriber->id, $secondBranch->id, 'مستخدم داخلي أول');
+        $secondUser = $this->createUser($subscriber->id, $mainBranch->id, 'مستخدم داخلي ثان');
+        $foreignUser = $this->createUser($foreignSubscriber->id, $foreignBranch->id, 'مستخدم أجنبي');
+
+        $response = $this
+            ->actingAs($user->fresh(), 'admin-web')
+            ->get(route('reports.sales_report.search', [], false));
+
+        $response->assertOk();
+        $response->assertSee($user->name);
+        $response->assertSee($ownUser->name);
+        $response->assertSee($secondUser->name);
+        $response->assertDontSee($foreignUser->name);
+        $response->assertDontSee('يمكنك عرض تقارير المستخدم الحالي فقط.');
+    }
+
+    public function test_subscriber_user_stock_report_forces_current_user_even_if_request_targets_another_user(): void
+    {
+        [$subscriber, $mainBranch, $user] = $this->createSubscriberOperator('تقييد مستخدم التقرير', [
+            'employee.inventory_reports.show',
+        ]);
+        $otherUser = $this->createUser($subscriber->id, $mainBranch->id, 'زميل الفرع');
+
+        $ownDimensions = $this->prepareInventoryDimensions('عميل المستخدم الحالي');
+        $otherDimensions = $this->prepareInventoryDimensions('عميل الزميل');
+
+        $ownInvoiceId = $this->insertInvoice([
+            'bill_number' => 'SELF-ONLY-001',
+            'type' => 'sale',
+            'sale_type' => 'standard',
+            'branch_id' => $mainBranch->id,
+            'user_id' => $user->id,
+            'customer_id' => $ownDimensions['customer_id'],
+            'date' => '2026-04-05',
+            'time' => '09:00:00',
+            'lines_total_after_discount' => 100,
+            'lines_total' => 100,
+            'taxes_total' => 15,
+            'net_total' => 115,
+        ]);
+        $this->insertInvoiceDetail($ownInvoiceId, $ownDimensions, [
+            'date' => '2026-04-05',
+            'out_quantity' => 1,
+            'out_weight' => 1.000,
+            'line_total' => 100,
+            'line_tax' => 15,
+            'net_total' => 115,
+        ]);
+
+        $otherInvoiceId = $this->insertInvoice([
+            'bill_number' => 'SELF-ONLY-999',
+            'type' => 'sale',
+            'sale_type' => 'standard',
+            'branch_id' => $mainBranch->id,
+            'user_id' => $otherUser->id,
+            'customer_id' => $otherDimensions['customer_id'],
+            'date' => '2026-04-05',
+            'time' => '10:00:00',
+            'lines_total_after_discount' => 300,
+            'lines_total' => 300,
+            'taxes_total' => 45,
+            'net_total' => 345,
+        ]);
+        $this->insertInvoiceDetail($otherInvoiceId, $otherDimensions, [
+            'date' => '2026-04-05',
+            'out_quantity' => 1,
+            'out_weight' => 3.000,
+            'line_total' => 300,
+            'line_tax' => 45,
+            'net_total' => 345,
+        ]);
+
+        $response = $this
+            ->actingAs($user->fresh(), 'admin-web')
+            ->post(route('reports.sales_total_report.index', [], false), [
+                'branch_id' => $mainBranch->id,
+                'user_id' => $otherUser->id,
+                'date_from' => '2026-04-05',
+                'date_to' => '2026-04-05',
+            ]);
+
+        $response->assertOk();
+        $response->assertSee('SELF-ONLY-001');
+        $response->assertDontSee('SELF-ONLY-999');
+        $response->assertSee('115');
+        $response->assertDontSee('345');
     }
 
     public function test_subscriber_user_stock_report_includes_all_accessible_branches_and_excludes_foreign_subscribers(): void
@@ -64,8 +167,6 @@ class SubscriberAdminStockIsolationFeatureTest extends TestCase
 
         app(BranchContextService::class)->syncUserBranches($user, [$mainBranch->id, $secondBranch->id], $mainBranch->id);
 
-        $ownUser = $this->createUser($subscriber->id, $mainBranch->id, 'بائع المشترك');
-        $secondUser = $this->createUser($subscriber->id, $secondBranch->id, 'بائع الفرع الثاني');
         $foreignUser = $this->createUser($foreignSubscriber->id, $foreignBranch->id, 'بائع أجنبي');
 
         $mainDimensions = $this->prepareInventoryDimensions('عميل البيع الأول');
@@ -77,7 +178,7 @@ class SubscriberAdminStockIsolationFeatureTest extends TestCase
             'type' => 'sale',
             'sale_type' => 'standard',
             'branch_id' => $mainBranch->id,
-            'user_id' => $ownUser->id,
+            'user_id' => $user->id,
             'customer_id' => $mainDimensions['customer_id'],
             'date' => '2026-04-03',
             'time' => '09:00:00',
@@ -100,7 +201,7 @@ class SubscriberAdminStockIsolationFeatureTest extends TestCase
             'type' => 'sale',
             'sale_type' => 'standard',
             'branch_id' => $secondBranch->id,
-            'user_id' => $secondUser->id,
+            'user_id' => $user->id,
             'customer_id' => $secondDimensions['customer_id'],
             'date' => '2026-04-03',
             'time' => '10:00:00',
@@ -234,6 +335,161 @@ class SubscriberAdminStockIsolationFeatureTest extends TestCase
         $reportResponse->assertDontSee('9.999');
         $reportResponse->assertDontSee('0.999');
         $reportResponse->assertDontSee('9.000');
+    }
+
+    public function test_subscriber_primary_account_sees_all_his_branches_in_stock_filters_and_can_limit_report_to_selected_branches(): void
+    {
+        [$subscriber, $mainBranch, $user] = $this->createSubscriberOperator('الحساب الرئيسي', [
+            'employee.inventory_reports.show',
+        ]);
+        $subscriber->update([
+            'admin_user_id' => $user->id,
+        ]);
+
+        $secondBranch = $this->createBranch($subscriber->id, 'فرع رئيسي ثان');
+        $thirdBranch = $this->createBranch($subscriber->id, 'فرع رئيسي ثالث');
+        [$foreignSubscriber, $foreignBranch] = $this->createSubscriberOperator('حساب أجنبي');
+
+        $filtersResponse = $this
+            ->actingAs($user->fresh(), 'admin-web')
+            ->get(route('reports.sales_report.search', [], false));
+
+        $filtersResponse->assertOk();
+        $filtersResponse->assertSee('name="branch_ids[]"', false);
+        $filtersResponse->assertSee($mainBranch->getTranslation('name', 'ar'));
+        $filtersResponse->assertSee($secondBranch->getTranslation('name', 'ar'));
+        $filtersResponse->assertSee($thirdBranch->getTranslation('name', 'ar'));
+        $filtersResponse->assertDontSee($foreignBranch->getTranslation('name', 'ar'));
+
+        $mainUser = $this->createUser($subscriber->id, $mainBranch->id, 'مستخدم الفرع الرئيسي');
+        $secondUser = $this->createUser($subscriber->id, $secondBranch->id, 'مستخدم الفرع الثاني');
+        $thirdUser = $this->createUser($subscriber->id, $thirdBranch->id, 'مستخدم الفرع الثالث');
+        $foreignUser = $this->createUser($foreignSubscriber->id, $foreignBranch->id, 'مستخدم أجنبي');
+
+        $mainDimensions = $this->prepareInventoryDimensions('عميل الحساب الرئيسي');
+        $secondDimensions = $this->prepareInventoryDimensions('عميل الفرع الثاني');
+        $thirdDimensions = $this->prepareInventoryDimensions('عميل الفرع الثالث');
+        $foreignDimensions = $this->prepareInventoryDimensions('عميل أجنبي جدا');
+
+        $mainInvoiceId = $this->insertInvoice([
+            'bill_number' => 'PRIMARY-SALE-001',
+            'type' => 'sale',
+            'sale_type' => 'standard',
+            'branch_id' => $mainBranch->id,
+            'user_id' => $mainUser->id,
+            'customer_id' => $mainDimensions['customer_id'],
+            'date' => '2026-04-04',
+            'time' => '09:00:00',
+            'lines_total_after_discount' => 100,
+            'lines_total' => 100,
+            'taxes_total' => 15,
+            'net_total' => 115,
+        ]);
+        $this->insertInvoiceDetail($mainInvoiceId, $mainDimensions, [
+            'date' => '2026-04-04',
+            'out_quantity' => 1,
+            'out_weight' => 1.100,
+            'line_total' => 100,
+            'line_tax' => 15,
+            'net_total' => 115,
+        ]);
+
+        $secondInvoiceId = $this->insertInvoice([
+            'bill_number' => 'PRIMARY-SALE-002',
+            'type' => 'sale',
+            'sale_type' => 'standard',
+            'branch_id' => $secondBranch->id,
+            'user_id' => $secondUser->id,
+            'customer_id' => $secondDimensions['customer_id'],
+            'date' => '2026-04-04',
+            'time' => '10:00:00',
+            'lines_total_after_discount' => 200,
+            'lines_total' => 200,
+            'taxes_total' => 30,
+            'net_total' => 230,
+        ]);
+        $this->insertInvoiceDetail($secondInvoiceId, $secondDimensions, [
+            'date' => '2026-04-04',
+            'out_quantity' => 1,
+            'out_weight' => 2.200,
+            'line_total' => 200,
+            'line_tax' => 30,
+            'net_total' => 230,
+        ]);
+
+        $thirdInvoiceId = $this->insertInvoice([
+            'bill_number' => 'PRIMARY-SALE-003',
+            'type' => 'sale',
+            'sale_type' => 'standard',
+            'branch_id' => $thirdBranch->id,
+            'user_id' => $thirdUser->id,
+            'customer_id' => $thirdDimensions['customer_id'],
+            'date' => '2026-04-04',
+            'time' => '11:00:00',
+            'lines_total_after_discount' => 300,
+            'lines_total' => 300,
+            'taxes_total' => 45,
+            'net_total' => 345,
+        ]);
+        $this->insertInvoiceDetail($thirdInvoiceId, $thirdDimensions, [
+            'date' => '2026-04-04',
+            'out_quantity' => 1,
+            'out_weight' => 3.300,
+            'line_total' => 300,
+            'line_tax' => 45,
+            'net_total' => 345,
+        ]);
+
+        $foreignInvoiceId = $this->insertInvoice([
+            'bill_number' => 'PRIMARY-SALE-999',
+            'type' => 'sale',
+            'sale_type' => 'standard',
+            'branch_id' => $foreignBranch->id,
+            'user_id' => $foreignUser->id,
+            'customer_id' => $foreignDimensions['customer_id'],
+            'date' => '2026-04-04',
+            'time' => '12:00:00',
+            'lines_total_after_discount' => 900,
+            'lines_total' => 900,
+            'taxes_total' => 135,
+            'net_total' => 1035,
+        ]);
+        $this->insertInvoiceDetail($foreignInvoiceId, $foreignDimensions, [
+            'date' => '2026-04-04',
+            'out_quantity' => 1,
+            'out_weight' => 9.900,
+            'line_total' => 900,
+            'line_tax' => 135,
+            'net_total' => 1035,
+        ]);
+
+        $allBranchesResponse = $this
+            ->actingAs($user->fresh(), 'admin-web')
+            ->post(route('reports.sales_total_report.index', [], false), [
+                'date_from' => '2026-04-04',
+                'date_to' => '2026-04-04',
+            ]);
+
+        $allBranchesResponse->assertOk();
+        $allBranchesResponse->assertSee('PRIMARY-SALE-001');
+        $allBranchesResponse->assertSee('PRIMARY-SALE-002');
+        $allBranchesResponse->assertSee('PRIMARY-SALE-003');
+        $allBranchesResponse->assertDontSee('PRIMARY-SALE-999');
+
+        $selectedBranchResponse = $this
+            ->actingAs($user->fresh(), 'admin-web')
+            ->post(route('reports.sales_total_report.index', [], false), [
+                'branch_ids' => [$secondBranch->id],
+                'date_from' => '2026-04-04',
+                'date_to' => '2026-04-04',
+            ]);
+
+        $selectedBranchResponse->assertOk();
+        $selectedBranchResponse->assertSee('PRIMARY-SALE-002');
+        $selectedBranchResponse->assertSee('الفرع: '.$secondBranch->getTranslation('name', 'ar'));
+        $selectedBranchResponse->assertDontSee('PRIMARY-SALE-001');
+        $selectedBranchResponse->assertDontSee('PRIMARY-SALE-003');
+        $selectedBranchResponse->assertDontSee('PRIMARY-SALE-999');
     }
 
     /**

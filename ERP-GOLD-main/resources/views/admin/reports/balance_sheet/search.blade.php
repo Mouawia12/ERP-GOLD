@@ -42,21 +42,14 @@
                                         </div>
                                     </div>
                                     <div class="col-12">
-                                        <div class="form-group">
-                                            <label>الفرع</label>
-                                            @if(empty(Auth::user()->branch_id) || Auth::user()->is_admin)
-                                                <select class="form-control" name="branch_id" id="branch_id">
-                                                    <option value="">جميع الفروع</option>
-                                                    @foreach($branches as $branch)
-                                                        <option value="{{ $branch->id }}" @selected(($defaultFilters['branch_id'] ?? '') == $branch->id)>{{ $branch->name }}</option>
-                                                    @endforeach
-                                                </select>
-                                            @else
-                                                <input class="form-control" type="text" readonly value="{{ Auth::user()->branch->name }}"/>
-                                                <input type="hidden" name="branch_id" value="{{ $defaultFilters['branch_id'] }}">
-                                            @endif
-                                            <small class="text-muted d-block mt-2">عند فلترة الميزانية على فرع معيّن يتم احتساب حركاته فقط، بينما تبقى الأرصدة الافتتاحية العامة غير موزعة على الفروع في النسخة الحالية.</small>
-                                        </div>
+                                        @include('admin.reports.partials.branch_filter', [
+                                            'branches' => $branches,
+                                            'defaultFilters' => $defaultFilters,
+                                            'branchFieldId' => 'balance_sheet_branch_ids',
+                                            'branchHiddenFieldId' => 'balance_sheet_branch_id',
+                                            'branchLabelText' => 'الفرع',
+                                            'branchHelpText' => 'اتركه بدون اختيار لعرض جميع الفروع المتاحة لك. عند تحديد فرع أو مجموعة فروع، تُحتسب فقط حركاتها بينما تبقى الأرصدة الافتتاحية العامة غير موزعة على الفروع في النسخة الحالية.',
+                                        ])
                                     </div>
                                 </div>
 

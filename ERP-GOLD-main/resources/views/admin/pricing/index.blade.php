@@ -53,38 +53,36 @@
                                 <div class="card-body">
                                     <h5 class="alert alert-info text-center">السعر الحالي داخل النظام</h5>
 
-                                    @if($currentGoldPrice)
-                                        <table class="table table-bordered text-center mb-0">
-                                            <thead>
-                                            <tr>
-                                                <th>عيار 14</th>
-                                                <th>عيار 18</th>
-                                                <th>عيار 21</th>
-                                                <th>عيار 22</th>
-                                                <th>عيار 24</th>
-                                            </tr>
-                                            </thead>
-                                            <tbody>
-                                            <tr>
-                                                <td>{{ number_format($currentGoldPrice->ounce_14_price, 2) }}</td>
-                                                <td>{{ number_format($currentGoldPrice->ounce_18_price, 2) }}</td>
-                                                <td>{{ number_format($currentGoldPrice->ounce_21_price, 2) }}</td>
-                                                <td>{{ number_format($currentGoldPrice->ounce_22_price, 2) }}</td>
-                                                <td>{{ number_format($currentGoldPrice->ounce_24_price, 2) }}</td>
-                                            </tr>
-                                            </tbody>
-                                        </table>
+                                    <table class="table table-bordered text-center mb-0 {{ $currentGoldPrice ? '' : 'd-none' }}" id="pricing-current-table">
+                                        <thead>
+                                        <tr>
+                                            <th>عيار 14</th>
+                                            <th>عيار 18</th>
+                                            <th>عيار 21</th>
+                                            <th>عيار 22</th>
+                                            <th>عيار 24</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        <tr>
+                                            <td id="pricing-current-14">{{ $currentGoldPrice ? number_format($currentGoldPrice->ounce_14_price, 2) : '--' }}</td>
+                                            <td id="pricing-current-18">{{ $currentGoldPrice ? number_format($currentGoldPrice->ounce_18_price, 2) : '--' }}</td>
+                                            <td id="pricing-current-21">{{ $currentGoldPrice ? number_format($currentGoldPrice->ounce_21_price, 2) : '--' }}</td>
+                                            <td id="pricing-current-22">{{ $currentGoldPrice ? number_format($currentGoldPrice->ounce_22_price, 2) : '--' }}</td>
+                                            <td id="pricing-current-24">{{ $currentGoldPrice ? number_format($currentGoldPrice->ounce_24_price, 2) : '--' }}</td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
 
-                                        <div class="mt-3 text-center text-muted">
-                                            <div>سعر الأونصة: {{ number_format($currentGoldPrice->ounce_price, 2) }} {{ $currentGoldPrice->currency }}</div>
-                                            <div>المصدر: {{ $currentGoldPrice->source_label }}</div>
-                                            <div>آخر تحديث: {{ optional($currentGoldPrice->last_update)->format('Y-m-d H:i:s') }}</div>
-                                        </div>
-                                    @else
-                                        <div class="alert alert-warning text-center mb-0">
-                                            لا توجد أسعار محفوظة بعد. ابدأ بالتحديث الخارجي أو الإدخال اليدوي.
-                                        </div>
-                                    @endif
+                                    <div class="mt-3 text-center text-muted {{ $currentGoldPrice ? '' : 'd-none' }}" id="pricing-current-meta">
+                                        <div>سعر الأونصة: <span id="pricing-current-ounce">{{ $currentGoldPrice ? number_format($currentGoldPrice->ounce_price, 2) : '--' }}</span> <span id="pricing-current-currency">{{ $currentGoldPrice->currency ?? '--' }}</span></div>
+                                        <div>المصدر: <span id="pricing-current-source">{{ $currentGoldPrice->source_label ?? '--' }}</span></div>
+                                        <div>آخر تحديث: <span id="pricing-current-updated">{{ $currentGoldPrice ? optional($currentGoldPrice->last_update)->format('Y-m-d H:i:s') : 'لا يوجد تحديث' }}</span></div>
+                                    </div>
+
+                                    <div class="alert alert-warning text-center mb-0 {{ $currentGoldPrice ? 'd-none' : '' }}" id="pricing-current-empty">
+                                        لا توجد أسعار محفوظة بعد. ابدأ بالتحديث الخارجي أو الإدخال اليدوي.
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -94,34 +92,32 @@
                                 <div class="card-body">
                                     <h5 class="alert alert-secondary text-center">آخر Snapshot خارجي محفوظ</h5>
 
-                                    @if($latestMarketSnapshot)
-                                        <div class="table-responsive">
-                                            <table class="table table-bordered text-center mb-0">
-                                                <thead>
-                                                <tr>
-                                                    <th>العملة</th>
-                                                    <th>الأونصة</th>
-                                                    <th>عيار 21</th>
-                                                    <th>عيار 24</th>
-                                                    <th>التوقيت</th>
-                                                </tr>
-                                                </thead>
-                                                <tbody>
-                                                <tr>
-                                                    <td>{{ $latestMarketSnapshot->currency }}</td>
-                                                    <td>{{ number_format($latestMarketSnapshot->ounce_price, 2) }}</td>
-                                                    <td>{{ number_format($latestMarketSnapshot->ounce_21_price, 2) }}</td>
-                                                    <td>{{ number_format($latestMarketSnapshot->ounce_24_price, 2) }}</td>
-                                                    <td>{{ optional($latestMarketSnapshot->synced_at)->format('Y-m-d H:i:s') }}</td>
-                                                </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    @else
-                                        <div class="alert alert-light text-center mb-0">
-                                            لا يوجد Snapshot خارجي محفوظ بعد. نفّذ تحديثًا خارجيًا أولًا.
-                                        </div>
-                                    @endif
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered text-center mb-0 {{ $latestMarketSnapshot ? '' : 'd-none' }}" id="pricing-market-table">
+                                            <thead>
+                                            <tr>
+                                                <th>العملة</th>
+                                                <th>الأونصة</th>
+                                                <th>عيار 21</th>
+                                                <th>عيار 24</th>
+                                                <th>التوقيت</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            <tr>
+                                                <td id="pricing-market-currency">{{ $latestMarketSnapshot->currency ?? '--' }}</td>
+                                                <td id="pricing-market-ounce">{{ $latestMarketSnapshot ? number_format($latestMarketSnapshot->ounce_price, 2) : '--' }}</td>
+                                                <td id="pricing-market-21">{{ $latestMarketSnapshot ? number_format($latestMarketSnapshot->ounce_21_price, 2) : '--' }}</td>
+                                                <td id="pricing-market-24">{{ $latestMarketSnapshot ? number_format($latestMarketSnapshot->ounce_24_price, 2) : '--' }}</td>
+                                                <td id="pricing-market-updated">{{ $latestMarketSnapshot ? optional($latestMarketSnapshot->synced_at)->format('Y-m-d H:i:s') : 'لا يوجد تحديث' }}</td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div class="alert alert-light text-center mb-0 {{ $latestMarketSnapshot ? 'd-none' : '' }}" id="pricing-market-empty">
+                                        لا يوجد Snapshot خارجي محفوظ بعد. نفّذ تحديثًا خارجيًا أولًا.
+                                    </div>
                                 </div>
                             </div>
 
@@ -236,6 +232,81 @@
         $(document).ready(function () {
             $(document).on('click', '#openManualPricingModal', function () {
                 $('#manualPricingModal').modal('show');
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            window.addEventListener('gold-price:ticker-updated', function (event) {
+                var payload = event.detail || {};
+                var current = payload.current || {};
+                var latestMarket = payload.latest_market_snapshot || {};
+
+                if (current.exists) {
+                    var currentBindings = {
+                        'pricing-current-14': current.ounce_14_price_label,
+                        'pricing-current-18': current.ounce_18_price_label,
+                        'pricing-current-21': current.ounce_21_price_label,
+                        'pricing-current-22': current.ounce_22_price_label,
+                        'pricing-current-24': current.ounce_24_price_label,
+                        'pricing-current-ounce': current.ounce_price_label,
+                        'pricing-current-currency': current.currency,
+                        'pricing-current-source': current.source_label,
+                        'pricing-current-updated': current.last_update_label
+                    };
+
+                    Object.keys(currentBindings).forEach(function (id) {
+                        var node = document.getElementById(id);
+
+                        if (node && currentBindings[id]) {
+                            node.textContent = currentBindings[id];
+                        }
+                    });
+
+                    var currentTable = document.getElementById('pricing-current-table');
+                    var currentMeta = document.getElementById('pricing-current-meta');
+                    var currentEmpty = document.getElementById('pricing-current-empty');
+
+                    if (currentTable) {
+                        currentTable.classList.remove('d-none');
+                    }
+
+                    if (currentMeta) {
+                        currentMeta.classList.remove('d-none');
+                    }
+
+                    if (currentEmpty) {
+                        currentEmpty.classList.add('d-none');
+                    }
+                }
+
+                if (latestMarket.exists) {
+                    var marketBindings = {
+                        'pricing-market-currency': latestMarket.currency,
+                        'pricing-market-ounce': latestMarket.ounce_price_label,
+                        'pricing-market-21': latestMarket.ounce_21_price_label,
+                        'pricing-market-24': latestMarket.ounce_24_price_label,
+                        'pricing-market-updated': latestMarket.synced_at_label
+                    };
+
+                    Object.keys(marketBindings).forEach(function (id) {
+                        var node = document.getElementById(id);
+
+                        if (node && marketBindings[id]) {
+                            node.textContent = marketBindings[id];
+                        }
+                    });
+
+                    var marketTable = document.getElementById('pricing-market-table');
+                    var marketEmpty = document.getElementById('pricing-market-empty');
+
+                    if (marketTable) {
+                        marketTable.classList.remove('d-none');
+                    }
+
+                    if (marketEmpty) {
+                        marketEmpty.classList.add('d-none');
+                    }
+                }
             });
         });
     </script>
