@@ -234,6 +234,102 @@ class InvoicePrintSettingsFeatureTest extends TestCase
         $response->assertDontSee('invoice-print-table', false);
     }
 
+    public function test_invoice_print_settings_are_isolated_per_user(): void
+    {
+        $branch = $this->createBranch('فرع عزل الإعدادات', 'isolated-print-settings@example.com', '777777777');
+        $firstUser = $this->createUser($branch, 'first-print-user@example.com');
+        $secondUser = $this->createUser($branch, 'second-print-user@example.com');
+        $invoice = $this->createInvoice($branch, $firstUser, 'sale', [
+            'sale_type' => 'simplified',
+            'bill_client_name' => 'عميل العزل',
+        ]);
+
+        DB::table('user_invoice_print_settings')->insert([
+            [
+                'user_id' => $firstUser->id,
+                'format' => 'a5',
+                'template' => 'compact',
+                'show_header' => 0,
+                'show_footer' => 0,
+                'orientation' => 'landscape',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'user_id' => $secondUser->id,
+                'format' => 'a4',
+                'template' => 'modern',
+                'show_header' => 1,
+                'show_footer' => 1,
+                'orientation' => 'portrait',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $firstResponse = $this
+            ->actingAs($firstUser, 'admin-web')
+            ->get(route('sales.show', ['id' => $invoice->id], false));
+
+        $firstResponse->assertOk();
+        $firstResponse->assertSee('data-print-format="a5"', false);
+        $firstResponse->assertSee('data-print-template="compact"', false);
+        $firstResponse->assertSee('data-show-header="0"', false);
+        $firstResponse->assertSee('data-show-footer="0"', false);
+        $firstResponse->assertSee('data-paper-orientation="landscape"', false);
+
+        $secondResponse = $this
+            ->actingAs($secondUser, 'admin-web')
+            ->get(route('sales.show', ['id' => $invoice->id], false));
+
+        $secondResponse->assertOk();
+        $secondResponse->assertSee('data-print-format="a4"', false);
+        $secondResponse->assertSee('data-print-template="modern"', false);
+        $secondResponse->assertSee('data-show-header="1"', false);
+        $secondResponse->assertSee('data-show-footer="1"', false);
+        $secondResponse->assertSee('class="invoice-print-format-a4 invoice-template-modern"', false);
+    }
+
+    public function test_user_specific_invoice_print_settings_override_legacy_global_defaults(): void
+    {
+        $branch = $this->createBranch('فرع أولوية المستخدم', 'user-priority-print-settings@example.com', '888888888');
+        $user = $this->createUser($branch, 'priority-print-user@example.com');
+        $invoice = $this->createInvoice($branch, $user, 'sale', [
+            'sale_type' => 'simplified',
+            'bill_client_name' => 'عميل الأولوية',
+        ]);
+
+        DB::table('system_settings')->insert([
+            ['key' => 'invoice_print_format', 'value' => 'a4'],
+            ['key' => 'invoice_print_template', 'value' => 'classic'],
+            ['key' => 'invoice_print_show_header', 'value' => '1'],
+            ['key' => 'invoice_print_show_footer', 'value' => '1'],
+            ['key' => 'invoice_print_orientation', 'value' => 'portrait'],
+        ]);
+
+        DB::table('user_invoice_print_settings')->insert([
+            'user_id' => $user->id,
+            'format' => 'a5',
+            'template' => 'compact',
+            'show_header' => 0,
+            'show_footer' => 0,
+            'orientation' => 'landscape',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this
+            ->actingAs($user, 'admin-web')
+            ->get(route('sales.show', ['id' => $invoice->id], false));
+
+        $response->assertOk();
+        $response->assertSee('data-print-format="a5"', false);
+        $response->assertSee('data-print-template="compact"', false);
+        $response->assertSee('data-show-header="0"', false);
+        $response->assertSee('data-show-footer="0"', false);
+        $response->assertSee('data-paper-orientation="landscape"', false);
+    }
+
     private function createBranch(string $name, string $email, string $phone): Branch
     {
         return Branch::create([

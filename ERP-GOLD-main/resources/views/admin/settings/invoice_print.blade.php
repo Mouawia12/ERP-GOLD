@@ -26,6 +26,10 @@
                     <h4 class="alert alert-primary text-center">إعدادات طباعة الفواتير</h4>
                 </div>
                 <div class="card-body">
+                    <div class="alert alert-light border text-center">
+                        يتم حفظ هذه الإعدادات للحساب الحالي فقط، ولن تؤثر على إعدادات بقية المستخدمين.
+                    </div>
+
                     <form method="POST" action="{{ route('admin.system-settings.invoice-print.update') }}">
                         @csrf
                         @method('PATCH')

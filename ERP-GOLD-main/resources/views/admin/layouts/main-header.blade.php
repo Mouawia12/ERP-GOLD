@@ -490,8 +490,16 @@
                                 <strong class="gold-price-ticker__item-value" data-gold-ticker-price="21">--</strong>
                             </span>
                             <span class="gold-price-ticker__item">
+                                <span class="gold-price-ticker__item-label">عيار 22</span>
+                                <strong class="gold-price-ticker__item-value" data-gold-ticker-price="22">--</strong>
+                            </span>
+                            <span class="gold-price-ticker__item">
                                 <span class="gold-price-ticker__item-label">عيار 24</span>
                                 <strong class="gold-price-ticker__item-value" data-gold-ticker-price="24">--</strong>
+                            </span>
+                            <span class="gold-price-ticker__item">
+                                <span class="gold-price-ticker__item-label">الأونصة</span>
+                                <strong class="gold-price-ticker__item-value" data-gold-ticker-price="ounce">--</strong>
                             </span>
                         </div>
                         <div class="gold-price-ticker__meta">
@@ -684,7 +692,15 @@
                 updatedNode.textContent = current.last_update_label || 'لا يوجد تحديث';
             }
 
-            ['18', '21', '24'].forEach(function (carat) {
+            {
+                var ounceNode = root.querySelector('[data-gold-ticker-price="ounce"]');
+
+                if (ounceNode) {
+                    ounceNode.textContent = current.ounce_price_label || '--';
+                }
+            }
+
+            ['18', '21', '22', '24'].forEach(function (carat) {
                 var node = root.querySelector('[data-gold-ticker-price="' + carat + '"]');
 
                 if (!node) {

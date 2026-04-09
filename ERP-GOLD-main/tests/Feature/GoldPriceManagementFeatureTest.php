@@ -398,6 +398,10 @@ class GoldPriceManagementFeatureTest extends TestCase
         $response->assertSee('data-gold-live-endpoint', false);
         $response->assertSee(route('gold.prices.live', [], false), false);
         $response->assertSee('data-gold-ticker-root', false);
+        $response->assertSee('data-gold-ticker-price="22"', false);
+        $response->assertSee('data-gold-ticker-price="ounce"', false);
+        $response->assertSee('عيار 22');
+        $response->assertSee('الأونصة');
     }
 
     /**

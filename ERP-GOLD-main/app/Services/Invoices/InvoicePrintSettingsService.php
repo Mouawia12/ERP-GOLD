@@ -3,6 +3,8 @@
 namespace App\Services\Invoices;
 
 use App\Models\SystemSetting;
+use App\Models\User;
+use App\Models\UserInvoicePrintSetting;
 
 class InvoicePrintSettingsService
 {
@@ -56,17 +58,18 @@ class InvoicePrintSettingsService
      */
     public function currentSettings(bool $allowRequestOverride = true): array
     {
+        $userSettings = $this->userSettings();
         $requestedFormat = $allowRequestOverride ? request()->query('paper') : null;
         $requestedOrientation = $allowRequestOverride ? request()->query('orientation') : null;
         $availableFormats = $this->availableFormats();
         $availableOrientations = array_keys($this->availableOrientations());
         $format = in_array($requestedFormat, $availableFormats, true)
             ? $requestedFormat
-            : SystemSetting::getValue(self::FORMAT_KEY, self::FORMAT_A4);
-        $showHeader = $this->booleanSetting(self::SHOW_HEADER_KEY, true);
-        $showFooter = $this->booleanSetting(self::SHOW_FOOTER_KEY, true);
-        $template = SystemSetting::getValue(self::TEMPLATE_KEY, 'classic');
-        $storedOrientation = SystemSetting::getValue(self::ORIENTATION_KEY, '');
+            : $this->storedFormat($userSettings);
+        $showHeader = $this->storedShowHeader($userSettings);
+        $showFooter = $this->storedShowFooter($userSettings);
+        $template = $this->storedTemplate($userSettings);
+        $storedOrientation = $this->storedOrientation($userSettings);
         $availableTemplates = array_keys($this->availableTemplates());
         $resolvedFormat = in_array($format, $availableFormats, true) ? $format : self::FORMAT_A4;
         $orientation = in_array($requestedOrientation, $availableOrientations, true)
@@ -87,6 +90,23 @@ class InvoicePrintSettingsService
 
     public function setSettings(string $format, bool $showHeader, bool $showFooter, string $template, string $orientation): void
     {
+        $user = $this->currentUser();
+
+        if ($user instanceof User) {
+            UserInvoicePrintSetting::query()->updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'format' => $format,
+                    'show_header' => $showHeader,
+                    'show_footer' => $showFooter,
+                    'template' => $template,
+                    'orientation' => $orientation,
+                ],
+            );
+
+            return;
+        }
+
         SystemSetting::putValue(self::FORMAT_KEY, $format);
         SystemSetting::putValue(self::SHOW_HEADER_KEY, $showHeader ? '1' : '0');
         SystemSetting::putValue(self::SHOW_FOOTER_KEY, $showFooter ? '1' : '0');
@@ -108,5 +128,56 @@ class InvoicePrintSettingsService
         }
 
         return self::ORIENTATION_PORTRAIT;
+    }
+
+    private function currentUser(): ?User
+    {
+        $user = auth('admin-web')->user();
+
+        return $user instanceof User ? $user : null;
+    }
+
+    private function userSettings(): ?UserInvoicePrintSetting
+    {
+        $user = $this->currentUser();
+
+        if (! $user instanceof User) {
+            return null;
+        }
+
+        return $user->invoicePrintSettings()->first();
+    }
+
+    private function storedFormat(?UserInvoicePrintSetting $userSettings): string
+    {
+        return (string) ($userSettings?->format ?: SystemSetting::getValue(self::FORMAT_KEY, self::FORMAT_A4));
+    }
+
+    private function storedShowHeader(?UserInvoicePrintSetting $userSettings): bool
+    {
+        if ($userSettings instanceof UserInvoicePrintSetting) {
+            return (bool) $userSettings->show_header;
+        }
+
+        return $this->booleanSetting(self::SHOW_HEADER_KEY, true);
+    }
+
+    private function storedShowFooter(?UserInvoicePrintSetting $userSettings): bool
+    {
+        if ($userSettings instanceof UserInvoicePrintSetting) {
+            return (bool) $userSettings->show_footer;
+        }
+
+        return $this->booleanSetting(self::SHOW_FOOTER_KEY, true);
+    }
+
+    private function storedTemplate(?UserInvoicePrintSetting $userSettings): string
+    {
+        return (string) ($userSettings?->template ?: SystemSetting::getValue(self::TEMPLATE_KEY, 'classic'));
+    }
+
+    private function storedOrientation(?UserInvoicePrintSetting $userSettings): string
+    {
+        return (string) ($userSettings?->orientation ?: SystemSetting::getValue(self::ORIENTATION_KEY, ''));
     }
 }

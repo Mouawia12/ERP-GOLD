@@ -853,25 +853,13 @@ class AdminAccessTest extends TestCase
             ]);
 
         $response->assertRedirect(route('admin.system-settings.invoice-print.edit', [], false));
-        $this->assertDatabaseHas('system_settings', [
-            'key' => 'invoice_print_format',
-            'value' => 'a5',
-        ]);
-        $this->assertDatabaseHas('system_settings', [
-            'key' => 'invoice_print_show_header',
-            'value' => '1',
-        ]);
-        $this->assertDatabaseHas('system_settings', [
-            'key' => 'invoice_print_show_footer',
-            'value' => '0',
-        ]);
-        $this->assertDatabaseHas('system_settings', [
-            'key' => 'invoice_print_template',
-            'value' => 'modern',
-        ]);
-        $this->assertDatabaseHas('system_settings', [
-            'key' => 'invoice_print_orientation',
-            'value' => 'landscape',
+        $this->assertDatabaseHas('user_invoice_print_settings', [
+            'user_id' => $admin->id,
+            'format' => 'a5',
+            'show_header' => 1,
+            'show_footer' => 0,
+            'template' => 'modern',
+            'orientation' => 'landscape',
         ]);
     }
 
@@ -890,8 +878,8 @@ class AdminAccessTest extends TestCase
             ]);
 
         $response->assertForbidden();
-        $this->assertDatabaseMissing('system_settings', [
-            'key' => 'invoice_print_format',
+        $this->assertDatabaseMissing('user_invoice_print_settings', [
+            'user_id' => $admin->id,
         ]);
     }
 

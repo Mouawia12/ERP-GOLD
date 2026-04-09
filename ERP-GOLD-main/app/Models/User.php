@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 use Tymon\JWTAuth\Contracts\JWTSubject;
@@ -77,6 +78,11 @@ class User extends Authenticatable implements JWTSubject
     public function performedAuditLogs()
     {
         return $this->hasMany(UserAuditLog::class, 'actor_user_id');
+    }
+
+    public function invoicePrintSettings(): HasOne
+    {
+        return $this->hasOne(UserInvoicePrintSetting::class);
     }
 
     public function getRoleNameAttribute(): ?string
