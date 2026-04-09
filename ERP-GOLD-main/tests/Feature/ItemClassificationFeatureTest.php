@@ -72,7 +72,10 @@ class ItemClassificationFeatureTest extends TestCase
 
         $invalidGoldResponse->assertStatus(422);
         $invalidGoldResponse->assertJsonPath('status', false);
-        $invalidGoldResponse->assertJsonPath('errors.0', 'validation.required');
+        $this->assertStringContainsString(
+            'carats id',
+            strtolower(implode("\n", $invalidGoldResponse->json('errors', [])))
+        );
 
         $validSilverResponse = $this
             ->actingAs($admin, 'admin-web')
@@ -129,6 +132,85 @@ class ItemClassificationFeatureTest extends TestCase
             'gold_carat_id' => $caratId,
             'gold_carat_type_id' => $caratTypeId,
         ]);
+    }
+
+    public function test_item_cannot_be_saved_without_positive_weight(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.items.add',
+        ]);
+        [$branch, $categoryId] = $this->createItemCatalogLookups();
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('items.store', [], false), [
+                'branch_id' => $branch->id,
+                'inventory_classification' => Item::CLASSIFICATION_SILVER,
+                'name_ar' => 'صنف بلا وزن',
+                'category_id' => $categoryId,
+                'cost_per_gram' => 45,
+            ], [
+                'Accept' => 'application/json',
+            ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonPath('status', false);
+        $this->assertDatabaseMissing('items', [
+            'branch_id' => $branch->id,
+        ]);
+    }
+
+    public function test_branch_cannot_create_duplicate_item_name_for_reusable_item(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.items.add',
+        ]);
+        [, $categoryId] = $this->createItemCatalogLookups();
+        $branchId = $admin->branch_id;
+
+        $firstResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('items.store', [], false), [
+                'branch_id' => $branchId,
+                'inventory_classification' => Item::CLASSIFICATION_SILVER,
+                'name_ar' => 'سوار متكرر',
+                'category_id' => $categoryId,
+                'weight' => 8.75,
+                'cost_per_gram' => 45,
+            ], [
+                'Accept' => 'application/json',
+            ]);
+
+        $firstResponse->assertOk();
+
+        $duplicateResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('items.store', [], false), [
+                'branch_id' => $branchId,
+                'inventory_classification' => Item::CLASSIFICATION_SILVER,
+                'name_ar' => '  سوار   متكرر  ',
+                'category_id' => $categoryId,
+                'weight' => 9.10,
+                'cost_per_gram' => 47,
+            ], [
+                'Accept' => 'application/json',
+            ]);
+
+        $duplicateResponse->assertStatus(422);
+        $duplicateResponse->assertJsonPath('status', false);
+        $this->assertStringContainsString(
+            'اسم الصنف مستخدم مسبقًا داخل هذا الفرع',
+            implode("\n", $duplicateResponse->json('errors', []))
+        );
+
+        $this->assertSame(
+            1,
+            Item::query()
+                ->where('branch_id', $branchId)
+                ->get()
+                ->filter(fn (Item $item) => $item->getTranslation('title', 'ar') === 'سوار متكرر')
+                ->count()
+        );
     }
 
     /**

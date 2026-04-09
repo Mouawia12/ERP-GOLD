@@ -83,6 +83,29 @@ class ItemBarcodePrintFeatureTest extends TestCase
         $response->assertSee($unit->barcode);
     }
 
+    public function test_store_barcodes_requires_positive_weight_values(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.items.show',
+        ]);
+        $item = $this->createItemWithUnit(Item::CLASSIFICATION_GOLD);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('items.store_barcodes', $item->id, false), [
+                'weight' => [0, ''],
+            ], [
+                'Accept' => 'application/json',
+            ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonPath('status', false);
+        $this->assertStringContainsString(
+            'وزن الباركود يجب أن يكون أكبر من صفر',
+            implode("\n", $response->json('errors', []))
+        );
+    }
+
     private function createItemWithUnit(string $classification): Item
     {
         $branch = Branch::create([

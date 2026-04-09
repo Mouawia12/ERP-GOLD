@@ -181,6 +181,8 @@ class ItemController extends Controller
                 : ($defaultBranchId ?: ($accessibleBranchIds[0] ?? $requestedBranchId));
         }
 
+        $itemId = filled($request->input('id')) ? (int) $request->input('id') : null;
+
         $validator = Validator::make(array_merge($request->all(), [
             'branch_id' => $branchId,
         ]), [
@@ -191,7 +193,16 @@ class ItemController extends Controller
                 'nullable',
                 'exists:gold_carat_types,id',
             ],
-            'name_ar' => ['required', 'string', 'max:255'],
+            'name_ar' => [
+                'required',
+                'string',
+                'max:255',
+                function (string $attribute, mixed $value, \Closure $fail) use ($branchId, $itemId) {
+                    if ($this->branchAlreadyHasItemNamed((string) $value, $branchId, $itemId)) {
+                        $fail('اسم الصنف مستخدم مسبقًا داخل هذا الفرع. للصنف الذي يباع أكثر من مرة استخدم الصنف الموجود بدل تكرار الاسم.');
+                    }
+                },
+            ],
             'name_en' => ['nullable', 'string', 'max:255'],
             'category_id' => [
                 'required',
@@ -207,7 +218,7 @@ class ItemController extends Controller
                 'nullable',
                 'exists:gold_carats,id',
             ],
-            'weight' => ['nullable', 'numeric', 'min:0'],
+            'weight' => ['required', 'numeric', 'gt:0'],
             'no_metal' => ['nullable', 'numeric', 'min:0'],
             'no_metal_type' => ['nullable', Rule::in(['fixed', 'percent'])],
             'labor_cost_per_gram' => ['nullable', 'numeric', 'min:0'],
@@ -275,10 +286,29 @@ class ItemController extends Controller
 
     public function store_barcodes(Request $request, $itemId)
     {
+        $validator = Validator::make($request->all(), [
+            'weight' => ['required', 'array', 'min:1'],
+            'weight.*' => ['required', 'numeric', 'gt:0'],
+        ], [
+            'weight.required' => 'أضف وزنًا واحدًا على الأقل قبل حفظ الباركودات.',
+            'weight.array' => 'صيغة أوزان الباركودات غير صحيحة.',
+            'weight.min' => 'أضف وزنًا واحدًا على الأقل قبل حفظ الباركودات.',
+            'weight.*.required' => 'لا يمكن إنشاء باركود بدون وزن.',
+            'weight.*.numeric' => 'وزن الباركود يجب أن يكون رقمًا صالحًا.',
+            'weight.*.gt' => 'وزن الباركود يجب أن يكون أكبر من صفر.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'errors' => $validator->errors()->all(),
+            ], 422);
+        }
+
         try {
             DB::beginTransaction();
-            $item = Item::find($itemId);
-            foreach ($request->weight ?? [] as $weight) {
+            $item = Item::findOrFail($itemId);
+            foreach ($validator->validated()['weight'] as $weight) {
                 $item->units()->create([
                     'weight' => $weight,
                 ]);
@@ -289,7 +319,7 @@ class ItemController extends Controller
                 'message' => __('main.saved'),
                 'content' => $this->barcodes_table($itemId, 'html', $request->input('paper_profile')),
             ]);
-        } catch (Exception $ex) {
+        } catch (Throwable $ex) {
             DB::rollBack();
             return response()->json([
                 'status' => false,
@@ -619,5 +649,23 @@ class ItemController extends Controller
         }
 
         return $branchIds;
+    }
+
+    private function branchAlreadyHasItemNamed(string $itemName, int $branchId, ?int $ignoredItemId = null): bool
+    {
+        $normalizedName = $this->normalizeItemName($itemName);
+
+        return Item::query()
+            ->where('branch_id', $branchId)
+            ->when($ignoredItemId, fn ($query) => $query->whereKeyNot($ignoredItemId))
+            ->get()
+            ->contains(function (Item $item) use ($normalizedName) {
+                return $this->normalizeItemName((string) $item->getTranslation('title', 'ar')) === $normalizedName;
+            });
+    }
+
+    private function normalizeItemName(string $itemName): string
+    {
+        return preg_replace('/\s+/u', ' ', trim($itemName)) ?? '';
     }
 }
