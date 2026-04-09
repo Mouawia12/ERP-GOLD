@@ -133,6 +133,79 @@
         color: #4b350a;
     }
 
+    .gold-price-ticker__actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .gold-price-ticker__btn {
+        border: 0;
+        border-radius: 12px;
+        padding: 8px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1;
+        transition: transform .15s ease, opacity .15s ease, box-shadow .15s ease;
+    }
+
+    .gold-price-ticker__btn:hover {
+        transform: translateY(-1px);
+    }
+
+    .gold-price-ticker__btn:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .gold-price-ticker__btn--refresh {
+        background: linear-gradient(135deg, #2f7ef7 0%, #1d52c8 100%);
+        color: #fff;
+        box-shadow: 0 12px 24px rgba(47, 126, 247, 0.24);
+    }
+
+    .gold-price-ticker__btn--manual {
+        background: rgba(255, 255, 255, 0.78);
+        color: #624814;
+        border: 1px solid rgba(157, 126, 46, 0.2);
+    }
+
+    .gold-price-modal .modal-content {
+        border-radius: 22px;
+        overflow: hidden;
+        border: 1px solid #e6edf8;
+        box-shadow: 0 28px 70px rgba(15, 23, 42, 0.2);
+    }
+
+    .gold-price-modal .modal-header {
+        background: linear-gradient(135deg, #1f3c56 0%, #a87912 100%);
+        color: #fff;
+        border-bottom: 0;
+    }
+
+    .gold-price-modal .close {
+        color: #fff;
+        opacity: 0.9;
+        text-shadow: none;
+    }
+
+    .gold-price-modal .modal-body {
+        padding: 24px;
+        background: #fbfdff;
+    }
+
+    .gold-price-modal .form-control {
+        border-radius: 12px;
+        border: 1px solid #dbe5f3;
+        background: #fff !important;
+    }
+
+    .gold-price-modal .invalid-feedback {
+        display: block;
+        font-weight: 700;
+    }
+
     @keyframes goldTickerPulse {
         0% {
             box-shadow: 0 0 0 0 rgba(46, 182, 125, 0.34);
@@ -268,7 +341,8 @@
         }
 
         .gold-price-ticker__status,
-        .gold-price-ticker__meta {
+        .gold-price-ticker__meta,
+        .gold-price-ticker__actions {
             width: 100%;
             justify-content: center;
             text-align: center;
@@ -392,42 +466,153 @@
         </div>
     </div>
 
-    <div class="gold-price-ticker-dock">
-        <div class="container-fluid">
-            <div
-                id="gold_price_div"
-                class="gold-price-ticker-shell"
-                data-gold-live-endpoint="{{ route('gold.prices.live') }}"
-                data-refresh-interval-ms="{{ \App\Services\Pricing\GoldPriceSyncService::AUTO_REFRESH_INTERVAL_MINUTES * 60 * 1000 }}"
-            >
-                <div class="gold-price-ticker gold-price-ticker--loading" data-state="loading" data-gold-ticker-root>
-                    <div class="gold-price-ticker__status">
-                        <span class="gold-price-ticker__pulse"></span>
-                        <span data-gold-ticker-status>جار تحديث أسعار الذهب...</span>
-                    </div>
-                    <div class="gold-price-ticker__items">
-                        <span class="gold-price-ticker__item">
-                            <span class="gold-price-ticker__item-label">عيار 18</span>
-                            <strong class="gold-price-ticker__item-value" data-gold-ticker-price="18">--</strong>
-                        </span>
-                        <span class="gold-price-ticker__item">
-                            <span class="gold-price-ticker__item-label">عيار 21</span>
-                            <strong class="gold-price-ticker__item-value" data-gold-ticker-price="21">--</strong>
-                        </span>
-                        <span class="gold-price-ticker__item">
-                            <span class="gold-price-ticker__item-label">عيار 24</span>
-                            <strong class="gold-price-ticker__item-value" data-gold-ticker-price="24">--</strong>
-                        </span>
-                    </div>
-                    <div class="gold-price-ticker__meta">
-                        <div><strong data-gold-ticker-currency>--</strong></div>
-                        <div data-gold-ticker-updated>لا يوجد تحديث</div>
+    @can('employee.gold_prices.show')
+        <div class="gold-price-ticker-dock">
+            <div class="container-fluid">
+                <div
+                    id="gold_price_div"
+                    class="gold-price-ticker-shell"
+                    data-gold-live-endpoint="{{ route('gold.prices.live') }}"
+                    data-refresh-interval-ms="{{ \App\Services\Pricing\GoldPriceSyncService::AUTO_REFRESH_INTERVAL_MINUTES * 60 * 1000 }}"
+                >
+                    <div class="gold-price-ticker gold-price-ticker--loading" data-state="loading" data-gold-ticker-root>
+                        <div class="gold-price-ticker__status">
+                            <span class="gold-price-ticker__pulse"></span>
+                            <span data-gold-ticker-status>جار تحميل أسعار الذهب...</span>
+                        </div>
+                        <div class="gold-price-ticker__items">
+                            <span class="gold-price-ticker__item">
+                                <span class="gold-price-ticker__item-label">عيار 18</span>
+                                <strong class="gold-price-ticker__item-value" data-gold-ticker-price="18">--</strong>
+                            </span>
+                            <span class="gold-price-ticker__item">
+                                <span class="gold-price-ticker__item-label">عيار 21</span>
+                                <strong class="gold-price-ticker__item-value" data-gold-ticker-price="21">--</strong>
+                            </span>
+                            <span class="gold-price-ticker__item">
+                                <span class="gold-price-ticker__item-label">عيار 24</span>
+                                <strong class="gold-price-ticker__item-value" data-gold-ticker-price="24">--</strong>
+                            </span>
+                        </div>
+                        <div class="gold-price-ticker__meta">
+                            <div><strong data-gold-ticker-currency>--</strong></div>
+                            <div data-gold-ticker-updated>لا يوجد تحديث</div>
+                        </div>
+                        @can('employee.gold_prices.edit')
+                            <div class="gold-price-ticker__actions">
+                                <button type="button" class="gold-price-ticker__btn gold-price-ticker__btn--refresh" data-gold-refresh-button>
+                                    تحديث الأسعار
+                                </button>
+                                <button type="button" class="gold-price-ticker__btn gold-price-ticker__btn--manual" data-gold-manual-button>
+                                    تحديث يدوي
+                                </button>
+                            </div>
+                        @endcan
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    @endcan
 </div>
+@can('employee.gold_prices.edit')
+    <div class="modal fade gold-price-modal" id="goldPriceManualModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <label class="modelTitle mb-0">تحديث أسعار الذهب يدويًا</label>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    @if(old('manual_gold_update'))
+                        <div class="alert alert-danger">
+                            <ul class="mb-0 pr-3">
+                                @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
+                    <form method="POST" action="{{ route('updatePricesManual') }}" id="gold-price-manual-form">
+                        @csrf
+                        <input type="hidden" name="return_to" value="{{ request()->getRequestUri() }}">
+                        <input type="hidden" name="manual_gold_update" value="1">
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>العملة</label>
+                                    <input
+                                        type="text"
+                                        name="currency"
+                                        id="gold-manual-currency"
+                                        class="form-control {{ old('manual_gold_update') && $errors->has('currency') ? 'is-invalid' : '' }}"
+                                        value="{{ old('currency', 'SAR') }}"
+                                        required
+                                    >
+                                    @if(old('manual_gold_update') && $errors->has('currency'))
+                                        <div class="invalid-feedback">{{ $errors->first('currency') }}</div>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>عيار 14</label>
+                                    <input type="number" step="0.01" min="0" name="price14" id="gold-manual-14" class="form-control {{ old('manual_gold_update') && $errors->has('price14') ? 'is-invalid' : '' }}" value="{{ old('price14') }}" required>
+                                    @if(old('manual_gold_update') && $errors->has('price14'))
+                                        <div class="invalid-feedback">{{ $errors->first('price14') }}</div>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>عيار 18</label>
+                                    <input type="number" step="0.01" min="0" name="price18" id="gold-manual-18" class="form-control {{ old('manual_gold_update') && $errors->has('price18') ? 'is-invalid' : '' }}" value="{{ old('price18') }}" required>
+                                    @if(old('manual_gold_update') && $errors->has('price18'))
+                                        <div class="invalid-feedback">{{ $errors->first('price18') }}</div>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>عيار 21</label>
+                                    <input type="number" step="0.01" min="0" name="price21" id="gold-manual-21" class="form-control {{ old('manual_gold_update') && $errors->has('price21') ? 'is-invalid' : '' }}" value="{{ old('price21') }}" required>
+                                    @if(old('manual_gold_update') && $errors->has('price21'))
+                                        <div class="invalid-feedback">{{ $errors->first('price21') }}</div>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>عيار 22</label>
+                                    <input type="number" step="0.01" min="0" name="price22" id="gold-manual-22" class="form-control {{ old('manual_gold_update') && $errors->has('price22') ? 'is-invalid' : '' }}" value="{{ old('price22') }}" required>
+                                    @if(old('manual_gold_update') && $errors->has('price22'))
+                                        <div class="invalid-feedback">{{ $errors->first('price22') }}</div>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>عيار 24</label>
+                                    <input type="number" step="0.01" min="0" name="price24" id="gold-manual-24" class="form-control {{ old('manual_gold_update') && $errors->has('price24') ? 'is-invalid' : '' }}" value="{{ old('price24') }}" required>
+                                    @if(old('manual_gold_update') && $errors->has('price24'))
+                                        <div class="invalid-feedback">{{ $errors->first('price24') }}</div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-center mt-3">
+                            <button type="submit" class="btn btn-primary px-5">حفظ الأسعار</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+@endcan
 <script>
     (function () {
         var shell = document.getElementById('gold_price_div');
@@ -438,9 +623,33 @@
 
         var root = shell.querySelector('[data-gold-ticker-root]');
         var endpoint = shell.getAttribute('data-gold-live-endpoint');
-        var refreshIntervalMs = parseInt(shell.getAttribute('data-refresh-interval-ms') || '900000', 10);
         var inFlight = false;
-        var lastRefreshAttemptAt = 0;
+        var latestPayload = null;
+        var refreshButton = shell.querySelector('[data-gold-refresh-button]');
+        var manualButton = shell.querySelector('[data-gold-manual-button]');
+
+        function fillManualForm(current) {
+            if (!current) {
+                return;
+            }
+
+            var bindings = {
+                'gold-manual-currency': current.currency,
+                'gold-manual-14': current.ounce_14_price_label,
+                'gold-manual-18': current.ounce_18_price_label,
+                'gold-manual-21': current.ounce_21_price_label,
+                'gold-manual-22': current.ounce_22_price_label,
+                'gold-manual-24': current.ounce_24_price_label
+            };
+
+            Object.keys(bindings).forEach(function (id) {
+                var input = document.getElementById(id);
+
+                if (input && bindings[id] && !input.dataset.userEdited) {
+                    input.value = bindings[id];
+                }
+            });
+        }
 
         function setTickerState(state) {
             if (!root) {
@@ -455,6 +664,8 @@
             if (!payload || !root) {
                 return;
             }
+
+            latestPayload = payload;
 
             var current = payload.current || {};
             var statusNode = root.querySelector('[data-gold-ticker-status]');
@@ -483,6 +694,10 @@
                 node.textContent = current['ounce_' + carat + '_price_label'] || '--';
             });
 
+            if (current.exists) {
+                fillManualForm(current);
+            }
+
             setTickerState(payload.success === false ? 'warning' : 'ready');
         }
 
@@ -492,19 +707,27 @@
             }));
         }
 
-        function refreshTicker(shouldRequestRefresh) {
+        function refreshTicker(options) {
             if (!endpoint || inFlight) {
                 return;
             }
 
+            options = options || {};
             inFlight = true;
-            lastRefreshAttemptAt = Date.now();
             setTickerState('loading');
+
+            if (refreshButton) {
+                refreshButton.disabled = true;
+            }
 
             var url = new URL(endpoint, window.location.origin);
 
-            if (shouldRequestRefresh) {
+            if (options.refresh) {
                 url.searchParams.set('refresh', '1');
+            }
+
+            if (options.force) {
+                url.searchParams.set('force', '1');
             }
 
             fetch(url.toString(), {
@@ -525,34 +748,61 @@
                 .then(function (payload) {
                     updateTicker(payload);
                     emitUpdate(payload);
+
+                    if (options.refresh && payload.success !== false && window.erpShowSuccessToast) {
+                        window.erpShowSuccessToast(payload.message || 'تم تحديث أسعار الذهب بنجاح.', 'أسعار الذهب');
+                    }
                 })
                 .catch(function () {
                     updateTicker({
+                        current: latestPayload && latestPayload.current ? latestPayload.current : {},
                         success: false,
                         message: 'تعذر مزامنة أسعار الذهب الآن. يتم عرض آخر Snapshot محفوظ.',
-                        current: {}
                     });
+
+                    if (options.refresh && window.erpShowError) {
+                        window.erpShowError('تعذر تحديث الأسعار من الخدمة الخارجية الآن.', 'أسعار الذهب');
+                    }
                 })
                 .finally(function () {
                     inFlight = false;
+
+                    if (refreshButton) {
+                        refreshButton.disabled = false;
+                    }
                 });
         }
 
-        document.addEventListener('visibilitychange', function () {
-            if (document.visibilityState !== 'visible') {
-                return;
-            }
+        if (manualButton) {
+            manualButton.addEventListener('click', function () {
+                if (window.jQuery) {
+                    window.jQuery('#goldPriceManualModal').modal('show');
+                }
+            });
+        }
 
-            if ((Date.now() - lastRefreshAttemptAt) >= refreshIntervalMs) {
-                refreshTicker(true);
-            }
+        if (refreshButton) {
+            refreshButton.addEventListener('click', function () {
+                refreshTicker({
+                    refresh: true,
+                    force: true
+                });
+            });
+        }
+
+        document.querySelectorAll('#gold-price-manual-form input').forEach(function (input) {
+            input.addEventListener('input', function () {
+                input.dataset.userEdited = '1';
+            });
         });
 
         window.addEventListener('load', function () {
-            refreshTicker(true);
-            window.setInterval(function () {
-                refreshTicker(true);
-            }, refreshIntervalMs);
+            refreshTicker();
+            @if(old('manual_gold_update'))
+                if (window.jQuery) {
+                    window.jQuery('#goldPriceManualModal').modal('show');
+                }
+            @endif
         });
     })();
 </script>

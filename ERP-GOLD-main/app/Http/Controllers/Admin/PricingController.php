@@ -17,7 +17,7 @@ class PricingController extends Controller
         private readonly GoldPriceSyncService $goldPriceSyncService
     ) {
         $this->middleware('auth:admin-web');
-        $this->middleware('permission:employee.gold_prices.show', ['only' => ['index', 'get_gold_stock_market_prices', 'Gold_Price_Api', 'pricing']]);
+        $this->middleware('permission:employee.gold_prices.show', ['only' => ['index', 'get_gold_stock_market_prices', 'Gold_Price_Api', 'pricing', 'live']]);
         $this->middleware('permission:employee.gold_prices.edit', ['only' => ['sync', 'update']]);
     }
 
@@ -49,6 +49,11 @@ class PricingController extends Controller
             'refresh' => ['nullable', 'boolean'],
             'force' => ['nullable', 'boolean'],
         ]);
+
+        if (($request->boolean('refresh') || $request->boolean('force'))
+            && ! $request->user('admin-web')?->can('employee.gold_prices.edit')) {
+            abort(403);
+        }
 
         $beforeRefresh = $this->goldPriceSyncService->current();
         $beforeRefreshTimestamp = $beforeRefresh?->last_update?->toIso8601String();
@@ -82,8 +87,8 @@ class PricingController extends Controller
             } elseif (! $this->goldPriceSyncService->remoteSyncConfigured()) {
                 $message = 'يتم عرض آخر Snapshot محفوظ، لكن التحديث التلقائي متوقف حتى يتم ضبط مفتاح الخدمة.';
             } else {
-                $message = $autoRefreshed
-                    ? 'تم تحديث أسعار الذهب تلقائيًا.'
+                $message = ($request->boolean('refresh') || $request->boolean('force'))
+                    ? ($autoRefreshed ? 'تم تحديث أسعار الذهب بنجاح.' : 'تمت مراجعة الأسعار، والبيانات الحالية هي الأحدث.')
                     : 'الأسعار المعروضة هي أحدث Snapshot محفوظ حاليًا.';
             }
         }
@@ -154,9 +159,19 @@ class PricingController extends Controller
             'price21' => ['required', 'numeric', 'min:0'],
             'price22' => ['required', 'numeric', 'min:0'],
             'price24' => ['required', 'numeric', 'min:0'],
+            'return_to' => ['nullable', 'string', 'max:2048'],
+            'manual_gold_update' => ['nullable', 'string', 'max:10'],
         ]);
 
         $this->goldPriceSyncService->updateManually($validated, auth('admin-web')->id());
+
+        $returnTo = $this->sanitizeReturnTo($validated['return_to'] ?? null);
+
+        if ($returnTo) {
+            return redirect()
+                ->to($returnTo)
+                ->with('success', 'تم تحديث أسعار الذهب يدويًا وحفظها في السجل.');
+        }
 
         return redirect()
             ->route('prices')
@@ -230,5 +245,24 @@ class PricingController extends Controller
             'ounce_24_price' => (float) $snapshot->ounce_24_price,
             'ounce_24_price_label' => number_format((float) $snapshot->ounce_24_price, 2),
         ];
+    }
+
+    private function sanitizeReturnTo(?string $returnTo): ?string
+    {
+        if (! is_string($returnTo) || $returnTo === '') {
+            return null;
+        }
+
+        if (str_starts_with($returnTo, '/')) {
+            return $returnTo;
+        }
+
+        $appUrl = rtrim((string) config('app.url'), '/');
+
+        if ($appUrl !== '' && str_starts_with($returnTo, $appUrl)) {
+            return $returnTo;
+        }
+
+        return null;
     }
 }

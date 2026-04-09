@@ -273,7 +273,10 @@ class GoldPriceManagementFeatureTest extends TestCase
             'last_update' => now()->subMinutes(20),
         ]);
 
-        $admin = $this->createAdminUser();
+        $admin = $this->createAdminUser([
+            'employee.gold_prices.show',
+            'employee.gold_prices.edit',
+        ]);
 
         $response = $this
             ->actingAs($admin, 'admin-web')
@@ -327,7 +330,10 @@ class GoldPriceManagementFeatureTest extends TestCase
             'last_update' => now()->subMinutes(5),
         ]);
 
-        $admin = $this->createAdminUser();
+        $admin = $this->createAdminUser([
+            'employee.gold_prices.show',
+            'employee.gold_prices.edit',
+        ]);
 
         $response = $this
             ->actingAs($admin, 'admin-web')
@@ -341,9 +347,48 @@ class GoldPriceManagementFeatureTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_live_endpoint_refresh_requires_edit_permission(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.gold_prices.show',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('gold.prices.live', ['refresh' => 1, 'force' => 1], false));
+
+        $response->assertForbidden();
+    }
+
+    public function test_manual_update_can_redirect_back_to_current_page(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.gold_prices.show',
+            'employee.gold_prices.edit',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('updatePricesManual', [], false), [
+                'currency' => 'SAR',
+                'price14' => 175.50,
+                'price18' => 225.40,
+                'price21' => 263.70,
+                'price22' => 274.80,
+                'price24' => 299.10,
+                'manual_gold_update' => '1',
+                'return_to' => '/admin/home',
+            ]);
+
+        $response->assertRedirect('/admin/home');
+        $response->assertSessionHas('success');
+    }
+
     public function test_dashboard_contains_live_gold_ticker_markup(): void
     {
-        $admin = $this->createAdminUser();
+        $admin = $this->createAdminUser([
+            'employee.gold_prices.show',
+        ]);
 
         $response = $this
             ->actingAs($admin, 'admin-web')
