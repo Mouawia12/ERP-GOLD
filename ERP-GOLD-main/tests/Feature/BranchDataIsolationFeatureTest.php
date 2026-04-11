@@ -87,6 +87,8 @@ class BranchDataIsolationFeatureTest extends TestCase
         $createResponse->assertSee('resolveSalesPreferredBankAccountId', false);
         $createResponse->assertSee("if (!salesCashWasEditedManually)", false);
         $createResponse->assertSee("$('#cash').val(suggestedCashValue.toFixed(2));", false);
+        $createResponse->assertSee('تعذر فتح نافذة الدفع');
+        $createResponse->assertSee("triggerButton.prop('disabled', false).text('حفظ ودفع');", false);
 
         $this->actingAs($user, 'admin-web')
             ->get(route('sales.show', $foreignInvoice->id, false))

@@ -980,27 +980,47 @@
  
 
         $(document).on('click', '#sales_btn', function () {
+            var button = $(this);
             var rows =  0 ;
             var document_type = "{{ $type }}";
             rows = $('#sTable tbody tr').length;
             var net_total = document.getElementById('net_total').value;
-            var client = document.getElementById('customer_id').value ;
-            if(client > 0) {
-                if (rows > 0){
-                    if (true) {
-                        openPaymentModal(document_type, net_total, $('#branch_id').val());
-                        localStorage.setItem('openModal', net_total);
-                    } else {
-                        alert($('<div>{{trans('main.paid_must_equal_net')}}</div>').text());
-                    }
-            } else {
-                    alert($('<div>{{trans('main.no_bill_details')}}</div>').text());
-                }
-            } else {
-                alert($('<div>{{trans('main.select_client')}}</div>').text());
+            var client = document.getElementById('customer_id').value;
+            var branchId = $('#branch_id').val();
+
+            if (!client || Number(client) <= 0) {
+                Swal.fire({
+                    title: 'بيانات ناقصة',
+                    text: $('<div>{{trans('main.select_client')}}</div>').text(),
+                    icon: 'warning',
+                    confirmButtonText: 'موافق'
+                });
+                return;
             }
 
+            if (rows <= 0) {
+                Swal.fire({
+                    title: 'بيانات ناقصة',
+                    text: $('<div>{{trans('main.no_bill_details')}}</div>').text(),
+                    icon: 'warning',
+                    confirmButtonText: 'موافق'
+                });
+                return;
+            }
 
+            if (!branchId) {
+                Swal.fire({
+                    title: 'بيانات ناقصة',
+                    text: 'حدد الفرع أولًا قبل المتابعة إلى الدفع.',
+                    icon: 'warning',
+                    confirmButtonText: 'موافق'
+                });
+                return;
+            }
+
+            button.prop('disabled', true).text('جاري تجهيز الدفع...');
+            openPaymentModal(document_type, net_total, branchId, button);
+            localStorage.setItem('openModal', net_total);
         });
 
    
@@ -1143,16 +1163,42 @@
         return modal;
     }
 
-    function openPaymentModal(document_type, net_total, branch_id){
+    function openPaymentModal(document_type, net_total, branch_id, triggerButton){
         let url = "{{ route('sales.payments')}}";
-        $.post( url,{document_type: document_type, net_after_discount: net_total, branch_id: branch_id}, function( data ) {
-            var modal = mountSalesPaymentModal(data);
-            salesCashWasEditedManually = false;
-            ensureDefaultSalesPaymentLine();
-            refreshPaymentSummary();
-            if (modal.length) {
-                modal.modal({backdrop: 'static', keyboard: false});
-                modal.modal('show');
+        $.ajax({
+            type: 'post',
+            url: url,
+            data: {
+                document_type: document_type,
+                net_after_discount: net_total,
+                branch_id: branch_id
+            },
+            beforeSend: function () {
+                $('#loader').show();
+            },
+            success: function (data) {
+                var modal = mountSalesPaymentModal(data);
+                salesCashWasEditedManually = false;
+                ensureDefaultSalesPaymentLine();
+                refreshPaymentSummary();
+                if (modal.length) {
+                    modal.modal({backdrop: 'static', keyboard: false});
+                    modal.modal('show');
+                }
+            },
+            error: function (xhr) {
+                Swal.fire({
+                    title: 'تعذر فتح نافذة الدفع',
+                    text: extractAjaxErrors(xhr, 'تعذر تجهيز بيانات الدفع.'),
+                    icon: 'error',
+                    confirmButtonText: 'موافق'
+                });
+            },
+            complete: function () {
+                $('#loader').hide();
+                if (triggerButton && triggerButton.length) {
+                    triggerButton.prop('disabled', false).text('حفظ ودفع');
+                }
             }
         });
     }
