@@ -90,8 +90,11 @@
         .side-menu .slide.is-expanded > .slide-menu{
             display:block;
         }
-        .main-header {height: 50px !important;}
-        .main-profile-menu.show .dropdown-menu {top: 50px !important;}
+        .main-header {
+            min-height: var(--erp-main-header-row-height, 64px) !important;
+            height: auto !important;
+        }
+        .main-profile-menu.show .dropdown-menu {top: calc(var(--erp-main-header-row-height, 64px) - 6px) !important;}
         .app-sidebar__brand-logo{
             width: 140px !important;
             height:auto !important;

@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\FinancialYear;
 use App\Models\GoldCaratType;
 use App\Models\Invoice;
+use App\Models\Item;
 use App\Models\ItemUnit;
 use App\Models\Tax;
 use App\Services\Branches\BranchAccessService;

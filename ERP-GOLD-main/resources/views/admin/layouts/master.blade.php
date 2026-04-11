@@ -13,6 +13,12 @@
 
         @media print {
 
+            #main-header,
+            .main-header-spacer {
+                display: none !important;
+                height: 0 !important;
+            }
+
             .app-content, .content {
                 margin-right: 0 !important;
             }
@@ -39,6 +45,12 @@
         }
     </style>
     <style>
+        :root {
+            --erp-main-header-row-height: 64px;
+            --erp-main-header-height: 64px;
+            --erp-main-header-offset: 0px;
+        }
+
         @font-face {
             font-family: 'Tajawal-Regular';
             src: url("{{asset('fonts/Tajawal-Regular.ttf')}}");
@@ -153,7 +165,14 @@
           width: 50px !important;
           height: 50px !important;
           animation: spin 2s linear infinite;
-        } 
+        }
+
+        .main-header-spacer {
+            display: block;
+            width: 100%;
+            height: var(--erp-main-header-offset, 0px);
+            transition: height .18s ease;
+        }
     </style>
 </head>
 
@@ -162,6 +181,7 @@
 <!-- main-content -->
 <div class="main-content app-content">
 @include('admin.layouts.main-header')
+<div class="main-header-spacer" data-main-header-spacer aria-hidden="true"></div>
 <!-- container -->
     <div class="container-fluid">
         @yield('page-header')

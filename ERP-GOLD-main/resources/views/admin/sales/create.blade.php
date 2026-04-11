@@ -278,7 +278,7 @@
         }
         .invoice-create-page .invoice-summary-card{
             position:sticky;
-            top:78px;
+            top:calc(var(--erp-main-header-offset, 0px) + 16px);
         }
         .invoice-create-page .invoice-summary-card .card-body{
             padding:18px;
@@ -808,6 +808,7 @@
         });
 
         $(document).on('click', '#payment_btn', function (){
+            var paymentButton = $(this);
             const money = document.getElementById('money').value;
             const cash = document.getElementById('cash').value;
             const paymentLines = collectPaymentLines();
@@ -831,6 +832,7 @@
                 var bill_client_name = $('input[name="bill_client_name"]').val();
                 var bill_client_identity_number = $('input[name="bill_client_identity_number"]').val();
                 var notes = $('textarea[name="notes"]').val();
+                paymentButton.prop('disabled', true).text('جاري حفظ الفاتورة...');
                 $.ajax({
                     type: 'post',
                     url: url,
@@ -860,6 +862,9 @@
 
                     },
                     dataType: 'json',
+                    beforeSend: function () {
+                        $('#loader').show();
+                    },
 
                     success: function (response) {
                         if(response.status){
@@ -876,7 +881,15 @@
                                     }
                                 });
                             }, 1000);
+                            return;
                         }
+
+                        Swal.fire({
+                            title: 'تعذر حفظ الفاتورة',
+                            text: extractAjaxPayloadErrors(response, 'تعذر حفظ الفاتورة.'),
+                            icon: 'error',
+                            confirmButtonText: 'موافق'
+                        });
                     },
                     error: function (err){
                         Swal.fire({
@@ -885,6 +898,10 @@
                             icon: 'error',
                             confirmButtonText: 'موافق'
                         });
+                    },
+                    complete: function () {
+                        $('#loader').hide();
+                        paymentButton.prop('disabled', false).text("{{ __('main.pay_print') }}");
                     }
                 });
             } else {
@@ -973,6 +990,18 @@
 
             if (xhr.responseJSON && xhr.responseJSON.message) {
                 return xhr.responseJSON.message;
+            }
+
+            return fallbackMessage;
+        }
+
+        function extractAjaxPayloadErrors(payload, fallbackMessage) {
+            if (payload && Array.isArray(payload.errors) && payload.errors.length) {
+                return payload.errors.join('\n');
+            }
+
+            if (payload && payload.message) {
+                return payload.message;
             }
 
             return fallbackMessage;

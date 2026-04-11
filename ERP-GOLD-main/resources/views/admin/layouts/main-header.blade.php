@@ -1,5 +1,18 @@
 <!-- main-header opened -->
 <style>
+    .main-header {
+        display: block !important;
+        height: auto !important;
+        min-height: var(--erp-main-header-row-height, 64px) !important;
+        margin-bottom: 0 !important;
+    }
+
+    .main-header > .container-fluid.main-header__nav-row {
+        height: auto !important;
+        min-height: var(--erp-main-header-row-height, 64px);
+        align-items: center;
+    }
+
     .responsive-logo a {
         display: inline-flex;
         align-items: center;
@@ -623,6 +636,51 @@
 @endcan
 <script>
     (function () {
+        var header = document.getElementById('main-header');
+        var spacer = document.querySelector('[data-main-header-spacer]');
+        var resizeObserver = null;
+        var frameId = null;
+
+        if (!header || !spacer) {
+            return;
+        }
+
+        function syncMainHeaderOffset() {
+            frameId = null;
+
+            var styles = window.getComputedStyle(header);
+            var headerHeight = Math.ceil(header.getBoundingClientRect().height);
+            var headerOffset = styles.position === 'fixed' ? headerHeight : 0;
+
+            document.documentElement.style.setProperty('--erp-main-header-height', headerHeight + 'px');
+            document.documentElement.style.setProperty('--erp-main-header-offset', headerOffset + 'px');
+            spacer.style.height = headerOffset + 'px';
+        }
+
+        function queueMainHeaderOffsetSync() {
+            if (frameId !== null) {
+                window.cancelAnimationFrame(frameId);
+            }
+
+            frameId = window.requestAnimationFrame(syncMainHeaderOffset);
+        }
+
+        if (window.ResizeObserver) {
+            resizeObserver = new ResizeObserver(queueMainHeaderOffsetSync);
+            resizeObserver.observe(header);
+        }
+
+        window.addEventListener('load', queueMainHeaderOffsetSync);
+        window.addEventListener('resize', queueMainHeaderOffsetSync);
+        window.addEventListener('orientationchange', queueMainHeaderOffsetSync);
+        window.addEventListener('gold-price:ticker-updated', queueMainHeaderOffsetSync);
+
+        window.syncMainHeaderOffset = queueMainHeaderOffsetSync;
+        queueMainHeaderOffsetSync();
+    })();
+</script>
+<script>
+    (function () {
         var shell = document.getElementById('gold_price_div');
 
         if (!shell) {
@@ -785,6 +843,10 @@
 
                     if (refreshButton) {
                         refreshButton.disabled = false;
+                    }
+
+                    if (window.syncMainHeaderOffset) {
+                        window.syncMainHeaderOffset();
                     }
                 });
         }

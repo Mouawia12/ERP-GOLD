@@ -278,7 +278,7 @@
         }
         .invoice-create-page .invoice-summary-card{
             position:sticky;
-            top:78px;
+            top:calc(var(--erp-main-header-offset, 0px) + 16px);
         }
         .invoice-create-page .invoice-summary-card .card-body{
             padding:18px;

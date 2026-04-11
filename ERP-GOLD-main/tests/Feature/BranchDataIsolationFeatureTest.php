@@ -88,6 +88,9 @@ class BranchDataIsolationFeatureTest extends TestCase
         $createResponse->assertSee("if (!salesCashWasEditedManually)", false);
         $createResponse->assertSee("$('#cash').val(suggestedCashValue.toFixed(2));", false);
         $createResponse->assertSee('تعذر فتح نافذة الدفع');
+        $createResponse->assertSee('تعذر حفظ الفاتورة');
+        $createResponse->assertSee('extractAjaxPayloadErrors(response,', false);
+        $createResponse->assertSee("paymentButton.prop('disabled', false).text", false);
         $createResponse->assertSee("triggerButton.prop('disabled', false).text('حفظ ودفع');", false);
 
         $this->actingAs($user, 'admin-web')
