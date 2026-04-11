@@ -35,6 +35,18 @@
                         $branchSalePriceOverrides = isset($item)
                             ? $item->publishedBranches->mapWithKeys(fn ($branch) => [$branch->id => $branch->pivot->sale_price_per_gram])->all()
                             : [];
+                        $selectedSaleMode = isset($item)
+                            ? $item->sale_mode
+                            : old('sale_mode');
+                        $selectedSaleMode = in_array($selectedSaleMode, array_keys($saleModes ?? []), true)
+                            ? $selectedSaleMode
+                            : '';
+                        $lockWeightField = $lockWeightField ?? false;
+                        $weightValue = old('weight');
+
+                        if ($weightValue === null && isset($item) && $item->sale_mode === \App\Models\Item::SALE_MODE_SINGLE) {
+                            $weightValue = $item->units->where('is_sold', false)->first()?->weight ?? $item->defaultUnit?->weight;
+                        }
                     @endphp
 
                     <div class="row">
@@ -138,6 +150,20 @@
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
+                                <label>طريقة بيع الصنف <span style="color:red; ">*</span></label>
+                                <select class="form-control" id="sale_mode" name="sale_mode" required>
+                                    <option value="">اختر طريقة البيع</option>
+                                    @foreach($saleModes as $value => $label)
+                                        <option value="{{ $value }}" @selected($selectedSaleMode === $value)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                <small class="text-muted d-block mt-1">
+                                    عند البيع مرة واحدة يتم الاعتماد على الوزن والباركود. وعند البيع أكثر من مرة يُحفظ الصنف بدون وزن إلزامي وبدون باركود.
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
                                 <label>{{ __('main.item_type') }} <span
                                         style="color:red; " class="classification-gold-only">*</span> </label>
                                 <select class="form-control" id="item_type" name="item_type">
@@ -188,13 +214,20 @@
                                 </select>
                             </div>
                         </div> 
-                        <div class="col-md-2">
+                        <div class="col-md-2 sale-mode-weight-group">
                             <div class="form-group">
                                 <label>{{ __('main.weight') }} <span
-                                        style="color:red; ">*</span> </label>
+                                        style="color:red; " class="sale-mode-single-only">*</span> </label>
                                 <input type="number"  step="any" id="weight" name="weight"
                                        class="form-control"
-                                       placeholder="0" @if(@$item && @$item->defaultUnit) readonly @endif value="{{(@$item && @$item->defaultUnit) ? @$item->defaultUnit?->weight : ''}}"/>
+                                       placeholder="0"
+                                       data-lock-weight="{{ $lockWeightField ? '1' : '0' }}"
+                                       data-last-single-weight="{{ $weightValue ?? '' }}"
+                                       @if($lockWeightField) readonly @endif
+                                       value="{{ $weightValue ?? '' }}"/>
+                                <small class="text-muted d-block mt-1 sale-mode-weight-help">
+                                    الوزن مطلوب فقط عند اختيار أن الصنف يباع مرة واحدة.
+                                </small>
                             </div>
                         </div>
                         <div class="col-md-2">
@@ -301,6 +334,8 @@ document.title = "{{__('اضافة صنف جديد')}}";
 
 $(document).ready(function () { 
     const isEditing = Boolean($('#id').val());
+    const singleSaleMode = "{{ \App\Models\Item::SALE_MODE_SINGLE }}";
+    const repeatableSaleMode = "{{ \App\Models\Item::SALE_MODE_REPEATABLE }}";
 
     $(document).on('submit', '#items_form', function(event) {
             id = 0 ;
@@ -389,6 +424,31 @@ $(document).ready(function () {
         $("#made_Value").prop('readonly', shouldLockMadeValue);
     }
 
+    function toggleSaleModeFields() {
+        var saleMode = $("#sale_mode").val();
+        var isSingle = saleMode === singleSaleMode;
+        var lockWeightField = $("#weight").data('lock-weight') === 1 || $("#weight").data('lock-weight') === '1';
+
+        $(".sale-mode-weight-group").toggle(isSingle);
+        $(".sale-mode-single-only").toggle(isSingle);
+        $("#weight").prop('required', isSingle);
+
+        if (isSingle) {
+            if ($("#weight").val() === '' && $("#weight").data('last-single-weight')) {
+                $("#weight").val($("#weight").data('last-single-weight'));
+            }
+
+            $("#weight").prop('readonly', lockWeightField);
+            return;
+        }
+
+        $("#weight").data('last-single-weight', $("#weight").val());
+        if (!lockWeightField) {
+            $("#weight").val('');
+        }
+        $("#weight").prop('readonly', true);
+    }
+
     function syncPublicationInputs(checkbox) {
         var $checkbox = $(checkbox);
         var row = $checkbox.closest('.publication-row');
@@ -450,6 +510,10 @@ $(document).ready(function () {
         toggleGoldOnlyFields();
     });
 
+    $("#sale_mode").change(function (){
+        toggleSaleModeFields();
+    });
+
     $("#item_type").change(function (){ 
         updateMadeValueReadonly();
     });
@@ -465,6 +529,7 @@ $(document).ready(function () {
     syncOwnerBranchPublication();
 
     toggleGoldOnlyFields();
+    toggleSaleModeFields();
 });
     
     

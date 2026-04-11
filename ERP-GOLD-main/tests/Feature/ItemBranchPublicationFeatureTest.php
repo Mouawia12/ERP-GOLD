@@ -50,6 +50,7 @@ class ItemBranchPublicationFeatureTest extends TestCase
                     $secondBranch->id => 480.55,
                 ],
                 'inventory_classification' => Item::CLASSIFICATION_GOLD,
+                'sale_mode' => Item::SALE_MODE_SINGLE,
                 'item_type' => $caratTypeId,
                 'carats_id' => $caratId,
                 'name_ar' => 'خاتم منشور',
@@ -113,6 +114,7 @@ class ItemBranchPublicationFeatureTest extends TestCase
                     $publishedBranch->id => 512.75,
                 ],
                 'inventory_classification' => Item::CLASSIFICATION_GOLD,
+                'sale_mode' => Item::SALE_MODE_SINGLE,
                 'item_type' => $caratTypeId,
                 'carats_id' => $caratId,
                 'name_ar' => 'سلسال متعدد الفروع',
@@ -202,7 +204,7 @@ class ItemBranchPublicationFeatureTest extends TestCase
         $craftedPayload = $craftedResponse->json('data');
         $this->assertCount(1, $craftedPayload);
         $this->assertStringContainsString('فلتر بيع مشغول', $craftedPayload[0]['item_name_without_break']);
-        $this->assertStringContainsString($craftedItem->defaultUnit->barcode, $craftedPayload[0]['item_name_without_break']);
+        $this->assertStringContainsString($craftedItem->units->first()->barcode, $craftedPayload[0]['item_name_without_break']);
 
         $scrapResponse = $this
             ->actingAs($publishedBranchUser, 'admin-web')
@@ -217,7 +219,7 @@ class ItemBranchPublicationFeatureTest extends TestCase
         $scrapPayload = $scrapResponse->json('data');
         $this->assertCount(1, $scrapPayload);
         $this->assertStringContainsString('فلتر بيع كسر', $scrapPayload[0]['item_name_without_break']);
-        $this->assertStringContainsString($scrapItem->defaultUnit->barcode, $scrapPayload[0]['item_name_without_break']);
+        $this->assertStringContainsString($scrapItem->units->first()->barcode, $scrapPayload[0]['item_name_without_break']);
     }
 
     private function createBranch(string $name): Branch
@@ -352,6 +354,7 @@ class ItemBranchPublicationFeatureTest extends TestCase
                 'branch_id' => $ownerBranch->id,
                 'published_branch_ids' => [$publishedBranch->id],
                 'inventory_classification' => Item::CLASSIFICATION_GOLD,
+                'sale_mode' => Item::SALE_MODE_SINGLE,
                 'item_type' => $caratTypeId,
                 'carats_id' => $caratId,
                 'name_ar' => $nameAr,
@@ -367,6 +370,6 @@ class ItemBranchPublicationFeatureTest extends TestCase
             ->assertOk()
             ->assertJsonPath('status', true);
 
-        return Item::query()->latest('id')->with('defaultUnit')->firstOrFail();
+        return Item::query()->latest('id')->with(['defaultUnit', 'units'])->firstOrFail();
     }
 }

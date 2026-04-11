@@ -1,6 +1,11 @@
 
 
 <div style="margin-bottom: 20px;">
+    @if($item->sale_mode !== \App\Models\Item::SALE_MODE_SINGLE)
+        <div class="alert alert-info mb-0">
+            هذا الصنف مضبوط على أنه يباع أكثر من مرة، لذلك لا تُنشأ له باركودات أو أوزان منفصلة.
+        </div>
+    @else
     <div class="row mb-3">
         <div class="col-md-5">
             <label class="d-block mb-2">مقاس ورق الباركود</label>
@@ -16,8 +21,10 @@
     </div>
     <button type="button" class="btn btn-success add_barcode_form">{{__('main.add_barcode')}}</button>
     <button type="button" class="btn btn-info print_barcodes">{{__('main.print_barcodes')}}</button>
+    @endif
 </div>
 <div id="new_barcodes_table" style="display: none;width: 100%;">
+@if($item->sale_mode === \App\Models\Item::SALE_MODE_SINGLE)
 <table class="table table-bordered">
         <thead>
             <tr>
@@ -49,6 +56,7 @@
         {{ __('main.save_btn') }}
     </button>
 </form>
+@endif
 </div>
 
 <table class="table table-bordered" id="barcodes_table">
@@ -71,7 +79,7 @@
         @endforeach
         @if($item->units->count() == 0)
         <tr>
-            <td colspan="2">{{__('main.no_data')}}</td>
+            <td colspan="3">{{__('main.no_data')}}</td>
         </tr>
         @endif
     </tbody>

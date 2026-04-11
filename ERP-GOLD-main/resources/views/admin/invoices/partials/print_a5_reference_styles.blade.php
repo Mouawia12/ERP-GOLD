@@ -421,8 +421,8 @@
         font-size: 6.1px;
         line-height: 1.18;
         white-space: pre-line;
-        max-height: var(--terms-max-height);
-        overflow: hidden;
+        max-height: none;
+        overflow: visible;
     }
 
     .signatures {

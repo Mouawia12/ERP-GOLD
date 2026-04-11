@@ -227,7 +227,7 @@ class SalesController extends Controller
 
                 foreach ($request->unit_id as $key => $unit_id) {
                     $unit = ItemUnit::find($request->unit_id[$key]);
-                    if (!$unit->is_default) {
+                    if ($unit && $unit->item && $unit->item->sale_mode === Item::SALE_MODE_SINGLE && ! $unit->is_sold) {
                         $unit->update([
                             'is_sold' => true,
                         ]);

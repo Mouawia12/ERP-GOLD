@@ -106,7 +106,30 @@ class ItemBarcodePrintFeatureTest extends TestCase
         );
     }
 
-    private function createItemWithUnit(string $classification): Item
+    public function test_repeatable_item_rejects_barcode_creation(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.items.show',
+        ]);
+        $item = $this->createItemWithUnit(Item::CLASSIFICATION_SILVER, Item::SALE_MODE_REPEATABLE);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('items.store_barcodes', $item->id, false), [
+                'weight' => [2.5],
+            ], [
+                'Accept' => 'application/json',
+            ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonPath('status', false);
+        $this->assertStringContainsString(
+            'الباركودات متاحة فقط للأصناف التي تباع مرة واحدة',
+            implode("\n", $response->json('errors', []))
+        );
+    }
+
+    private function createItemWithUnit(string $classification, string $saleMode = Item::SALE_MODE_SINGLE): Item
     {
         $branch = Branch::create([
             'name' => ['ar' => 'فرع الباركود', 'en' => 'Barcode Branch'],
@@ -158,6 +181,7 @@ class ItemBarcodePrintFeatureTest extends TestCase
             'code' => $classification === Item::CLASSIFICATION_GOLD ? '900001' : '900002',
             'branch_id' => $branch->id,
             'inventory_classification' => $classification,
+            'sale_mode' => $saleMode,
             'category_id' => $categoryId,
             'gold_carat_id' => $goldCaratId,
             'gold_carat_type_id' => $goldCaratTypeId,
@@ -167,16 +191,18 @@ class ItemBarcodePrintFeatureTest extends TestCase
         ]);
 
         $item->defaultUnit()->create([
-            'weight' => 5.25,
+            'weight' => $saleMode === Item::SALE_MODE_SINGLE ? 5.25 : 0,
             'initial_cost_per_gram' => 100,
             'average_cost_per_gram' => 100,
             'current_cost_per_gram' => 100,
             'is_default' => true,
         ]);
 
-        $item->units()->create([
-            'weight' => 5.25,
-        ]);
+        if ($saleMode === Item::SALE_MODE_SINGLE) {
+            $item->units()->create([
+                'weight' => 5.25,
+            ]);
+        }
 
         return $item->fresh(['units', 'branch', 'goldCarat']);
     }

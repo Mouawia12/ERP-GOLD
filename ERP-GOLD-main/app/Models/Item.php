@@ -15,6 +15,8 @@ class Item extends Model
     public const CLASSIFICATION_GOLD = 'gold';
     public const CLASSIFICATION_COLLECTIBLE = 'collectible';
     public const CLASSIFICATION_SILVER = 'silver';
+    public const SALE_MODE_SINGLE = 'single';
+    public const SALE_MODE_REPEATABLE = 'repeatable';
 
     public $translatable = ['title', 'description'];
 
@@ -26,6 +28,14 @@ class Item extends Model
             self::CLASSIFICATION_GOLD => 'ذهب',
             self::CLASSIFICATION_COLLECTIBLE => 'مقتنيات',
             self::CLASSIFICATION_SILVER => 'فضة',
+        ];
+    }
+
+    public static function saleModeOptions(): array
+    {
+        return [
+            self::SALE_MODE_SINGLE => 'يباع مرة واحدة',
+            self::SALE_MODE_REPEATABLE => 'يباع أكثر من مرة',
         ];
     }
 
@@ -100,6 +110,11 @@ class Item extends Model
     public function getInventoryClassificationLabelAttribute(): string
     {
         return static::inventoryClassificationOptions()[$this->inventory_classification] ?? 'غير محدد';
+    }
+
+    public function getSaleModeLabelAttribute(): string
+    {
+        return static::saleModeOptions()[$this->sale_mode] ?? 'غير محدد';
     }
 
     public function scopePublishedToBranch($query, int $branchId, bool $visibleOnly = true)

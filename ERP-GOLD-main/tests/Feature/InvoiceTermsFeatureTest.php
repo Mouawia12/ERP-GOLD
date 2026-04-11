@@ -271,6 +271,60 @@ class InvoiceTermsFeatureTest extends TestCase
         $response->assertDontSee('هذا النص الجديد يجب ألا يظهر');
     }
 
+    public function test_invoice_terms_settings_update_persists_full_multiline_template_content(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.system_settings.show',
+            'employee.system_settings.edit',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->patch(route('admin.system-settings.invoice-terms.update', [], false), [
+                'templates' => [
+                    [
+                        'key' => 'retail-custom',
+                        'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
+                        'title' => 'شروط بيع موسعة',
+                        'content' => "السطر التلقائي الأول\nالسطر الإضافي الثاني\nالسطر الإضافي الثالث",
+                        'show_on_invoice' => '1',
+                    ],
+                ],
+                'default_template_keys' => [
+                    InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED => 'retail-custom',
+                ],
+            ]);
+
+        $response->assertRedirect(route('admin.system-settings.invoice-terms.edit', [], false));
+        $this->assertSame(
+            "السطر التلقائي الأول\nالسطر الإضافي الثاني\nالسطر الإضافي الثالث",
+            app(InvoiceTermsService::class)->defaultTerms(InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED)
+        );
+    }
+
+    public function test_sales_a5_print_styles_do_not_clip_multiline_invoice_terms(): void
+    {
+        $branch = $this->createBranch('فرع طباعة A5', 'sales-a5-branch@example.com', '333444555');
+        $user = $this->createUser($branch, 'sales-a5-user@example.com');
+        $invoice = $this->createInvoice($branch, $user, 'sale', [
+            'sale_type' => 'simplified',
+            'invoice_terms' => "السطر الأول\nالسطر الثاني\nالسطر الثالث",
+        ]);
+
+        SystemSetting::putValue('invoice_print_format', 'a5');
+        SystemSetting::putValue('invoice_print_template', 'classic');
+        SystemSetting::putValue('invoice_print_orientation', 'portrait');
+
+        $response = $this
+            ->actingAs($user, 'admin-web')
+            ->get(route('sales.show', ['id' => $invoice->id], false));
+
+        $response->assertOk();
+        $response->assertSee('max-height: none;', false);
+        $response->assertSee('overflow: visible;', false);
+        $response->assertSee('السطر الثالث');
+    }
+
     public function test_purchases_print_page_uses_saved_invoice_terms_snapshot(): void
     {
         $branch = $this->createBranch('فرع المشتريات', 'purchases-branch@example.com', '222222222');

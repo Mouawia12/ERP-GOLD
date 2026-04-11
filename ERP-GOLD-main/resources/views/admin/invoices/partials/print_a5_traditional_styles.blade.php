@@ -339,8 +339,8 @@
         border-top: 1px solid #999;
         font-size: 8.3px;
         line-height: 1.2;
-        max-height: var(--note-max-height);
-        overflow: hidden;
+        max-height: none;
+        overflow: visible;
         white-space: pre-line;
     }
 

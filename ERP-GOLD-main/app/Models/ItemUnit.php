@@ -16,6 +16,15 @@ class ItemUnit extends Model
         parent::boot();
 
         static::creating(function ($itemUnit) {
+            if (! empty($itemUnit->barcode)) {
+                return;
+            }
+
+            if ($itemUnit->is_default || (float) $itemUnit->weight <= 0) {
+                $itemUnit->barcode = null;
+                return;
+            }
+
             $result = str_replace('.', '', $itemUnit->weight);
             $weightInt = str_pad((string) ($result), 4, '0', STR_PAD_LEFT);
             $barcode = $itemUnit->item->code . $weightInt;

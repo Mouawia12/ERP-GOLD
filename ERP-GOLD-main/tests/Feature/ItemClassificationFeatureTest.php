@@ -43,9 +43,12 @@ class ItemClassificationFeatureTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('name="inventory_classification"', false);
+        $response->assertSee('name="sale_mode"', false);
         $response->assertSee('ذهب');
         $response->assertSee('مقتنيات');
         $response->assertSee('فضة');
+        $response->assertSee('يباع مرة واحدة');
+        $response->assertSee('يباع أكثر من مرة');
     }
 
     public function test_gold_items_require_carat_while_non_gold_items_can_be_saved_without_it(): void
@@ -60,6 +63,7 @@ class ItemClassificationFeatureTest extends TestCase
             ->post(route('items.store', [], false), [
                 'branch_id' => $branch->id,
                 'inventory_classification' => Item::CLASSIFICATION_GOLD,
+                'sale_mode' => Item::SALE_MODE_SINGLE,
                 'item_type' => $caratTypeId,
                 'name_ar' => 'خاتم بدون عيار',
                 'name_en' => 'Gold Ring Without Carat',
@@ -82,10 +86,10 @@ class ItemClassificationFeatureTest extends TestCase
             ->post(route('items.store', [], false), [
                 'branch_id' => $branch->id,
                 'inventory_classification' => Item::CLASSIFICATION_SILVER,
+                'sale_mode' => Item::SALE_MODE_REPEATABLE,
                 'name_ar' => 'سوار فضي',
                 'name_en' => 'Silver Bracelet',
                 'category_id' => $categoryId,
-                'weight' => 8.75,
                 'cost_per_gram' => 45,
                 'labor_cost_per_gram' => 7,
             ], [
@@ -99,15 +103,17 @@ class ItemClassificationFeatureTest extends TestCase
 
         $this->assertNotNull($savedItem);
         $this->assertSame(Item::CLASSIFICATION_SILVER, $savedItem->inventory_classification);
+        $this->assertSame(Item::SALE_MODE_REPEATABLE, $savedItem->sale_mode);
         $this->assertNull($savedItem->gold_carat_id);
         $this->assertNull($savedItem->gold_carat_type_id);
         $this->assertSame('سوار فضي', $savedItem->getTranslation('title', 'ar'));
 
         $this->assertDatabaseHas('item_units', [
             'item_id' => $savedItem->id,
-            'weight' => 8.75,
+            'weight' => 0,
             'average_cost_per_gram' => 45,
             'is_default' => true,
+            'barcode' => null,
         ]);
 
         $validGoldResponse = $this
@@ -115,6 +121,7 @@ class ItemClassificationFeatureTest extends TestCase
             ->post(route('items.store', [], false), [
                 'branch_id' => $branch->id,
                 'inventory_classification' => Item::CLASSIFICATION_GOLD,
+                'sale_mode' => Item::SALE_MODE_SINGLE,
                 'item_type' => $caratTypeId,
                 'carats_id' => $caratId,
                 'name_ar' => 'خاتم ذهبي',
@@ -129,12 +136,19 @@ class ItemClassificationFeatureTest extends TestCase
         $validGoldResponse->assertOk();
         $this->assertDatabaseHas('items', [
             'inventory_classification' => Item::CLASSIFICATION_GOLD,
+            'sale_mode' => Item::SALE_MODE_SINGLE,
             'gold_carat_id' => $caratId,
             'gold_carat_type_id' => $caratTypeId,
         ]);
+        $goldItem = Item::query()->where('inventory_classification', Item::CLASSIFICATION_GOLD)->latest('id')->firstOrFail();
+        $this->assertDatabaseHas('item_units', [
+            'item_id' => $goldItem->id,
+            'weight' => 3.1,
+            'is_default' => false,
+        ]);
     }
 
-    public function test_item_cannot_be_saved_without_positive_weight(): void
+    public function test_single_sale_item_cannot_be_saved_without_positive_weight(): void
     {
         $admin = $this->createAdminUser([
             'employee.items.add',
@@ -146,6 +160,7 @@ class ItemClassificationFeatureTest extends TestCase
             ->post(route('items.store', [], false), [
                 'branch_id' => $branch->id,
                 'inventory_classification' => Item::CLASSIFICATION_SILVER,
+                'sale_mode' => Item::SALE_MODE_SINGLE,
                 'name_ar' => 'صنف بلا وزن',
                 'category_id' => $categoryId,
                 'cost_per_gram' => 45,
@@ -157,6 +172,44 @@ class ItemClassificationFeatureTest extends TestCase
         $response->assertJsonPath('status', false);
         $this->assertDatabaseMissing('items', [
             'branch_id' => $branch->id,
+        ]);
+    }
+
+    public function test_repeatable_sale_item_can_be_saved_without_weight_and_uses_zero_weight_without_barcode(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.items.add',
+        ]);
+        [$branch, $categoryId] = $this->createItemCatalogLookups();
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('items.store', [], false), [
+                'branch_id' => $branch->id,
+                'inventory_classification' => Item::CLASSIFICATION_SILVER,
+                'sale_mode' => Item::SALE_MODE_REPEATABLE,
+                'name_ar' => 'صنف متكرر',
+                'category_id' => $categoryId,
+                'cost_per_gram' => 45,
+            ], [
+                'Accept' => 'application/json',
+            ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('status', true);
+
+        $item = Item::query()->latest('id')->firstOrFail();
+
+        $this->assertSame(Item::SALE_MODE_REPEATABLE, $item->sale_mode);
+        $this->assertDatabaseHas('item_units', [
+            'item_id' => $item->id,
+            'is_default' => true,
+            'weight' => 0,
+            'barcode' => null,
+        ]);
+        $this->assertDatabaseMissing('item_units', [
+            'item_id' => $item->id,
+            'is_default' => false,
         ]);
     }
 
@@ -173,9 +226,9 @@ class ItemClassificationFeatureTest extends TestCase
             ->post(route('items.store', [], false), [
                 'branch_id' => $branchId,
                 'inventory_classification' => Item::CLASSIFICATION_SILVER,
+                'sale_mode' => Item::SALE_MODE_REPEATABLE,
                 'name_ar' => 'سوار متكرر',
                 'category_id' => $categoryId,
-                'weight' => 8.75,
                 'cost_per_gram' => 45,
             ], [
                 'Accept' => 'application/json',
@@ -188,9 +241,9 @@ class ItemClassificationFeatureTest extends TestCase
             ->post(route('items.store', [], false), [
                 'branch_id' => $branchId,
                 'inventory_classification' => Item::CLASSIFICATION_SILVER,
+                'sale_mode' => Item::SALE_MODE_REPEATABLE,
                 'name_ar' => '  سوار   متكرر  ',
                 'category_id' => $categoryId,
-                'weight' => 9.10,
                 'cost_per_gram' => 47,
             ], [
                 'Accept' => 'application/json',

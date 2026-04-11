@@ -93,6 +93,7 @@ class ItemCategoryIsolationFeatureTest extends TestCase
             ->post(route('items.store', [], false), [
                 'branch_id' => $branch->id,
                 'inventory_classification' => Item::CLASSIFICATION_GOLD,
+                'sale_mode' => Item::SALE_MODE_SINGLE,
                 'item_type' => $caratTypeId,
                 'carats_id' => $caratId,
                 'name_ar' => 'خاتم مرفوض',
