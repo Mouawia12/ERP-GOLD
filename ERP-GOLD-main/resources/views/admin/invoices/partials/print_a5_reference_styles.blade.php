@@ -419,10 +419,11 @@
 
     .terms-content {
         font-size: 6.1px;
-        line-height: 1.18;
-        white-space: pre-line;
+        line-height: 1.28;
+        white-space: normal;
         max-height: none;
         overflow: visible;
+        overflow-wrap: anywhere;
     }
 
     .signatures {
@@ -532,7 +533,7 @@
 
     body.invoice-paper-ready .terms-content {
         font-size: 5.8px;
-        line-height: 1.12;
+        line-height: 1.22;
     }
 
     body.invoice-paper-ready .signatures {
@@ -642,7 +643,7 @@
 
     body.invoice-paper-ready.invoice-orientation-landscape .terms-content {
         font-size: 6.05px;
-        line-height: 1.1;
+        line-height: 1.2;
         overflow-wrap: anywhere;
     }
 

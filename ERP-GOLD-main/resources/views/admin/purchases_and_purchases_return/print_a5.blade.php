@@ -2,6 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     @php
+        $invoiceTermsService = app(\App\Services\Invoices\InvoiceTermsService::class);
         $printSettings = app(\App\Services\Invoices\InvoicePrintSettingsService::class)->currentSettings();
         $branch = $invoice->branch;
         $subscriber = $branch->subscriber;
@@ -23,7 +24,11 @@
         $showFooter = $printSettings['show_footer'] ?? true;
         $compactStandalonePrint = ! $showHeader && ! $showFooter;
         $printOrientation = $printSettings['orientation'] ?? ($compactStandalonePrint ? 'landscape' : 'portrait');
-        $showInvoiceTerms = app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowInvoiceTermsForInvoice($invoice);
+        $showInvoiceTerms = $invoiceTermsService->shouldShowInvoiceTermsForInvoice($invoice);
+        $inlineInvoiceTerms = $invoiceTermsService->formatTermsForPrint($invoice->invoice_terms);
+        $previewNotice = $invoiceTermsService->currentDefaultDiffersFromInvoiceSnapshot($invoice)
+            ? 'هذه الفاتورة تعرض نسخة الشروط المحفوظة وقت الإنشاء. أي تعديل جديد على الشروط يطبق على الفواتير الجديدة فقط.'
+            : null;
         $paymentTypeLabel = [
             'cash' => 'نقدي',
             'credit_card' => 'شبكة / بطاقة',
@@ -278,7 +283,7 @@
             <p class="seller-line">الموظف: {{ $invoice->user->name ?: '---' }}</p>
 
             @if($showInvoiceTerms)
-                <p class="notes-line">ملاحظات: {{ $invoice->invoice_terms }}</p>
+                <p class="notes-line">ملاحظات: {{ $inlineInvoiceTerms }}</p>
             @endif
         </div>
 
@@ -290,6 +295,6 @@
         @endif
     </div>
 
-    @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl'))
+    @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice'))
 </body>
 </html>

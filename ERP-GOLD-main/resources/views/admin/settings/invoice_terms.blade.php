@@ -26,6 +26,10 @@
                     <h4 class="alert alert-primary text-center">شروط الفاتورة الافتراضية</h4>
                 </div>
                 <div class="card-body">
+                    <div class="alert alert-info">
+                        هذه الإعدادات تخص المستخدم الحالي فقط، وتطبّق على الفواتير الجديدة التي ينشئها. الفواتير المحفوظة سابقًا تحتفظ بنسخة الشروط وقت الإنشاء.
+                    </div>
+
                     <form method="POST" action="{{ route('admin.system-settings.invoice-terms.update') }}" id="invoice-terms-settings-form">
                         @csrf
                         @method('PATCH')

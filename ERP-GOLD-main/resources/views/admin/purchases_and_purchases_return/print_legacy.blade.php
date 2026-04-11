@@ -2,9 +2,13 @@
 <html>
 <head>
     @php
+        $invoiceTermsService = app(\App\Services\Invoices\InvoiceTermsService::class);
         $printSettings = app(\App\Services\Invoices\InvoicePrintSettingsService::class)->currentSettings();
         $printFormat = $printSettings['format'];
         $printTemplate = $printSettings['template'];
+        $previewNotice = $invoiceTermsService->currentDefaultDiffersFromInvoiceSnapshot($invoice)
+            ? 'هذه الفاتورة تعرض نسخة الشروط المحفوظة وقت الإنشاء. أي تعديل جديد على الشروط يطبق على الفواتير الجديدة فقط.'
+            : null;
         $sheetWidth = $printFormat === 'a5' ? '148mm' : '210mm';
         $screenFontSize = $printFormat === 'a5' ? '12px' : '13px';
         $printFontSize = $printFormat === 'a5' ? '10px' : '11px';
@@ -192,6 +196,7 @@
 >
 @php
     $showInvoiceTerms = app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowInvoiceTermsForInvoice($invoice);
+    $inlineInvoiceTerms = $invoiceTermsService->formatTermsForPrint($invoice->invoice_terms);
 @endphp
 
 <div class="pos_details  justify-content-center text-center">
@@ -345,11 +350,11 @@
             <tr>
                 <td class="text-center" colspan="2">{{round($invoice -> taxes_total, 2)}}</td>
                 <td class="text-center" colspan="4"> ضريبة القيمة المضافة  (Add Value Vat)</td>
-                <td class="text-center" colspan="3" rowspan="3" style="white-space: pre-line; vertical-align: top; line-height: 1.7;">
+                <td class="text-center" colspan="3" rowspan="3" style="white-space: normal; vertical-align: top; line-height: 1.7;">
                     @if($showInvoiceTerms)
                         <strong>شروط الفاتورة</strong>
                         <br>
-                        {{ $invoice->invoice_terms ?: '---' }}
+                        {{ $inlineInvoiceTerms ?: '---' }}
                     @endif
                 </td>
             </tr>
@@ -386,6 +391,6 @@
         ? route('send.invoice.whatsapp', $invoice->id)
         : null;
 @endphp
-@include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl'))
+@include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice'))
 </body>
 </html>

@@ -2,6 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     @php
+        $invoiceTermsService = app(\App\Services\Invoices\InvoiceTermsService::class);
         $printSettings = app(\App\Services\Invoices\InvoicePrintSettingsService::class)->currentSettings();
         $branch = $invoice->branch;
         $subscriber = $branch->subscriber;
@@ -59,7 +60,11 @@
         ];
 
         $invoiceTerms = trim((string) ($invoice->invoice_terms ?? ''));
-        $showInvoiceTerms = app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowInvoiceTermsForInvoice($invoice);
+        $inlineInvoiceTerms = $invoiceTermsService->formatTermsForPrint($invoiceTerms);
+        $showInvoiceTerms = $invoiceTermsService->shouldShowInvoiceTermsForInvoice($invoice);
+        $previewNotice = $invoiceTermsService->currentDefaultDiffersFromInvoiceSnapshot($invoice)
+            ? 'هذه الفاتورة تعرض نسخة الشروط المحفوظة وقت الإنشاء. أي تعديل جديد على الشروط يطبق على الفواتير الجديدة فقط.'
+            : null;
         $backUrl = route($isSale ? 'sales.index' : 'sales_return.index', $invoice->sale_type);
         $whatsappUrl = ! empty($invoice->client_phone)
             ? route('send.invoice.whatsapp', $invoice->id)
@@ -248,7 +253,7 @@
                 @if($showInvoiceTerms)
                     <section class="terms-box">
                         <div class="terms-title">شروط الفاتورة</div>
-                        <div class="terms-content">{{ $invoiceTerms }}</div>
+                        <div class="terms-content">{{ $inlineInvoiceTerms }}</div>
                     </section>
                 @endif
 
@@ -273,6 +278,6 @@
         @endif
     </div>
 
-    @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl'))
+    @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice'))
 </body>
 </html>

@@ -4,6 +4,8 @@ namespace App\Services\Invoices;
 
 use App\Models\Invoice;
 use App\Models\SystemSetting;
+use App\Models\User;
+use App\Models\UserInvoiceTermsSetting;
 
 class InvoiceTermsService
 {
@@ -72,8 +74,7 @@ class InvoiceTermsService
      */
     public function defaultTemplateKeys(): array
     {
-        $stored = json_decode((string) SystemSetting::getValue(self::DEFAULT_TEMPLATE_KEYS, ''), true);
-        $stored = is_array($stored) ? $stored : [];
+        $stored = $this->storedDefaultTemplateKeys();
         $templateKeys = collect($this->templates())->groupBy('context');
         $legacyDefaultKey = $this->sanitizeKey((string) SystemSetting::getValue(self::LEGACY_DEFAULT_TEMPLATE_KEY, ''));
         $resolved = [];
@@ -171,6 +172,19 @@ class InvoiceTermsService
         );
     }
 
+    public function currentDefaultDiffersFromInvoiceSnapshot(Invoice $invoice): bool
+    {
+        $snapshotTerms = $this->normalize($invoice->invoice_terms);
+
+        if ($snapshotTerms === '') {
+            return false;
+        }
+
+        return $snapshotTerms !== $this->normalize(
+            $this->defaultTerms($this->contextForInvoice($invoice))
+        );
+    }
+
     public function contextForInvoice(Invoice $invoice): string
     {
         if (in_array($invoice->type, ['purchase', 'purchase_return'], true)) {
@@ -229,6 +243,20 @@ class InvoiceTermsService
                     : ($contextTemplates[0]['key'] ?? '');
         }
 
+        $user = $this->currentUser();
+
+        if ($user instanceof User) {
+            UserInvoiceTermsSetting::query()->updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'templates' => $normalizedTemplates,
+                    'default_template_keys' => $resolvedDefaultKeys,
+                ],
+            );
+
+            return;
+        }
+
         SystemSetting::putValue(self::TEMPLATES_KEY, json_encode($normalizedTemplates, JSON_UNESCAPED_UNICODE));
         SystemSetting::putValue(self::DEFAULT_TEMPLATE_KEYS, json_encode($resolvedDefaultKeys, JSON_UNESCAPED_UNICODE));
 
@@ -251,6 +279,16 @@ class InvoiceTermsService
         }
 
         return $this->emptyToNull($this->normalize($terms));
+    }
+
+    public function formatTermsForPrint(?string $terms, string $separator = ' / '): string
+    {
+        $lines = preg_split('/\r\n|\r|\n/', (string) $terms) ?: [];
+
+        return collect($lines)
+            ->map(fn ($line) => trim((string) $line))
+            ->filter(fn (string $line) => $line !== '')
+            ->implode($separator);
     }
 
     private function normalize(?string $terms): string
@@ -285,7 +323,7 @@ class InvoiceTermsService
      */
     private function normalizedStoredTemplates(): array
     {
-        $stored = json_decode((string) SystemSetting::getValue(self::TEMPLATES_KEY, ''), true);
+        $stored = $this->storedTemplates();
 
         if (! is_array($stored) || $stored === []) {
             return [];
@@ -396,7 +434,7 @@ class InvoiceTermsService
 
     private function hasScopedTemplates(): bool
     {
-        $stored = json_decode((string) SystemSetting::getValue(self::TEMPLATES_KEY, ''), true);
+        $stored = $this->storedTemplates();
 
         if (! is_array($stored)) {
             return false;
@@ -409,6 +447,89 @@ class InvoiceTermsService
     private function legacyDefaultTerms(): string
     {
         return $this->normalize(SystemSetting::getValue(self::SETTING_KEY, ''));
+    }
+
+    /**
+     * @return array<int|string, mixed>
+     */
+    private function storedTemplates(): array
+    {
+        $userSettings = $this->userSettings();
+
+        if ($userSettings instanceof UserInvoiceTermsSetting && is_array($userSettings->templates) && $userSettings->templates !== []) {
+            return $userSettings->templates;
+        }
+
+        return $this->globalStoredTemplates();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function storedDefaultTemplateKeys(): array
+    {
+        $userSettings = $this->userSettings();
+
+        if ($userSettings instanceof UserInvoiceTermsSetting && is_array($userSettings->default_template_keys) && $userSettings->default_template_keys !== []) {
+            return $userSettings->default_template_keys;
+        }
+
+        return $this->globalStoredDefaultTemplateKeys();
+    }
+
+    private function currentUser(): ?User
+    {
+        $user = auth('admin-web')->user();
+
+        return $user instanceof User ? $user : null;
+    }
+
+    private function userSettings(): ?UserInvoiceTermsSetting
+    {
+        $user = $this->currentUser();
+
+        if (! $user instanceof User) {
+            return null;
+        }
+
+        $settings = $user->invoiceTermsSettings()->first();
+
+        if ($settings instanceof UserInvoiceTermsSetting) {
+            return $settings;
+        }
+
+        $globalTemplates = $this->globalStoredTemplates();
+        $globalDefaultTemplateKeys = $this->globalStoredDefaultTemplateKeys();
+
+        if ($globalTemplates === [] && $globalDefaultTemplateKeys === []) {
+            return null;
+        }
+
+        return UserInvoiceTermsSetting::query()->create([
+            'user_id' => $user->id,
+            'templates' => $globalTemplates,
+            'default_template_keys' => $globalDefaultTemplateKeys,
+        ]);
+    }
+
+    /**
+     * @return array<int|string, mixed>
+     */
+    private function globalStoredTemplates(): array
+    {
+        $stored = json_decode((string) SystemSetting::getValue(self::TEMPLATES_KEY, ''), true);
+
+        return is_array($stored) ? $stored : [];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function globalStoredDefaultTemplateKeys(): array
+    {
+        $stored = json_decode((string) SystemSetting::getValue(self::DEFAULT_TEMPLATE_KEYS, ''), true);
+
+        return is_array($stored) ? $stored : [];
     }
 
     /**

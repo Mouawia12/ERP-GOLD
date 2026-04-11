@@ -85,6 +85,11 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasOne(UserInvoicePrintSetting::class);
     }
 
+    public function invoiceTermsSettings(): HasOne
+    {
+        return $this->hasOne(UserInvoiceTermsSetting::class);
+    }
+
     public function getRoleNameAttribute(): ?string
     {
         return $this->getRoleNames()->first();

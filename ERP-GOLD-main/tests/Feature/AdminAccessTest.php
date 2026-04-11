@@ -804,19 +804,8 @@ class AdminAccessTest extends TestCase
             ]);
 
         $response->assertRedirect(route('admin.system-settings.invoice-terms.edit', [], false));
-        $this->assertDatabaseHas('system_settings', [
-            'key' => 'default_invoice_terms',
-            'value' => "يحق الاستبدال خلال 3 أيام\nمع إبراز الفاتورة الأصلية",
-        ]);
-        $this->assertDatabaseHas('system_settings', [
-            'key' => 'default_invoice_terms_template_key',
-            'value' => 'sales-retail',
-        ]);
-        $this->assertDatabaseHas('system_settings', [
-            'key' => 'default_invoice_terms_template_keys',
-        ]);
-        $this->assertDatabaseHas('system_settings', [
-            'key' => 'invoice_terms_templates',
+        $this->assertDatabaseHas('user_invoice_terms_settings', [
+            'user_id' => $admin->id,
         ]);
     }
 
@@ -831,8 +820,8 @@ class AdminAccessTest extends TestCase
             ]);
 
         $response->assertForbidden();
-        $this->assertDatabaseMissing('system_settings', [
-            'key' => 'default_invoice_terms',
+        $this->assertDatabaseMissing('user_invoice_terms_settings', [
+            'user_id' => $admin->id,
         ]);
     }
 

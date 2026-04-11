@@ -338,10 +338,11 @@
         padding-top: 3px;
         border-top: 1px solid #999;
         font-size: 8.3px;
-        line-height: 1.2;
+        line-height: 1.35;
         max-height: none;
         overflow: visible;
-        white-space: pre-line;
+        white-space: normal;
+        overflow-wrap: anywhere;
     }
 
     .page-footer {

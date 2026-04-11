@@ -1,9 +1,26 @@
 @php
     $availableOrientations = app(\App\Services\Invoices\InvoicePrintSettingsService::class)->availableOrientations();
     $showOrientationSelector = ($printSettings['format'] ?? 'a4') === 'a5';
+    $previewNotice = trim((string) ($previewNotice ?? ''));
 @endphp
 
 <style type="text/css">
+    .print-preview-notice {
+        position: fixed;
+        left: 18px;
+        bottom: 96px;
+        z-index: 10000;
+        width: min(460px, calc(100vw - 36px));
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: rgba(30, 41, 59, 0.96);
+        color: #fff !important;
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.2);
+        font-family: 'Almarai', sans-serif !important;
+        font-size: 13px;
+        line-height: 1.7;
+    }
+
     .print-control-bar {
         position: fixed;
         left: 18px;
@@ -27,6 +44,7 @@
     }
 
     body.print-mode-active .print-control-bar,
+    body.print-mode-active .print-preview-notice,
     body.print-mode-active .print-control-bar.no-print {
         display: none !important;
         visibility: hidden !important;
@@ -95,6 +113,7 @@
 
     @media print {
         .no-print,
+        .print-preview-notice,
         .print-control-bar,
         .print-control-bar.no-print {
             display: none !important;
@@ -103,6 +122,10 @@
         }
     }
 </style>
+
+@if($previewNotice !== '')
+    <div class="print-preview-notice no-print">{{ $previewNotice }}</div>
+@endif
 
 <div class="print-control-bar no-print">
     <div class="print-control-group">

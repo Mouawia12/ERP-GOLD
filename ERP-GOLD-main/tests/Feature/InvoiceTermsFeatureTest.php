@@ -8,6 +8,7 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Models\SystemSetting;
 use App\Models\User;
+use App\Models\UserInvoiceTermsSetting;
 use App\Services\Invoices\InvoiceTermsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -174,6 +175,7 @@ class InvoiceTermsFeatureTest extends TestCase
         $response->assertSee('فواتير مبيعات الشركات');
         $response->assertSee('فواتير المشتريات');
         $response->assertSee('إظهار هذه الشروط عند طباعة الفاتورة');
+        $response->assertSee('هذه الإعدادات تخص المستخدم الحالي فقط');
     }
 
     public function test_sales_print_page_can_hide_invoice_terms_without_deleting_saved_template(): void
@@ -269,6 +271,7 @@ class InvoiceTermsFeatureTest extends TestCase
         $response->assertSee('تم حفظ الشروط داخل الفاتورة');
         $response->assertSee('ولا تتغير لاحقًا');
         $response->assertDontSee('هذا النص الجديد يجب ألا يظهر');
+        $response->assertSee('هذه الفاتورة تعرض نسخة الشروط المحفوظة وقت الإنشاء');
     }
 
     public function test_invoice_terms_settings_update_persists_full_multiline_template_content(): void
@@ -296,10 +299,149 @@ class InvoiceTermsFeatureTest extends TestCase
             ]);
 
         $response->assertRedirect(route('admin.system-settings.invoice-terms.edit', [], false));
+        $settings = UserInvoiceTermsSetting::query()->where('user_id', $admin->id)->first();
+
+        $this->assertNotNull($settings);
         $this->assertSame(
             "السطر التلقائي الأول\nالسطر الإضافي الثاني\nالسطر الإضافي الثالث",
-            app(InvoiceTermsService::class)->defaultTerms(InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED)
+            data_get($settings?->templates, '0.content'),
         );
+    }
+
+    public function test_invoice_terms_settings_are_isolated_per_user(): void
+    {
+        $firstAdmin = $this->createAdminUser([
+            'employee.system_settings.show',
+            'employee.system_settings.edit',
+        ], 'first-admin-invoice-terms@example.com');
+        $secondAdmin = $this->createAdminUser([
+            'employee.system_settings.show',
+            'employee.system_settings.edit',
+        ], 'second-admin-invoice-terms@example.com');
+
+        UserInvoiceTermsSetting::query()->create([
+            'user_id' => $firstAdmin->id,
+            'templates' => [[
+                'key' => 'first-retail',
+                'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
+                'title' => 'قالب المستخدم الأول',
+                'content' => "سطر أول للمستخدم الأول\nسطر ثان للمستخدم الأول",
+                'show_on_invoice' => true,
+            ]],
+            'default_template_keys' => [
+                InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED => 'first-retail',
+            ],
+        ]);
+
+        UserInvoiceTermsSetting::query()->create([
+            'user_id' => $secondAdmin->id,
+            'templates' => [[
+                'key' => 'second-retail',
+                'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
+                'title' => 'قالب المستخدم الثاني',
+                'content' => "سطر أول للمستخدم الثاني\nسطر ثان للمستخدم الثاني",
+                'show_on_invoice' => true,
+            ]],
+            'default_template_keys' => [
+                InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED => 'second-retail',
+            ],
+        ]);
+
+        $firstResponse = $this
+            ->actingAs($firstAdmin, 'admin-web')
+            ->get(route('admin.system-settings.invoice-terms.edit', [], false));
+
+        $firstResponse->assertOk();
+
+        $firstResolvedTerms = $this
+            ->actingAs($firstAdmin, 'admin-web')
+            ->app
+            ->make(InvoiceTermsService::class)
+            ->defaultTerms(InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED);
+
+        $this->assertSame("سطر أول للمستخدم الأول\nسطر ثان للمستخدم الأول", $firstResolvedTerms);
+
+        $secondResponse = $this
+            ->actingAs($secondAdmin, 'admin-web')
+            ->get(route('admin.system-settings.invoice-terms.edit', [], false));
+
+        $secondResponse->assertOk();
+
+        $secondResolvedTerms = $this
+            ->actingAs($secondAdmin, 'admin-web')
+            ->app
+            ->make(InvoiceTermsService::class)
+            ->defaultTerms(InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED);
+
+        $this->assertSame("سطر أول للمستخدم الثاني\nسطر ثان للمستخدم الثاني", $secondResolvedTerms);
+    }
+
+    public function test_user_specific_invoice_terms_override_legacy_global_defaults_when_resolving_snapshot(): void
+    {
+        SystemSetting::putValue('default_invoice_terms', "قيمة عامة قديمة\nيجب تجاوزها");
+
+        $admin = $this->createAdminUser([
+            'employee.system_settings.show',
+            'employee.system_settings.edit',
+        ], 'priority-admin-invoice-terms@example.com');
+
+        UserInvoiceTermsSetting::query()->create([
+            'user_id' => $admin->id,
+            'templates' => [[
+                'key' => 'priority-retail',
+                'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
+                'title' => 'أولوية المستخدم',
+                'content' => "شروط المستخدم الحالية\nهي التي تحفظ في الفاتورة",
+                'show_on_invoice' => true,
+            ]],
+            'default_template_keys' => [
+                InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED => 'priority-retail',
+            ],
+        ]);
+
+        $resolvedSnapshot = $this
+            ->actingAs($admin, 'admin-web')
+            ->app
+            ->make(InvoiceTermsService::class)
+            ->resolveSnapshot(null, InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED, false);
+
+        $this->assertSame("شروط المستخدم الحالية\nهي التي تحفظ في الفاتورة", $resolvedSnapshot);
+    }
+
+    public function test_first_authenticated_access_bootstraps_personal_invoice_terms_from_global_settings(): void
+    {
+        SystemSetting::putValue('invoice_terms_templates', json_encode([
+            [
+                'key' => 'global-retail',
+                'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
+                'title' => 'القالب العام',
+                'content' => "سطر عام أول\nسطر عام ثان",
+                'show_on_invoice' => true,
+            ],
+        ], JSON_UNESCAPED_UNICODE));
+        SystemSetting::putValue('default_invoice_terms_template_keys', json_encode([
+            InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED => 'global-retail',
+        ], JSON_UNESCAPED_UNICODE));
+
+        $admin = $this->createAdminUser([
+            'employee.system_settings.show',
+            'employee.system_settings.edit',
+        ], 'bootstrap-admin-invoice-terms@example.com');
+
+        $this->assertDatabaseMissing('user_invoice_terms_settings', [
+            'user_id' => $admin->id,
+        ]);
+
+        $resolvedTerms = $this
+            ->actingAs($admin, 'admin-web')
+            ->app
+            ->make(InvoiceTermsService::class)
+            ->defaultTerms(InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED);
+
+        $this->assertSame("سطر عام أول\nسطر عام ثان", $resolvedTerms);
+        $this->assertDatabaseHas('user_invoice_terms_settings', [
+            'user_id' => $admin->id,
+        ]);
     }
 
     public function test_sales_a5_print_styles_do_not_clip_multiline_invoice_terms(): void
@@ -322,7 +464,7 @@ class InvoiceTermsFeatureTest extends TestCase
         $response->assertOk();
         $response->assertSee('max-height: none;', false);
         $response->assertSee('overflow: visible;', false);
-        $response->assertSee('السطر الثالث');
+        $response->assertSee('السطر الأول / السطر الثاني / السطر الثالث');
     }
 
     public function test_purchases_print_page_uses_saved_invoice_terms_snapshot(): void
@@ -356,17 +498,26 @@ class InvoiceTermsFeatureTest extends TestCase
     /**
      * @param  array<int, string>  $permissions
      */
-    private function createAdminUser(array $permissions = []): User
+    private function createAdminUser(array $permissions = [], string $email = 'admin-invoice-terms@example.com'): User
     {
-        $branch = $this->createBranch('الفرع الرئيسي', 'main-branch@example.com', '123456789');
+        $branchToken = substr(md5($email), 0, 8);
+        $branch = $this->createBranch(
+            'الفرع الرئيسي',
+            'main-branch-' . $branchToken . '@example.com',
+            '12345' . substr($branchToken, 0, 4)
+        );
 
-        $role = Role::create([
-            'name' => ['ar' => 'مدير النظام', 'en' => 'System Admin'],
-            'guard_name' => 'admin-web',
-        ]);
+        $role = Role::query()->where('guard_name', 'admin-web')->first();
+
+        if (! $role instanceof Role) {
+            $role = Role::create([
+                'name' => ['ar' => 'مدير النظام', 'en' => 'System Admin'],
+                'guard_name' => 'admin-web',
+            ]);
+        }
 
         foreach ($permissions as $permissionName) {
-            $permission = Permission::create([
+            $permission = Permission::firstOrCreate([
                 'name' => $permissionName,
                 'guard_name' => 'admin-web',
             ]);
@@ -374,7 +525,7 @@ class InvoiceTermsFeatureTest extends TestCase
             $role->givePermissionTo($permission);
         }
 
-        $user = $this->createUser($branch, 'admin-invoice-terms@example.com');
+        $user = $this->createUser($branch, $email);
         $user->assignRole($role);
 
         return $user;
