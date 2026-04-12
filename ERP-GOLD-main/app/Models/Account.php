@@ -103,7 +103,7 @@ class Account extends Model
 
         return Attribute::make(
             get: fn() => $ids,
-        );
+        )->shouldCache();
     }
 
     public function documents()

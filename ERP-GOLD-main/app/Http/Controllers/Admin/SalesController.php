@@ -59,7 +59,7 @@ class SalesController extends Controller
             ->when(filled($validated['date_from'] ?? null), fn ($builder) => $builder->whereDate('date', '>=', $validated['date_from']))
             ->when(filled($validated['date_to'] ?? null), fn ($builder) => $builder->whereDate('date', '<=', $validated['date_to']));
 
-        $data = $query->orderBy('id', 'DESC')->get();
+        $data = $query->with(['customer', 'returnInvoices'])->orderBy('id', 'DESC')->get();
 
         if ($request->ajax()) {
             return Datatables::of($data)
@@ -68,7 +68,7 @@ class SalesController extends Controller
                     $btn = '';
 
                     if (auth()->user()->canany(['employee.simplified_tax_invoices.show', 'employee.tax_invoices.show'])) {
-                        $btn = '<a href=' . route('sales.show', $row->id) . ' class="btn btn-primary" 
+                        $btn = '<a href=' . route('sales.show', $row->id) . ' class="btn btn-primary"
                                     value="' . $row->id . '" role="button" data-bs-toggle="button" target="_blank" >
                                     <i class="fa fa-eye"></i>معاينة</a>';
 
@@ -84,7 +84,7 @@ class SalesController extends Controller
                                 </div>';
                     }
 
-                    if ($row->returnInvoices()->sum('net_total') < $row->net_total) {
+                    if ($row->returnInvoices->sum('net_total') < $row->net_total) {
                         if (auth()->user()->canany(['employee.sales_returns.add', 'employee.sales_returns.show'])) {
                             $btn = $btn . '<a style="margin:0 5px;" href=' . route('sales_return.create', ['type' => $type, 'id' => $row->id]) . ' class="btn btn-info" 
                                    value="' . $row->id . '" role="button"  data-bs-toggle="button" ><i class="fa fa-retweet"></i> عمل مرتجع</a>';
@@ -226,8 +226,13 @@ class SalesController extends Controller
                 $scrapCostTotal = 0;
                 $pureCostTotal = 0;
 
+                $units = ItemUnit::with(['item.defaultUnit', 'item.goldCarat.tax', 'item.goldCaratType'])
+                    ->whereIn('id', array_values($request->unit_id))
+                    ->get()
+                    ->keyBy('id');
+
                 foreach ($request->unit_id as $key => $unit_id) {
-                    $unit = ItemUnit::find($request->unit_id[$key]);
+                    $unit = $units->get($unit_id);
                     if ($unit && $unit->item && $unit->item->sale_mode === Item::SALE_MODE_SINGLE && ! $unit->is_sold) {
                         $unit->update([
                             'is_sold' => true,
@@ -334,9 +339,13 @@ class SalesController extends Controller
 
                 JournalEntriesService::invoiceGenerateJournalEntries($invoice, $this->sales_prepare_journal_entry_details($invoice, $craftedCostTotal, $scrapCostTotal, $pureCostTotal));
                 $invoice->details()->createMany($lines);
-                $sendInvoice = new SendZatcaInvoice($invoice);
-                $sendInvoice->send();
                 DB::commit();
+
+                try {
+                    (new SendZatcaInvoice($invoice))->send();
+                } catch (\Throwable $e) {
+                    \Log::error('ZATCA send failed for invoice ' . $invoice->id . ': ' . $e->getMessage());
+                }
 
                 return response()->json([
                     'status' => true,
@@ -384,14 +393,15 @@ class SalesController extends Controller
 
         $this->branchAccessService->scopeToAccessibleBranch($query, $currentUser);
 
-        $data = $query->orderBy('id', 'DESC')->get();
+        $data = $query->with(['customer', 'parent'])->orderBy('id', 'DESC')->get();
 
         if ($request->ajax()) {
             return Datatables::of($data)
                 ->addIndexColumn()
                 ->addColumn('action', function ($row) use ($type) {
+                    $btn = '';
                     if (auth()->user()->canany(['employee.sales_returns.show'])) {
-                        $btn = '<a href=' . route('sales_return.show', $row->id) . ' class="btn btn-primary" 
+                        $btn = '<a href=' . route('sales_return.show', $row->id) . ' class="btn btn-primary"
                                     value="' . $row->id . '" role="button" data-bs-toggle="button" target="_blank" >
                                     <i class="fa fa-eye"></i>معاينة</a>';
                     }
@@ -401,10 +411,10 @@ class SalesController extends Controller
                     return $row->bill_number;
                 })
                 ->addColumn('parent_invoice', function ($row) use ($type) {
-                    return $row->parent->bill_number;
+                    return $row->parent?->bill_number;
                 })
                 ->addColumn('customer', function ($row) use ($type) {
-                    return $row->customer->name;
+                    return $row->customer?->name;
                 })
                 ->addColumn('net_money', function ($row) use ($type) {
                     return $row->net_total;
@@ -487,8 +497,11 @@ class SalesController extends Controller
             $scrapCostTotal = 0;
             $pureCostTotal = 0;
 
+            $returnUnitIds = $returnedDetails->pluck('unit_id')->filter()->unique()->values()->toArray();
+            $returnUnits = ItemUnit::with('item')->whereIn('id', $returnUnitIds)->get()->keyBy('id');
+
             foreach ($returnedDetails as $detail) {
-                $unit = ItemUnit::find($detail->unit_id);
+                $unit = $returnUnits->get($detail->unit_id);
                 $item = $unit->item;
                 $unitTaxAmount = $detail->unit_tax;
 
@@ -573,10 +586,14 @@ class SalesController extends Controller
             $returnInvoice->details()->createMany($lines);
             $this->invoicePaymentService->persist($returnInvoice, $paymentLines);
             JournalEntriesService::invoiceGenerateJournalEntries($returnInvoice, $this->sales_return_prepare_journal_entry_details($returnInvoice, $craftedCostTotal, $scrapCostTotal, $pureCostTotal));
-            $sendInvoice = new SendZatcaInvoice($returnInvoice);
-            $sendInvoice->send();
-
             DB::commit();
+
+            try {
+                (new SendZatcaInvoice($returnInvoice))->send();
+            } catch (\Throwable $e) {
+                \Log::error('ZATCA send failed for return invoice ' . $returnInvoice->id . ': ' . $e->getMessage());
+            }
+
             return redirect()->route('sales_return.index', ['type' => $type])->with('success', __('main.created'));
         } catch (ValidationException $ex) {
             DB::rollBack();
