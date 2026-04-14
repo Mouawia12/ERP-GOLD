@@ -5,15 +5,18 @@
     <div class="col-xl-12">
         <div class="card">
             <div class="card-header pb-0 text-center">
-                <h4 class="alert alert-primary text-center">التقرير اليومي للمبيعات والمشتريات حسب العيار</h4>
+                <h4 class="alert alert-primary text-center">{{ $pageTitle ?? 'التقرير اليومي للمبيعات والمشتريات حسب العيار' }}</h4>
             </div>
         </div>
 
         <div class="card-body px-0 pt-0 pb-2">
             <div class="card shadow mb-4">
                 <div class="card-body">
-                    <form method="POST" action="{{ route('reports.daily_carat_report.index') }}">
+                    <form method="POST" action="{{ $formAction ?? route('reports.daily_carat_report.index') }}">
                         @csrf
+                        @if(!empty($presetClassification))
+                            <input type="hidden" name="classification" value="{{ $presetClassification }}">
+                        @endif
                         @include('admin.reports.stock_reports.partials.common_filters', [
                             'branches' => $branches,
                             'users' => $users,

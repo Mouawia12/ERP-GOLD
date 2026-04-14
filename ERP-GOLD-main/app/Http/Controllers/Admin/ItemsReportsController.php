@@ -90,6 +90,36 @@ class ItemsReportsController extends Controller
         return view('admin.reports.items.index', compact('items', 'branch', 'branchLabel', 'filters', 'inventoryClassifications'));
     }
 
+    public function collectible_item_list_report()
+    {
+        $data = $this->itemListFiltersData();
+        $data['presetClassification'] = Item::CLASSIFICATION_COLLECTIBLE;
+        $data['pageTitle'] = 'قائمة أصناف المقتنيات';
+        $data['formAction'] = route('reports.collectible.items.list.search');
+        return view('admin.reports.items.search', $data);
+    }
+
+    public function collectible_item_list_report_search(Request $request)
+    {
+        $request->merge(['inventory_classification' => Item::CLASSIFICATION_COLLECTIBLE]);
+        return $this->item_list_report_search($request);
+    }
+
+    public function silver_item_list_report()
+    {
+        $data = $this->itemListFiltersData();
+        $data['presetClassification'] = Item::CLASSIFICATION_SILVER;
+        $data['pageTitle'] = 'قائمة أصناف الفضة';
+        $data['formAction'] = route('reports.silver.items.list.search');
+        return view('admin.reports.items.search', $data);
+    }
+
+    public function silver_item_list_report_search(Request $request)
+    {
+        $request->merge(['inventory_classification' => Item::CLASSIFICATION_SILVER]);
+        return $this->item_list_report_search($request);
+    }
+
     public function sold_items_report()
     {
         return view('admin.reports.sold_items.search', $this->soldItemsFiltersData());
@@ -197,6 +227,36 @@ class ItemsReportsController extends Controller
             'selectedUser',
             'filters'
         ));
+    }
+
+    public function collectible_sold_items_report()
+    {
+        $data = $this->soldItemsFiltersData();
+        $data['presetClassification'] = Item::CLASSIFICATION_COLLECTIBLE;
+        $data['pageTitle'] = 'تقرير الأصناف المباعة - المقتنيات';
+        $data['formAction'] = route('reports.collectible.sold_items_report.search');
+        return view('admin.reports.sold_items.search', $data);
+    }
+
+    public function collectible_sold_items_report_search(Request $request)
+    {
+        $request->merge(['inventory_classification' => Item::CLASSIFICATION_COLLECTIBLE]);
+        return $this->sold_items_report_search($request);
+    }
+
+    public function silver_sold_items_report()
+    {
+        $data = $this->soldItemsFiltersData();
+        $data['presetClassification'] = Item::CLASSIFICATION_SILVER;
+        $data['pageTitle'] = 'تقرير الأصناف المباعة - الفضة';
+        $data['formAction'] = route('reports.silver.sold_items_report.search');
+        return view('admin.reports.sold_items.search', $data);
+    }
+
+    public function silver_sold_items_report_search(Request $request)
+    {
+        $request->merge(['inventory_classification' => Item::CLASSIFICATION_SILVER]);
+        return $this->sold_items_report_search($request);
     }
 
     private function soldItemsFiltersData(): array

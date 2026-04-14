@@ -387,9 +387,6 @@
                 <th class="text-center " >وصف الصنف
                     <br>(Item)
 				</th>
-                <th class="text-center " >كود الصنف
-                    <br>(Item Code)
-				</th>
                 <th class="text-center " >العيار
                     <br>(Karat)</th>
                 <th class="text-center " > وزن الذهب
@@ -418,7 +415,6 @@
             @endphp
                 <tr>
                     <td class="text-center" style="width: 65px;"> {!!$detail->item->title!!} </td>
-                    <td class="text-center" style="width: 70px;"> {!!$detail->unit->barcode!!} </td>
                     <td class="text-center"> {{ $detail->carat_display_label }} </td>
                     <td class="text-center"> {{$weight}} </td>
 					<td class="text-center"> {{$detail->out_quantity}} </td>

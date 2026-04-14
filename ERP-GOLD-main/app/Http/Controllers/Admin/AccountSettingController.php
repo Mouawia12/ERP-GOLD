@@ -162,6 +162,17 @@ class AccountSettingController extends Controller
             'supplier_default_account' => 'nullable|integer',
             'clients_account' => 'nullable|integer',
             'suppliers_account' => 'nullable|integer',
+            'sales_discount_account' => 'nullable|integer',
+            // حسابات المقتنيات
+            'collectible_sales_account' => 'nullable|integer',
+            'collectible_return_sales_account' => 'nullable|integer',
+            'collectible_purchase_account' => 'nullable|integer',
+            'collectible_purchase_return_account' => 'nullable|integer',
+            // حسابات الفضة
+            'silver_sales_account' => 'nullable|integer',
+            'silver_return_sales_account' => 'nullable|integer',
+            'silver_purchase_account' => 'nullable|integer',
+            'silver_purchase_return_account' => 'nullable|integer',
         ]);
 
         if (filled($payload['branch_id'] ?? null)) {
@@ -192,6 +203,15 @@ class AccountSettingController extends Controller
             'supplier_default_account',
             'clients_account',
             'suppliers_account',
+            'sales_discount_account',
+            'collectible_sales_account',
+            'collectible_return_sales_account',
+            'collectible_purchase_account',
+            'collectible_purchase_return_account',
+            'silver_sales_account',
+            'silver_return_sales_account',
+            'silver_purchase_account',
+            'silver_purchase_return_account',
         ] as $field) {
             if (filled($payload[$field] ?? null)) {
                 abort_unless(

@@ -282,8 +282,130 @@
                                        class="form-control"
                                        placeholder="0" value="{{isset($item) ? $item->profit_margin_per_gram : ''}}" />
                             </div>
-                        </div>              
+                        </div>
                     </div>
+
+                    {{-- حقول المقتنيات والفضة --}}
+                    <div id="collectible_silver_fields" style="display:none;">
+                        <hr>
+                        <h5 class="alert alert-info text-center mb-3">تفاصيل الحجر والمعدن</h5>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>نوع الحجر 1</label>
+                                    <input type="text" name="stone_type_1" class="form-control"
+                                           value="{{ isset($item) ? $item->stone_type_1 : '' }}" placeholder="نوع الحجر الأول" />
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>نوع الحجر 2</label>
+                                    <input type="text" name="stone_type_2" class="form-control"
+                                           value="{{ isset($item) ? $item->stone_type_2 : '' }}" placeholder="نوع الحجر الثاني" />
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>مقاس الحجر 1</label>
+                                    <input type="text" name="stone_size_1" class="form-control"
+                                           value="{{ isset($item) ? $item->stone_size_1 : '' }}" placeholder="مقاس الحجر الأول" />
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>مقاس الحجر 2</label>
+                                    <input type="text" name="stone_size_2" class="form-control"
+                                           value="{{ isset($item) ? $item->stone_size_2 : '' }}" placeholder="مقاس الحجر الثاني" />
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>نقاوة الحجر</label>
+                                    <input type="text" name="stone_clarity" class="form-control"
+                                           value="{{ isset($item) ? $item->stone_clarity : '' }}" placeholder="مثال: VS1, VVS2" />
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>لون الحجر</label>
+                                    <input type="text" name="stone_color" class="form-control"
+                                           value="{{ isset($item) ? $item->stone_color : '' }}" placeholder="مثال: D, E, F" />
+                                </div>
+                            </div>
+                            <div class="col-md-3 collectible-gold-weight-field" style="display:none;">
+                                <div class="form-group">
+                                    <label>وزن الذهب عيار 18</label>
+                                    <input type="number" step="any" name="gold_weight_18k" class="form-control"
+                                           value="{{ isset($item) ? $item->gold_weight_18k : '' }}" placeholder="0" min="0" />
+                                    <small class="text-muted">للمقتنيات ذهب عيار 18 فقط</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>نسبة الشوائب %</label>
+                                    <input type="number" step="any" name="impurity_percentage" class="form-control"
+                                           value="{{ isset($item) ? $item->impurity_percentage : '' }}" placeholder="0" min="0" max="100" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>الماركة</label>
+                                    <input type="text" name="brand" class="form-control"
+                                           value="{{ isset($item) ? $item->brand : '' }}" placeholder="الماركة التجارية" />
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>الموديل</label>
+                                    <input type="text" name="model_number" class="form-control"
+                                           value="{{ isset($item) ? $item->model_number : '' }}" placeholder="رقم الموديل" />
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>بلد المنشأ</label>
+                                    <input type="text" name="country_of_origin" class="form-control"
+                                           value="{{ isset($item) ? $item->country_of_origin : '' }}" placeholder="بلد المنشأ" />
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>ملاحظات عن المعدن</label>
+                                    <textarea name="metal_notes" class="form-control" rows="2"
+                                              placeholder="ملاحظات إضافية عن المعدن">{{ isset($item) ? $item->metal_notes : '' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>شهادة / وثيقة القطعة</label>
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <div class="custom-file">
+                                                <input type="file" class="custom-file-input" id="certificate_file"
+                                                       name="certificate_file"
+                                                       accept="image/png,image/jpeg,image/jpg,application/pdf">
+                                                <label class="custom-file-label" for="certificate_file">اختر ملف الشهادة</label>
+                                            </div>
+                                            <small class="text-muted d-block mt-1">يقبل: صورة (PNG, JPG) أو PDF</small>
+                                        </div>
+                                        <div class="col-md-4 text-center">
+                                            @if(isset($item) && $item->certificate_file)
+                                                <a href="{{ asset('uploads/certificates/' . $item->certificate_file) }}"
+                                                   target="_blank" class="btn btn-sm btn-outline-info">
+                                                    <i class="fa fa-eye"></i> عرض الشهادة
+                                                </a>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="row">
                         <div class="col-md-6 form-group">
                             <label>{{ __('main.img') }}</label>
@@ -343,10 +465,13 @@ $(document).ready(function () {
             var thisme = $(this);
             let href = $(this).attr('action');
             let method = $(this).attr('method');
+            var formData = new FormData(this);
             $.ajax({
                 url: href,
                 type: method,
-                data: $(this).serialize(),
+                data: formData,
+                processData: false,
+                contentType: false,
                 beforeSend: function() {
                     $('.response_container').html('');
                     $('#loader').show();
@@ -367,13 +492,17 @@ $(document).ready(function () {
                 },
                 error: function(jqXHR, testStatus, error) {
                     var errors = "<div class='alert alert-danger'><ul style='margin: 0;'>";
-                    jqXHR.responseJSON.errors.forEach(function(error) {
-                        errors += "<li>" + error + "</li>";
-                    });
+                    if (jqXHR.responseJSON && jqXHR.responseJSON.errors) {
+                        jqXHR.responseJSON.errors.forEach(function(error) {
+                            errors += "<li>" + error + "</li>";
+                        });
+                    } else {
+                        errors += "<li>حدث خطأ غير متوقع.</li>";
+                    }
                     errors += "</ul></div>";
                     $('.response_container').append(errors);
                 },
-                timeout: 8000
+                timeout: 15000
             })
         });
     
@@ -400,10 +529,41 @@ $(document).ready(function () {
     function toggleGoldOnlyFields() {
         var classification = $("#inventory_classification").val();
         var isGold = classification === "{{ \App\Models\Item::CLASSIFICATION_GOLD }}";
+        var isCollectible = classification === "{{ \App\Models\Item::CLASSIFICATION_COLLECTIBLE }}";
+        var isSilver = classification === "{{ \App\Models\Item::CLASSIFICATION_SILVER }}";
+        var isCollectibleOrSilver = isCollectible || isSilver;
 
-        $("#carats_id").prop('required', isGold).prop('disabled', !isGold);
+        $("#carats_id").prop('required', isGold).prop('disabled', !isGold && !isSilver);
         $("#item_type").prop('required', isGold).prop('disabled', !isGold);
         $(".classification-gold-only").toggle(isGold);
+
+        // إظهار/إخفاء حقول المقتنيات والفضة
+        if (isCollectibleOrSilver) {
+            $("#collectible_silver_fields").show();
+        } else {
+            $("#collectible_silver_fields").hide();
+        }
+
+        // حقل وزن الذهب 18 يظهر للمقتنيات فقط
+        $(".collectible-gold-weight-field").toggle(isCollectible);
+
+        // الفضة: تحديد العيار 925 تلقائياً
+        if (isSilver) {
+            var silverCarat925 = null;
+            $("#carats_id option").each(function() {
+                if ($(this).text().trim() === '925' || $(this).text().indexOf('925') !== -1) {
+                    silverCarat925 = $(this).val();
+                    return false;
+                }
+            });
+            if (silverCarat925) {
+                $("#carats_id").val(silverCarat925);
+            }
+            $("#carats_id").prop('disabled', true);
+            $("#item_type").val('');
+            $("#tax").val('');
+            return;
+        }
 
         if (!isGold) {
             $("#carats_id").val('');

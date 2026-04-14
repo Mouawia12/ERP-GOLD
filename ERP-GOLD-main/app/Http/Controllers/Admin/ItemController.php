@@ -14,6 +14,7 @@ use App\Services\Items\BarcodePrintProfileService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Throwable;
@@ -243,6 +244,20 @@ class ItemController extends Controller
             'published_branch_ids.*' => ['integer', 'exists:branches,id'],
             'branch_sale_prices' => ['nullable', 'array'],
             'branch_sale_prices.*' => ['nullable', 'numeric', 'min:0'],
+            // حقول المقتنيات والفضة
+            'stone_type_1' => ['nullable', 'string', 'max:255'],
+            'stone_type_2' => ['nullable', 'string', 'max:255'],
+            'stone_size_1' => ['nullable', 'string', 'max:255'],
+            'stone_size_2' => ['nullable', 'string', 'max:255'],
+            'stone_clarity' => ['nullable', 'string', 'max:255'],
+            'stone_color' => ['nullable', 'string', 'max:255'],
+            'gold_weight_18k' => ['nullable', 'numeric', 'min:0'],
+            'metal_notes' => ['nullable', 'string'],
+            'brand' => ['nullable', 'string', 'max:255'],
+            'model_number' => ['nullable', 'string', 'max:255'],
+            'country_of_origin' => ['nullable', 'string', 'max:255'],
+            'impurity_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'certificate_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
         ]);
 
         if ($validator->fails()) {
@@ -258,20 +273,54 @@ class ItemController extends Controller
 
         try {
             DB::beginTransaction();
-            $item = Item::updateOrCreate(['id' => $request->id ?? null], [
+            // معالجة ملف الشهادة
+            $certificateFileName = null;
+            if ($request->hasFile('certificate_file')) {
+                $certDir = public_path('uploads/certificates');
+                if (! is_dir($certDir)) {
+                    mkdir($certDir, 0755, true);
+                }
+                $certFile = $request->file('certificate_file');
+                $certificateFileName = uniqid('cert_') . '.' . $certFile->getClientOriginalExtension();
+                $certFile->move($certDir, $certificateFileName);
+            }
+
+            $isCollectibleOrSilver = in_array($classification, [Item::CLASSIFICATION_COLLECTIBLE, Item::CLASSIFICATION_SILVER], true);
+
+            $itemData = [
                 'title' => ['ar' => $validated['name_ar'], 'en' => $validated['name_en'] ?? $validated['name_ar']],
                 'description' => ['ar' => $validated['name_ar'], 'en' => $validated['name_en'] ?? $validated['name_ar']],
                 'branch_id' => $validated['branch_id'],
                 'inventory_classification' => $classification,
                 'sale_mode' => $saleMode,
                 'category_id' => $validated['category_id'],
-                'gold_carat_id' => $classification === Item::CLASSIFICATION_GOLD ? $validated['carats_id'] : null,
-                'gold_carat_type_id' => $classification === Item::CLASSIFICATION_GOLD ? $validated['item_type'] : null,
+                'gold_carat_id' => $classification === Item::CLASSIFICATION_GOLD ? ($validated['carats_id'] ?? null) : ($classification === Item::CLASSIFICATION_SILVER ? ($validated['carats_id'] ?? null) : null),
+                'gold_carat_type_id' => $classification === Item::CLASSIFICATION_GOLD ? ($validated['item_type'] ?? null) : null,
                 'no_metal' => $validated['no_metal'] ?? 0,
                 'no_metal_type' => $validated['no_metal_type'] ?? 'fixed',
                 'labor_cost_per_gram' => $validated['labor_cost_per_gram'] ?? 0,
                 'profit_margin_per_gram' => $validated['profit_margin_per_gram'] ?? 0,
-            ]);
+            ];
+
+            if ($isCollectibleOrSilver) {
+                $itemData['stone_type_1'] = $validated['stone_type_1'] ?? null;
+                $itemData['stone_type_2'] = $validated['stone_type_2'] ?? null;
+                $itemData['stone_size_1'] = $validated['stone_size_1'] ?? null;
+                $itemData['stone_size_2'] = $validated['stone_size_2'] ?? null;
+                $itemData['stone_clarity'] = $validated['stone_clarity'] ?? null;
+                $itemData['stone_color'] = $validated['stone_color'] ?? null;
+                $itemData['gold_weight_18k'] = $classification === Item::CLASSIFICATION_COLLECTIBLE ? ($validated['gold_weight_18k'] ?? 0) : 0;
+                $itemData['metal_notes'] = $validated['metal_notes'] ?? null;
+                $itemData['brand'] = $validated['brand'] ?? null;
+                $itemData['model_number'] = $validated['model_number'] ?? null;
+                $itemData['country_of_origin'] = $validated['country_of_origin'] ?? null;
+                $itemData['impurity_percentage'] = $validated['impurity_percentage'] ?? 0;
+                if ($certificateFileName) {
+                    $itemData['certificate_file'] = $certificateFileName;
+                }
+            }
+
+            $item = Item::updateOrCreate(['id' => $request->id ?? null], $itemData);
 
             $existingDefaultUnit = $item->defaultUnit()->first();
             $defaultWeight = $saleMode === Item::SALE_MODE_SINGLE

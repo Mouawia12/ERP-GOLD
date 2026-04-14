@@ -22,7 +22,8 @@
         color: #111;
         background: #fff;
         font-family: 'Almarai', 'DejaVu Sans', sans-serif;
-        font-size: 9.35px;
+        font-size: var(--invoice-screen-font-size);
+        font-weight: 700;
         line-height: 1.3;
     }
 
@@ -33,20 +34,25 @@
         --page-bg: #fff;
         --screen-bg: #eef1f5;
         --screen-outline: #d8dce2;
+        --invoice-screen-font-size: 11px;
+        --invoice-print-font-size: 10px;
+        --invoice-title-font-size: 14.4px;
+        --invoice-title-sub-font-size: 7.1px;
+        --invoice-meta-font-size: 8.4px;
         --page-width: 138mm;
         --page-min-height: 198mm;
-        --shell-width: 108mm;
-        --qr-size: 19mm;
-        --meta-width: 42mm;
+        --shell-width: 112mm;
+        --qr-size: 20mm;
+        --meta-width: 43mm;
         --safe-print-width: auto;
         --safe-print-height: auto;
         --safe-print-offset-top: 0;
         --terms-max-height: 13mm;
         --page-padding-top: 6mm;
-        --page-padding-inline: 7mm;
+        --page-padding-inline: 6mm;
         --page-padding-bottom: 7mm;
-        --head-gap: 5mm;
-        --head-margin-bottom: 3.2mm;
+        --head-gap: 4mm;
+        --head-margin-bottom: 3mm;
         --table-cell-padding-block: 1.3mm;
         --table-cell-padding-inline: 1mm;
         --summary-gap: 2mm;
@@ -55,22 +61,28 @@
     }
 
     body.invoice-template-compact {
-        --shell-width: 104mm;
-        --qr-size: 17mm;
-        --meta-width: 40mm;
+        --invoice-title-font-size: 13.2px;
+        --invoice-title-sub-font-size: 6.8px;
+        --invoice-meta-font-size: 7.8px;
+        --shell-width: 109mm;
+        --qr-size: 18mm;
+        --meta-width: 41mm;
         --terms-max-height: 11mm;
     }
 
     body.invoice-orientation-landscape {
         --page-width: 200mm;
         --page-min-height: 138mm;
-        --shell-width: 176mm;
-        --qr-size: 19mm;
-        --meta-width: 58mm;
+        --invoice-title-font-size: 14.2px;
+        --invoice-title-sub-font-size: 7px;
+        --invoice-meta-font-size: 8.3px;
+        --shell-width: 172mm;
+        --qr-size: 20mm;
+        --meta-width: 54mm;
         --page-padding-top: 5mm;
         --page-padding-inline: 5mm;
         --page-padding-bottom: 5mm;
-        --head-gap: 4mm;
+        --head-gap: 3.2mm;
         --head-margin-bottom: 2mm;
         --summary-gap: 1.5mm;
         --signature-gap: 6.5mm;
@@ -78,45 +90,51 @@
     }
 
     body.invoice-paper-ready {
+        --invoice-title-font-size: 13px;
+        --invoice-title-sub-font-size: 6.8px;
+        --invoice-meta-font-size: 7.8px;
         --terms-max-height: 9mm;
-        --page-padding-top: 7mm;
-        --page-padding-inline: 5mm;
-        --page-padding-bottom: 7mm;
-        --head-gap: 2.7mm;
+        --page-padding-top: 6.5mm;
+        --page-padding-inline: 4.5mm;
+        --page-padding-bottom: 6.5mm;
+        --head-gap: 2.4mm;
         --head-margin-bottom: 1.45mm;
-        --table-cell-padding-block: 0.72mm;
-        --table-cell-padding-inline: 0.74mm;
-        --summary-gap: 1.05mm;
-        --signature-gap: 4.8mm;
-        --signature-margin-top: 1.25mm;
+        --table-cell-padding-block: 0.84mm;
+        --table-cell-padding-inline: 0.82mm;
+        --summary-gap: 1.2mm;
+        --signature-gap: 5.6mm;
+        --signature-margin-top: 1.7mm;
     }
 
     body.invoice-paper-ready.invoice-orientation-portrait {
-        --shell-width: 124mm;
-        --qr-size: 17mm;
-        --meta-width: 44mm;
+        --shell-width: 126mm;
+        --qr-size: 18.5mm;
+        --meta-width: 43mm;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape {
+        --invoice-title-font-size: 15.2px;
+        --invoice-title-sub-font-size: 7.1px;
+        --invoice-meta-font-size: 8.8px;
         --page-width: 210mm;
         --page-min-height: 148mm;
-        --safe-print-width: 194mm;
-        --safe-print-height: 100mm;
-        --safe-print-offset-top: 24mm;
-        --shell-width: 188mm;
-        --qr-size: 22mm;
-        --meta-width: 61mm;
+        --safe-print-width: 184mm;
+        --safe-print-height: 106mm;
+        --safe-print-offset-top: 18mm;
+        --shell-width: 178mm;
+        --qr-size: 21mm;
+        --meta-width: 54mm;
         --terms-max-height: 12.5mm;
         --page-padding-top: 0;
         --page-padding-inline: 0;
         --page-padding-bottom: 0;
-        --head-gap: 4.5mm;
-        --head-margin-bottom: 2.2mm;
-        --table-cell-padding-block: 0.94mm;
-        --table-cell-padding-inline: 0.86mm;
-        --summary-gap: 1.65mm;
-        --signature-gap: 7.2mm;
-        --signature-margin-top: 2.05mm;
+        --head-gap: 3.1mm;
+        --head-margin-bottom: 2.4mm;
+        --table-cell-padding-block: 0.92mm;
+        --table-cell-padding-inline: 0.88mm;
+        --summary-gap: 1.85mm;
+        --signature-gap: 8mm;
+        --signature-margin-top: 2.2mm;
     }
 
     body.invoice-template-modern {
@@ -125,6 +143,12 @@
         --head-bg: #e8eef7;
         --screen-bg: #e9eef8;
         --screen-outline: #cbd5e1;
+    }
+
+    table,
+    th,
+    td {
+        font-size: inherit;
     }
 
     .page {
@@ -182,7 +206,7 @@
         margin-bottom: 3mm;
         padding-bottom: 2mm;
         border-bottom: 1px solid var(--line-color);
-        font-size: 7px;
+        font-size: 7.7px;
         line-height: 1.38;
     }
 
@@ -246,21 +270,21 @@
 
     .compact-title {
         margin: 0;
-        font-size: 10.95px;
+        font-size: var(--invoice-title-font-size);
         line-height: 1.18;
         font-weight: 700;
     }
 
     .compact-subtitle {
         margin: 0.5mm 0 0;
-        font-size: 6.25px;
+        font-size: var(--invoice-title-sub-font-size);
         line-height: 1.2;
         color: #4b5563;
     }
 
     .compact-meta {
         direction: rtl;
-        font-size: 7.15px;
+        font-size: var(--invoice-meta-font-size);
         line-height: 1.42;
         font-weight: 700;
     }
@@ -299,7 +323,7 @@
 
     .reference-table {
         margin-bottom: 2.2mm;
-        font-size: 7.05px;
+        font-size: 7.85px;
     }
 
     .reference-table th,
@@ -331,13 +355,13 @@
     }
 
     .head-main {
-        font-size: 6.95px;
+        font-size: 7.75px;
         font-weight: 700;
     }
 
     .head-sub {
         margin-top: 0.4mm;
-        font-size: 5.6px;
+        font-size: 6.15px;
         color: #6b7280;
         direction: ltr;
     }
@@ -348,7 +372,7 @@
 
     .description-main {
         display: block;
-        font-size: 7.25px;
+        font-size: 8.1px;
         font-weight: 700;
         line-height: 1.14;
     }
@@ -356,7 +380,7 @@
     .description-sub {
         display: block;
         margin-top: 0.4mm;
-        font-size: 5.75px;
+        font-size: 6.35px;
         line-height: 1.08;
     }
 
@@ -375,7 +399,7 @@
     .summary-sub {
         display: inline;
         margin-inline-start: 0.45mm;
-        font-size: 5.3px;
+        font-size: 5.9px;
         line-height: 1;
         color: #6b7280;
         direction: ltr;
@@ -390,7 +414,7 @@
 
     .payment-table .summary-label {
         width: 56%;
-        font-size: 6.45px;
+        font-size: 7.2px;
     }
 
     .payment-table .summary-value {
@@ -413,12 +437,12 @@
 
     .terms-title {
         margin-bottom: 0.35mm;
-        font-size: 6.95px;
+        font-size: 7.45px;
         font-weight: 700;
     }
 
     .terms-content {
-        font-size: 6.1px;
+        font-size: 6.8px;
         line-height: 1.28;
         white-space: normal;
         max-height: none;
@@ -431,7 +455,7 @@
         grid-template-columns: 1fr 1fr;
         gap: var(--signature-gap);
         margin-top: var(--signature-margin-top);
-        font-size: 7.15px;
+        font-size: 7.7px;
     }
 
     .signature-box {
@@ -459,34 +483,31 @@
     }
 
     body.invoice-paper-ready .compact-title {
-        font-size: 10.45px;
         line-height: 1.08;
     }
 
     body.invoice-paper-ready .compact-subtitle {
         margin-top: 0.3mm;
-        font-size: 5.95px;
     }
 
     body.invoice-paper-ready .compact-meta {
-        font-size: 6.6px;
         line-height: 1.28;
     }
 
     body.invoice-paper-ready .reference-table {
         margin-bottom: 1.6mm;
-        font-size: 6.8px;
+        font-size: 7.8px;
     }
 
     body.invoice-paper-ready .description-main {
-        font-size: 6.95px;
-        line-height: 1.04;
+        font-size: 8px;
+        line-height: 1.08;
     }
 
     body.invoice-paper-ready .description-sub {
         margin-top: 0.2mm;
-        font-size: 5.45px;
-        line-height: 1.02;
+        font-size: 6.2px;
+        line-height: 1.05;
     }
 
     body.invoice-paper-ready .summary-grid {
@@ -501,7 +522,7 @@
 
     body.invoice-paper-ready .payment-table .summary-label {
         width: 54%;
-        font-size: 6.3px;
+        font-size: 7.15px;
     }
 
     body.invoice-paper-ready .payment-table .summary-value {
@@ -518,7 +539,7 @@
 
     body.invoice-paper-ready .invoice-summary-table .summary-sub {
         margin-inline-start: 0.3mm;
-        font-size: 4.9px;
+        font-size: 5.7px;
     }
 
     body.invoice-paper-ready .terms-box {
@@ -528,16 +549,16 @@
 
     body.invoice-paper-ready .terms-title {
         margin-bottom: 0.25mm;
-        font-size: 6.45px;
+        font-size: 7.15px;
     }
 
     body.invoice-paper-ready .terms-content {
-        font-size: 5.8px;
-        line-height: 1.22;
+        font-size: 6.55px;
+        line-height: 1.26;
     }
 
     body.invoice-paper-ready .signatures {
-        font-size: 6.8px;
+        font-size: 7.45px;
     }
 
     body.invoice-paper-ready .signature-label {
@@ -554,17 +575,14 @@
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .compact-title {
-        font-size: 11.7px;
         line-height: 1.08;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .compact-subtitle {
         margin-top: 0.45mm;
-        font-size: 6.25px;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .compact-meta {
-        font-size: 7.3px;
         line-height: 1.28;
         font-weight: 700;
         color: #000;
@@ -572,19 +590,19 @@
 
     body.invoice-paper-ready.invoice-orientation-landscape .reference-table {
         margin-bottom: 2.1mm;
-        font-size: 7.45px;
+        font-size: 8.45px;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .description-main {
-        font-size: 7.45px;
-        line-height: 1.07;
+        font-size: 8.6px;
+        line-height: 1.1;
         font-weight: 700;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .description-sub {
         margin-top: 0.25mm;
-        font-size: 5.8px;
-        line-height: 1.02;
+        font-size: 6.65px;
+        line-height: 1.08;
         font-weight: 600;
         color: #000;
     }
@@ -611,7 +629,7 @@
 
     body.invoice-paper-ready.invoice-orientation-landscape .payment-table .summary-label {
         width: 52%;
-        font-size: 6.7px;
+        font-size: 7.75px;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .payment-table .summary-value {
@@ -628,7 +646,7 @@
 
     body.invoice-paper-ready.invoice-orientation-landscape .invoice-summary-table .summary-sub {
         margin-inline-start: 0.4mm;
-        font-size: 5.1px;
+        font-size: 5.95px;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .terms-box {
@@ -638,17 +656,17 @@
 
     body.invoice-paper-ready.invoice-orientation-landscape .terms-title {
         margin-bottom: 0.3mm;
-        font-size: 6.8px;
+        font-size: 7.5px;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .terms-content {
-        font-size: 6.05px;
-        line-height: 1.2;
+        font-size: 6.8px;
+        line-height: 1.24;
         overflow-wrap: anywhere;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .signatures {
-        font-size: 7.25px;
+        font-size: 7.95px;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape .signature-label {
@@ -667,7 +685,7 @@
         display: flex;
         justify-content: space-between;
         gap: 3mm;
-        font-size: 6.45px;
+        font-size: 7px;
         line-height: 1.26;
     }
 
@@ -698,7 +716,7 @@
     @media print {
         html,
         body {
-            font-size: 9.35px;
+            font-size: var(--invoice-print-font-size);
             background: #fff;
         }
 

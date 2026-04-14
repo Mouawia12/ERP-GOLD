@@ -16,6 +16,11 @@
                         <h4  class="alert alert-primary text-center">
                             {{__('main.account_settings')}}
                         </h4>
+                        <div class="text-left mb-2">
+                            <a href="{{ route('accounts.settings.create') }}" class="btn btn-primary btn-sm">
+                                <i class="fa fa-plus"></i> إضافة إعداد جديد
+                            </a>
+                        </div>
                     </div>
                     <div class="clearfix"></div>
                 </div> 

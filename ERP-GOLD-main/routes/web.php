@@ -229,6 +229,50 @@ Route::group(
                     Route::any('/reports/gold_stock', [WarehouseController::class, 'gold_stock'])->name('reports.gold_stock.index');
                     Route::get('/reports/gold_stock/search', [WarehouseController::class, 'gold_stock_search'])->name('reports.gold_stock.search');
 
+                    // تقارير المقتنيات
+                    Route::get('/reports/collectible/sales_report', [StockReportsController::class, 'collectible_sales_report_search'])->name('reports.collectible.sales_report.search');
+                    Route::post('/reports/collectible/sales_report', [StockReportsController::class, 'collectible_sales_report'])->name('reports.collectible.sales_report.index');
+                    Route::get('/reports/collectible/sales_total_report', [StockReportsController::class, 'collectible_sales_total_report_search'])->name('reports.collectible.sales_total_report.search');
+                    Route::post('/reports/collectible/sales_total_report', [StockReportsController::class, 'collectible_sales_total_report'])->name('reports.collectible.sales_total_report.index');
+                    Route::get('/reports/collectible/purchases_report', [StockReportsController::class, 'collectible_purchases_report_search'])->name('reports.collectible.purchases_report.search');
+                    Route::post('/reports/collectible/purchases_report', [StockReportsController::class, 'collectible_purchases_report'])->name('reports.collectible.purchases_report.index');
+                    Route::get('/reports/collectible/purchases_total_report', [StockReportsController::class, 'collectible_purchases_total_report_search'])->name('reports.collectible.purchases_total_report.search');
+                    Route::post('/reports/collectible/purchases_total_report', [StockReportsController::class, 'collectible_purchases_total_report'])->name('reports.collectible.purchases_total_report.index');
+                    Route::get('/reports/collectible/sales_return_report', [StockReportsController::class, 'collectible_sales_return_report_search'])->name('reports.collectible.sales_return_report.search');
+                    Route::post('/reports/collectible/sales_return_report', [StockReportsController::class, 'collectible_sales_return_report'])->name('reports.collectible.sales_return_report.index');
+
+                    // تقارير الفضة
+                    Route::get('/reports/silver/sales_report', [StockReportsController::class, 'silver_sales_report_search'])->name('reports.silver.sales_report.search');
+                    Route::post('/reports/silver/sales_report', [StockReportsController::class, 'silver_sales_report'])->name('reports.silver.sales_report.index');
+                    Route::get('/reports/silver/sales_total_report', [StockReportsController::class, 'silver_sales_total_report_search'])->name('reports.silver.sales_total_report.search');
+                    Route::post('/reports/silver/sales_total_report', [StockReportsController::class, 'silver_sales_total_report'])->name('reports.silver.sales_total_report.index');
+                    Route::get('/reports/silver/purchases_report', [StockReportsController::class, 'silver_purchases_report_search'])->name('reports.silver.purchases_report.search');
+                    Route::post('/reports/silver/purchases_report', [StockReportsController::class, 'silver_purchases_report'])->name('reports.silver.purchases_report.index');
+                    Route::get('/reports/silver/purchases_total_report', [StockReportsController::class, 'silver_purchases_total_report_search'])->name('reports.silver.purchases_total_report.search');
+                    Route::post('/reports/silver/purchases_total_report', [StockReportsController::class, 'silver_purchases_total_report'])->name('reports.silver.purchases_total_report.index');
+                    Route::get('/reports/silver/sales_return_report', [StockReportsController::class, 'silver_sales_return_report_search'])->name('reports.silver.sales_return_report.search');
+                    Route::post('/reports/silver/sales_return_report', [StockReportsController::class, 'silver_sales_return_report'])->name('reports.silver.sales_return_report.index');
+
+                    // تقارير المقتنيات - إضافية
+                    Route::get('/reports/collectible/purchases_return_report', [StockReportsController::class, 'collectible_purchases_return_report_search'])->name('reports.collectible.purchases_return_report.search');
+                    Route::post('/reports/collectible/purchases_return_report', [StockReportsController::class, 'collectible_purchases_return_report'])->name('reports.collectible.purchases_return_report.index');
+                    Route::get('/reports/collectible/weight_report', [StockReportsController::class, 'collectible_weight_report_search'])->name('reports.collectible.weight_report.search');
+                    Route::post('/reports/collectible/weight_report', [StockReportsController::class, 'collectible_weight_report'])->name('reports.collectible.weight_report.index');
+                    Route::get('/reports/collectible/sold_items', [ItemsReportsController::class, 'collectible_sold_items_report'])->name('reports.collectible.sold_items_report.index');
+                    Route::post('/reports/collectible/sold_items', [ItemsReportsController::class, 'collectible_sold_items_report_search'])->name('reports.collectible.sold_items_report.search');
+                    Route::get('/reports/collectible/items_list', [ItemsReportsController::class, 'collectible_item_list_report'])->name('reports.collectible.items.list');
+                    Route::post('/reports/collectible/items_list', [ItemsReportsController::class, 'collectible_item_list_report_search'])->name('reports.collectible.items.list.search');
+
+                    // تقارير الفضة - إضافية
+                    Route::get('/reports/silver/purchases_return_report', [StockReportsController::class, 'silver_purchases_return_report_search'])->name('reports.silver.purchases_return_report.search');
+                    Route::post('/reports/silver/purchases_return_report', [StockReportsController::class, 'silver_purchases_return_report'])->name('reports.silver.purchases_return_report.index');
+                    Route::get('/reports/silver/weight_report', [StockReportsController::class, 'silver_weight_report_search'])->name('reports.silver.weight_report.search');
+                    Route::post('/reports/silver/weight_report', [StockReportsController::class, 'silver_weight_report'])->name('reports.silver.weight_report.index');
+                    Route::get('/reports/silver/sold_items', [ItemsReportsController::class, 'silver_sold_items_report'])->name('reports.silver.sold_items_report.index');
+                    Route::post('/reports/silver/sold_items', [ItemsReportsController::class, 'silver_sold_items_report_search'])->name('reports.silver.sold_items_report.search');
+                    Route::get('/reports/silver/items_list', [ItemsReportsController::class, 'silver_item_list_report'])->name('reports.silver.items.list');
+                    Route::post('/reports/silver/items_list', [ItemsReportsController::class, 'silver_item_list_report_search'])->name('reports.silver.items.list.search');
+
                     Route::get('/carats/get/{id}', [CaratController::class, 'show'])->name('carats.show');
 
                     Route::get('/prices', [PricingController::class, 'index'])->name('prices');

@@ -12,8 +12,8 @@
             <div class="card">
                 <div class="card-header pb-0 text-center">
                     <div class="col-lg-12 margin-tb ">
-                        <h4  class="alert alert-primary text-center"> 
-                        {{__('main.item_list_report')}}
+                        <h4  class="alert alert-primary text-center">
+                        {{ $pageTitle ?? __('main.item_list_report') }}
                         </h4>
                     </div>
                     <div class="clearfix"></div> 
@@ -23,8 +23,11 @@
 
                     <div class="card shadow mb-4"> 
                         <div class="card-body">
-                            <form   method="POST" action="{{ route('reports.items.list.search') }}"
+                            <form   method="POST" action="{{ $formAction ?? route('reports.items.list.search') }}"
                                     enctype="multipart/form-data" >
+                                @if(!empty($presetClassification))
+                                    <input type="hidden" name="inventory_classification" value="{{ $presetClassification }}">
+                                @endif
                                 @csrf
                                 <div class="row">
                                     <div class="col-md-4">

@@ -28,7 +28,7 @@
                             </div>   
                             <div class="col-6 title text-center">
                                 <h4  class="alert alert-primary text-center">
-                                    {{__('main.purchases_total_report')}}
+                                    {{ $reportTitle ?? __('main.purchases_total_report') }}
                                 </h4>
                                 <h5 class="text-center"> [ الفرع: {{ $branchLabel ?? ($branch?->name ?: 'جميع الفروع') }} ] </h5>
                                 <h5 class="text-center">  {{ $periodFrom . ' - ' . $periodTo}} </h5>

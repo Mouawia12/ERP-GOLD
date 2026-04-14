@@ -41,15 +41,251 @@ class StockReportsController extends Controller
         $branchSelection = $this->branchSelection($request);
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
+        $classification = $request->input('classification');
 
         $details = InvoiceDetail::with(['invoice.customer', 'item', 'carat'])
+            ->when($classification, fn ($q) => $q->whereHas('item', fn ($iq) => $iq->where('inventory_classification', $classification)))
             ->whereHas('invoice', function ($query) use ($request, $periodFrom, $periodTo, $branchSelection) {
                 $query->where('type', 'sale');
                 $this->applyInvoiceFilters($query, $request, $branchSelection, $periodFrom, $periodTo);
             })
             ->get();
 
-        return view('admin.reports.stock_reports.sales_report.index', compact('periodFrom', 'periodTo', 'branch', 'branchLabel', 'details'));
+        $reportTitle = $this->classificationReportTitle($classification, 'تقرير المبيعات التفصيلي');
+        return view('admin.reports.stock_reports.sales_report.index', compact('periodFrom', 'periodTo', 'branch', 'branchLabel', 'details', 'reportTitle'));
+    }
+
+    // ---- تقارير المقتنيات ----
+    public function collectible_sales_report_search()
+    {
+        return view('admin.reports.stock_reports.sales_report.search', array_merge(
+            $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d')),
+            ['presetClassification' => Item::CLASSIFICATION_COLLECTIBLE, 'pageTitle' => 'تقرير مبيعات المقتنيات التفصيلي']
+        ));
+    }
+
+    public function collectible_sales_report(Request $request)
+    {
+        $request->merge(['classification' => Item::CLASSIFICATION_COLLECTIBLE]);
+        return $this->sales_report($request);
+    }
+
+    public function collectible_sales_total_report_search()
+    {
+        return view('admin.reports.stock_reports.sales_total_report.search', array_merge(
+            $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d')),
+            ['presetClassification' => Item::CLASSIFICATION_COLLECTIBLE, 'pageTitle' => 'تقرير مبيعات المقتنيات الإجمالي']
+        ));
+    }
+
+    public function collectible_sales_total_report(Request $request)
+    {
+        $request->merge(['classification' => Item::CLASSIFICATION_COLLECTIBLE]);
+        return $this->sales_total_report($request);
+    }
+
+    public function collectible_purchases_report_search()
+    {
+        return view('admin.reports.stock_reports.purchases_report.search', array_merge(
+            $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d')),
+            ['presetClassification' => Item::CLASSIFICATION_COLLECTIBLE, 'pageTitle' => 'تقرير مشتريات المقتنيات التفصيلي']
+        ));
+    }
+
+    public function collectible_purchases_report(Request $request)
+    {
+        $request->merge(['classification' => Item::CLASSIFICATION_COLLECTIBLE]);
+        return $this->purchases_report($request);
+    }
+
+    public function collectible_purchases_total_report_search()
+    {
+        return view('admin.reports.stock_reports.purchases_total_report.search', array_merge(
+            $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d')),
+            ['presetClassification' => Item::CLASSIFICATION_COLLECTIBLE, 'pageTitle' => 'تقرير مشتريات المقتنيات الإجمالي']
+        ));
+    }
+
+    public function collectible_purchases_total_report(Request $request)
+    {
+        $request->merge(['classification' => Item::CLASSIFICATION_COLLECTIBLE]);
+        return $this->purchases_total_report($request);
+    }
+
+    public function collectible_sales_return_report_search()
+    {
+        return view('admin.reports.stock_reports.sales_return_total_report.search', array_merge(
+            $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d')),
+            ['presetClassification' => Item::CLASSIFICATION_COLLECTIBLE, 'pageTitle' => 'تقرير مرتجعات مبيعات المقتنيات']
+        ));
+    }
+
+    public function collectible_sales_return_report(Request $request)
+    {
+        $request->merge(['classification' => Item::CLASSIFICATION_COLLECTIBLE]);
+        return $this->sales_return_total_report($request);
+    }
+
+    // ---- تقارير الفضة ----
+    public function silver_sales_report_search()
+    {
+        return view('admin.reports.stock_reports.sales_report.search', array_merge(
+            $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d')),
+            ['presetClassification' => Item::CLASSIFICATION_SILVER, 'pageTitle' => 'تقرير مبيعات الفضة التفصيلي']
+        ));
+    }
+
+    public function silver_sales_report(Request $request)
+    {
+        $request->merge(['classification' => Item::CLASSIFICATION_SILVER]);
+        return $this->sales_report($request);
+    }
+
+    public function silver_sales_total_report_search()
+    {
+        return view('admin.reports.stock_reports.sales_total_report.search', array_merge(
+            $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d')),
+            ['presetClassification' => Item::CLASSIFICATION_SILVER, 'pageTitle' => 'تقرير مبيعات الفضة الإجمالي']
+        ));
+    }
+
+    public function silver_sales_total_report(Request $request)
+    {
+        $request->merge(['classification' => Item::CLASSIFICATION_SILVER]);
+        return $this->sales_total_report($request);
+    }
+
+    public function silver_purchases_report_search()
+    {
+        return view('admin.reports.stock_reports.purchases_report.search', array_merge(
+            $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d')),
+            ['presetClassification' => Item::CLASSIFICATION_SILVER, 'pageTitle' => 'تقرير مشتريات الفضة التفصيلي']
+        ));
+    }
+
+    public function silver_purchases_report(Request $request)
+    {
+        $request->merge(['classification' => Item::CLASSIFICATION_SILVER]);
+        return $this->purchases_report($request);
+    }
+
+    public function silver_purchases_total_report_search()
+    {
+        return view('admin.reports.stock_reports.purchases_total_report.search', array_merge(
+            $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d')),
+            ['presetClassification' => Item::CLASSIFICATION_SILVER, 'pageTitle' => 'تقرير مشتريات الفضة الإجمالي']
+        ));
+    }
+
+    public function silver_purchases_total_report(Request $request)
+    {
+        $request->merge(['classification' => Item::CLASSIFICATION_SILVER]);
+        return $this->purchases_total_report($request);
+    }
+
+    public function silver_sales_return_report_search()
+    {
+        return view('admin.reports.stock_reports.sales_return_total_report.search', array_merge(
+            $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d')),
+            ['presetClassification' => Item::CLASSIFICATION_SILVER, 'pageTitle' => 'تقرير مرتجعات مبيعات الفضة']
+        ));
+    }
+
+    public function silver_sales_return_report(Request $request)
+    {
+        $request->merge(['classification' => Item::CLASSIFICATION_SILVER]);
+        return $this->sales_return_total_report($request);
+    }
+
+    // ---- تقرير حركة الوزن للمقتنيات ----
+    public function collectible_weight_report_search()
+    {
+        return view('admin.reports.stock_reports.daily_carat_report.search', array_merge(
+            $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d'), true),
+            ['presetClassification' => Item::CLASSIFICATION_COLLECTIBLE, 'pageTitle' => 'تقرير حركة وزن المقتنيات', 'formAction' => route('reports.collectible.weight_report.index')]
+        ));
+    }
+
+    public function collectible_weight_report(Request $request)
+    {
+        $request->merge(['classification' => Item::CLASSIFICATION_COLLECTIBLE]);
+        return $this->daily_carat_report($request);
+    }
+
+    // ---- تقرير حركة الوزن للفضة ----
+    public function silver_weight_report_search()
+    {
+        return view('admin.reports.stock_reports.daily_carat_report.search', array_merge(
+            $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d'), true),
+            ['presetClassification' => Item::CLASSIFICATION_SILVER, 'pageTitle' => 'تقرير حركة وزن الفضة', 'formAction' => route('reports.silver.weight_report.index')]
+        ));
+    }
+
+    public function silver_weight_report(Request $request)
+    {
+        $request->merge(['classification' => Item::CLASSIFICATION_SILVER]);
+        return $this->daily_carat_report($request);
+    }
+
+    // ---- تقرير مرتجعات المشتريات (عام) ----
+    public function purchases_return_report_search()
+    {
+        return view('admin.reports.stock_reports.purchases_total_report.search', $this->stockReportFiltersData(
+            Carbon::now()->startOfYear()->format('Y-m-d'),
+            Carbon::now()->endOfYear()->format('Y-m-d'),
+        ));
+    }
+
+    public function purchases_return_report(Request $request)
+    {
+        [$periodFrom, $periodTo] = $this->resolvePeriod(
+            $request,
+            Carbon::now()->startOfYear()->format('Y-m-d'),
+            Carbon::now()->endOfYear()->format('Y-m-d'),
+        );
+        $branchSelection = $this->branchSelection($request);
+        $branch = $branchSelection['single_branch'];
+        $branchLabel = $branchSelection['branch_label'];
+        $classification = $request->input('classification');
+
+        $purchases = Invoice::with('customer')
+            ->where('type', 'purchase_return');
+        $this->applyInvoiceFilters($purchases, $request, $branchSelection, $periodFrom, $periodTo);
+        if ($classification) {
+            $purchases->whereHas('details', fn ($dq) => $dq->whereHas('item', fn ($iq) => $iq->where('inventory_classification', $classification)));
+        }
+        $purchases = $purchases->get();
+
+        $reportTitle = $this->classificationReportTitle($classification, 'تقرير مرتجعات المشتريات');
+        return view('admin.reports.stock_reports.purchases_total_report.index', compact('periodFrom', 'periodTo', 'branch', 'branchLabel', 'purchases', 'reportTitle'));
+    }
+
+    public function collectible_purchases_return_report_search()
+    {
+        return view('admin.reports.stock_reports.purchases_total_report.search', array_merge(
+            $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d')),
+            ['presetClassification' => Item::CLASSIFICATION_COLLECTIBLE, 'pageTitle' => 'تقرير مرتجعات مشتريات المقتنيات', 'formAction' => route('reports.collectible.purchases_return_report.index')]
+        ));
+    }
+
+    public function collectible_purchases_return_report(Request $request)
+    {
+        $request->merge(['classification' => Item::CLASSIFICATION_COLLECTIBLE]);
+        return $this->purchases_return_report($request);
+    }
+
+    public function silver_purchases_return_report_search()
+    {
+        return view('admin.reports.stock_reports.purchases_total_report.search', array_merge(
+            $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d')),
+            ['presetClassification' => Item::CLASSIFICATION_SILVER, 'pageTitle' => 'تقرير مرتجعات مشتريات الفضة', 'formAction' => route('reports.silver.purchases_return_report.index')]
+        ));
+    }
+
+    public function silver_purchases_return_report(Request $request)
+    {
+        $request->merge(['classification' => Item::CLASSIFICATION_SILVER]);
+        return $this->purchases_return_report($request);
     }
 
     public function sales_total_report_search()
@@ -70,10 +306,14 @@ class StockReportsController extends Controller
         $branchSelection = $this->branchSelection($request);
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
+        $classification = $request->input('classification');
 
         $sales = Invoice::with('customer')
             ->where('type', 'sale');
         $this->applyInvoiceFilters($sales, $request, $branchSelection, $periodFrom, $periodTo);
+        if ($classification) {
+            $sales->whereHas('details', fn ($dq) => $dq->whereHas('item', fn ($iq) => $iq->where('inventory_classification', $classification)));
+        }
         $sales = $sales->get();
 
         $salesByCarat = InvoiceDetail::query()
@@ -81,6 +321,10 @@ class StockReportsController extends Controller
             ->join('gold_carats', 'invoice_details.gold_carat_id', '=', 'gold_carats.id')
             ->where('invoices.type', 'sale');
         $this->applyInvoiceFilters($salesByCarat, $request, $branchSelection, $periodFrom, $periodTo, 'invoices');
+        if ($classification) {
+            $salesByCarat->join('items', 'invoice_details.item_id', '=', 'items.id')
+                ->where('items.inventory_classification', $classification);
+        }
 
         $sales_by_carat = $salesByCarat
             ->selectRaw('
@@ -100,7 +344,8 @@ class StockReportsController extends Controller
                 return $row;
             });
 
-        return view('admin.reports.stock_reports.sales_total_report.index', compact('periodFrom', 'periodTo', 'branch', 'branchLabel', 'sales', 'sales_by_carat'));
+        $reportTitle = $this->classificationReportTitle($classification, 'تقرير المبيعات الإجمالي');
+        return view('admin.reports.stock_reports.sales_total_report.index', compact('periodFrom', 'periodTo', 'branch', 'branchLabel', 'sales', 'sales_by_carat', 'reportTitle'));
     }
 
     public function sales_return_total_report_search()
@@ -121,10 +366,14 @@ class StockReportsController extends Controller
         $branchSelection = $this->branchSelection($request);
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
+        $classification = $request->input('classification');
 
         $sales_return = Invoice::with('customer')
             ->where('type', 'sale_return');
         $this->applyInvoiceFilters($sales_return, $request, $branchSelection, $periodFrom, $periodTo);
+        if ($classification) {
+            $sales_return->whereHas('details', fn ($dq) => $dq->whereHas('item', fn ($iq) => $iq->where('inventory_classification', $classification)));
+        }
         $sales_return = $sales_return->get();
 
         $salesReturnByCarat = InvoiceDetail::query()
@@ -132,6 +381,10 @@ class StockReportsController extends Controller
             ->join('gold_carats', 'invoice_details.gold_carat_id', '=', 'gold_carats.id')
             ->where('invoices.type', 'sale_return');
         $this->applyInvoiceFilters($salesReturnByCarat, $request, $branchSelection, $periodFrom, $periodTo, 'invoices');
+        if ($classification) {
+            $salesReturnByCarat->join('items', 'invoice_details.item_id', '=', 'items.id')
+                ->where('items.inventory_classification', $classification);
+        }
 
         $sales_return_by_carat = $salesReturnByCarat
             ->selectRaw('
@@ -151,7 +404,8 @@ class StockReportsController extends Controller
                 return $row;
             });
 
-        return view('admin.reports.stock_reports.sales_return_total_report.index', compact('periodFrom', 'periodTo', 'branch', 'branchLabel', 'sales_return', 'sales_return_by_carat'));
+        $reportTitle = $this->classificationReportTitle($classification, 'تقرير مرتجعات المبيعات');
+        return view('admin.reports.stock_reports.sales_return_total_report.index', compact('periodFrom', 'periodTo', 'branch', 'branchLabel', 'sales_return', 'sales_return_by_carat', 'reportTitle'));
     }
 
     public function purchases_report_search()
@@ -172,15 +426,18 @@ class StockReportsController extends Controller
         $branchSelection = $this->branchSelection($request);
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
+        $classification = $request->input('classification');
 
         $details = InvoiceDetail::with(['invoice.customer', 'item', 'carat'])
+            ->when($classification, fn ($q) => $q->whereHas('item', fn ($iq) => $iq->where('inventory_classification', $classification)))
             ->whereHas('invoice', function ($query) use ($request, $periodFrom, $periodTo, $branchSelection) {
                 $query->where('type', 'purchase');
                 $this->applyInvoiceFilters($query, $request, $branchSelection, $periodFrom, $periodTo);
             })
             ->get();
 
-        return view('admin.reports.stock_reports.purchases_report.index', compact('periodFrom', 'periodTo', 'branch', 'branchLabel', 'details'));
+        $reportTitle = $this->classificationReportTitle($classification, 'تقرير المشتريات التفصيلي');
+        return view('admin.reports.stock_reports.purchases_report.index', compact('periodFrom', 'periodTo', 'branch', 'branchLabel', 'details', 'reportTitle'));
     }
 
     public function purchases_total_report_search()
@@ -201,13 +458,18 @@ class StockReportsController extends Controller
         $branchSelection = $this->branchSelection($request);
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
+        $classification = $request->input('classification');
 
         $purchases = Invoice::with('customer')
             ->where('type', 'purchase');
         $this->applyInvoiceFilters($purchases, $request, $branchSelection, $periodFrom, $periodTo);
+        if ($classification) {
+            $purchases->whereHas('details', fn ($dq) => $dq->whereHas('item', fn ($iq) => $iq->where('inventory_classification', $classification)));
+        }
         $purchases = $purchases->get();
 
-        return view('admin.reports.stock_reports.purchases_total_report.index', compact('periodFrom', 'periodTo', 'branch', 'branchLabel', 'purchases'));
+        $reportTitle = $this->classificationReportTitle($classification, 'تقرير المشتريات الإجمالي');
+        return view('admin.reports.stock_reports.purchases_total_report.index', compact('periodFrom', 'periodTo', 'branch', 'branchLabel', 'purchases', 'reportTitle'));
     }
 
     public function daily_carat_report_search()
@@ -233,6 +495,7 @@ class StockReportsController extends Controller
         $carat = $request->filled('carat_id') ? GoldCarat::find($request->carat_id) : null;
         $fromTime = $this->normalizeTime($request->input('from_time'));
         $toTime = $this->normalizeTime($request->input('to_time'));
+        $classification = $request->input('classification');
 
         $rowsQuery = InvoiceDetail::query()
             ->join('invoices', 'invoice_details.invoice_id', '=', 'invoices.id')
@@ -240,6 +503,14 @@ class StockReportsController extends Controller
             ->whereIn('invoices.type', ['sale', 'purchase', 'sale_return', 'purchase_return'])
             ->when($request->carat_id, function ($query) use ($request) {
                 return $query->where('invoice_details.gold_carat_id', $request->carat_id);
+            })
+            ->when($classification, function ($query) use ($classification) {
+                return $query->whereExists(function ($sub) use ($classification) {
+                    $sub->select(DB::raw(1))
+                        ->from('items')
+                        ->whereColumn('items.id', 'invoice_details.item_id')
+                        ->where('items.inventory_classification', $classification);
+                });
             });
         $this->applyInvoiceFilters($rowsQuery, $request, $branchSelection, $periodFrom, $periodTo, 'invoices');
 
@@ -309,6 +580,7 @@ class StockReportsController extends Controller
             ->sortByDesc('operation_date')
             ->values();
 
+        $reportTitle = $this->classificationReportTitle($classification, 'التقرير اليومي للمبيعات والمشتريات حسب العيار');
         return view('admin.reports.stock_reports.daily_carat_report.index', compact(
             'periodFrom',
             'periodTo',
@@ -320,8 +592,18 @@ class StockReportsController extends Controller
             'toTime',
             'rows',
             'operationSummary',
-            'dailyTotals'
+            'dailyTotals',
+            'reportTitle'
         ));
+    }
+
+    private function classificationReportTitle(?string $classification, string $base): string
+    {
+        return match ($classification) {
+            Item::CLASSIFICATION_COLLECTIBLE => 'مقتنيات - ' . $base,
+            Item::CLASSIFICATION_SILVER => 'فضة - ' . $base,
+            default => $base,
+        };
     }
 
     private function operationLabel(string $type): string

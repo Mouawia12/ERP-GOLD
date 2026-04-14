@@ -51,7 +51,7 @@
                             </div>   
                             <div class="col-6 title text-center"> 
                                 <h4  class="alert alert-primary text-center">
-                                    {{__('main.sales_report')}}
+                                    {{ $reportTitle ?? __('main.sales_report') }}
                                 </h4>  
                                 <h5 class="text-center"> [ {{ $branchLabel ?? ($branch?->name ?: __('main.all_branches')) }} ] </h5>
                                 <h5 class="text-center"> {{$periodFrom}} - {{$periodTo}} </h5>

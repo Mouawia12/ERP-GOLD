@@ -145,42 +145,42 @@
                 <table class="reference-table">
                     <thead>
                         <tr>
-                            <th style="width: 5%;">
+                            <th style="width: 4.5%;">
                                 <span class="head-main">م</span>
                             </th>
-                            <th style="width: 21%;">
+                            <th style="width: 23%;">
                                 <span class="head-main">وصف الصنف</span>
                                 <span class="head-sub">(Item)</span>
                             </th>
-                            <th style="width: 8%;">
+                            <th style="width: 7%;">
                                 <span class="head-main">العيار</span>
                                 <span class="head-sub">(Karat)</span>
                             </th>
-                            <th style="width: 10%;">
+                            <th style="width: 8.5%;">
                                 <span class="head-main">وزن الذهب</span>
                                 <span class="head-sub">(Weight)</span>
                             </th>
-                            <th style="width: 8%;">
+                            <th style="width: 5.5%;">
                                 <span class="head-main">العدد</span>
                                 <span class="head-sub">(Count)</span>
                             </th>
-                            <th style="width: 10%;">
+                            <th style="width: 8.5%;">
                                 <span class="head-main">ما خلا من المعدن</span>
                                 <span class="head-sub">(Non Metal)</span>
                             </th>
-                            <th style="width: 10%;">
+                            <th style="width: 9%;">
                                 <span class="head-main">سعر الجرام</span>
                                 <span class="head-sub">(Gram Price)</span>
                             </th>
-                            <th style="width: 10%;">
+                            <th style="width: 9.5%;">
                                 <span class="head-main">الإجمالي</span>
                                 <span class="head-sub">(Total)</span>
                             </th>
-                            <th style="width: 8%;">
+                            <th style="width: 7%;">
                                 <span class="head-main">الضريبة</span>
                                 <span class="head-sub">(Vat)</span>
                             </th>
-                            <th style="width: 10%;">
+                            <th style="width: 17.5%;">
                                 <span class="head-main">الإجمالي شامل الضريبة</span>
                                 <span class="head-sub">(Total With Vat)</span>
                             </th>
@@ -198,7 +198,17 @@
                                 <td>{{ $index + 1 }}</td>
                                 <td class="description-cell">
                                     <span class="description-main">{{ strip_tags((string) $detail->item->title) }}</span>
-                                    <span class="description-sub ltr">{{ $detail->unit->barcode ?: '---' }}</span>
+                                    @if(in_array($detail->item->inventory_classification, ['collectible', 'silver']))
+                                        @if($detail->item->stone_size_1 || $detail->item->stone_size_2)
+                                            <span class="description-sub">مقاس: {{ $detail->item->stone_size_1 }}{{ $detail->item->stone_size_2 ? '/' . $detail->item->stone_size_2 : '' }}</span>
+                                        @endif
+                                        @if($detail->item->stone_clarity || $detail->item->stone_color)
+                                            <span class="description-sub">{{ $detail->item->stone_clarity }} {{ $detail->item->stone_color }}</span>
+                                        @endif
+                                        @if($detail->item->brand)
+                                            <span class="description-sub">{{ $detail->item->brand }}</span>
+                                        @endif
+                                    @endif
                                 </td>
                                 <td>{{ $detail->carat_display_label ?: '---' }}</td>
                                 <td><span class="ltr">{{ $fmtWeight($weight) }}</span></td>

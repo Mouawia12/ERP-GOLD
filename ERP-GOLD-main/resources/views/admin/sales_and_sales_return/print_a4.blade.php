@@ -100,7 +100,8 @@
             padding: 0;
             color: #111;
             font-family: 'Almarai', 'DejaVu Sans', sans-serif;
-            font-size: 12px;
+            font-size: var(--invoice-screen-font-size);
+            font-weight: 700;
             line-height: 1.45;
         }
 
@@ -110,6 +111,11 @@
             --table-header-bg: #e0e0e0;
             --screen-background: #f3f4f6;
             --screen-outline: #d4d4d8;
+            --invoice-screen-font-size: 13px;
+            --invoice-print-font-size: 11px;
+            --invoice-title-font-size: 24px;
+            --invoice-title-en-font-size: 14px;
+            --invoice-meta-font-size: 16px;
             --company-font-size: 12px;
             --logo-frame-width: 168px;
             --logo-frame-height: 88px;
@@ -125,6 +131,9 @@
         }
 
         body.invoice-template-compact {
+            --invoice-title-font-size: 21px;
+            --invoice-title-en-font-size: 13px;
+            --invoice-meta-font-size: 14px;
             --company-font-size: 11px;
             --logo-frame-width: 152px;
             --logo-frame-height: 80px;
@@ -144,6 +153,12 @@
             --table-header-bg: #dbe4f0;
             --screen-background: #eef2ff;
             --screen-outline: #cbd5e1;
+        }
+
+        table,
+        th,
+        td {
+            font-size: inherit;
         }
 
         .page {
@@ -234,7 +249,7 @@
 
         .invoice-title {
             margin: 0;
-            font-size: 17px;
+            font-size: var(--invoice-title-font-size);
             font-weight: 700;
             white-space: normal;
             overflow-wrap: anywhere;
@@ -242,7 +257,7 @@
 
         .invoice-title-en {
             margin: 2px 0 0;
-            font-size: 13px;
+            font-size: var(--invoice-title-en-font-size);
             font-weight: 700;
             white-space: normal;
             overflow-wrap: anywhere;
@@ -307,7 +322,7 @@
             display: flex;
             align-items: flex-start;
             gap: 6px;
-            font-size: 13px;
+            font-size: var(--invoice-meta-font-size);
             line-height: 1.6;
             font-weight: 700;
         }
@@ -498,6 +513,7 @@
             html,
             body {
                 background: #fff;
+                font-size: var(--invoice-print-font-size);
             }
 
             .page {
@@ -628,7 +644,17 @@
                             <td>{{ $index + 1 }}</td>
                             <td class="description-cell">
                                 {{ strip_tags((string) $detail->item->title) }}
-                                <span class="sub-line ltr">{{ $detail->unit->barcode ?: '---' }}</span>
+                                @if(in_array($detail->item->inventory_classification, ['collectible', 'silver']))
+                                    @if($detail->item->stone_size_1 || $detail->item->stone_size_2)
+                                        <span class="sub-line">مقاس الحجر: {{ $detail->item->stone_size_1 }}{{ $detail->item->stone_size_2 ? ' / ' . $detail->item->stone_size_2 : '' }}</span>
+                                    @endif
+                                    @if($detail->item->stone_clarity || $detail->item->stone_color)
+                                        <span class="sub-line">{{ $detail->item->stone_clarity }}{{ ($detail->item->stone_clarity && $detail->item->stone_color) ? ' - ' : '' }}{{ $detail->item->stone_color }}</span>
+                                    @endif
+                                    @if($detail->item->brand)
+                                        <span class="sub-line">{{ $detail->item->brand }}{{ $detail->item->model_number ? ' / ' . $detail->item->model_number : '' }}</span>
+                                    @endif
+                                @endif
                             </td>
                             <td>{{ $detail->carat_display_label }}</td>
                             <td><span class="ltr">{{ $fmtWeight($weight) }}</span></td>

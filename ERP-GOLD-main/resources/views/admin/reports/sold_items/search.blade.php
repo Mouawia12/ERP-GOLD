@@ -13,14 +13,17 @@
             <div class="card-header pb-0">
                 <div class="col-lg-12 margin-tb">
                     <h4 class="alert alert-primary text-center mb-0">
-                        {{ __('main.sold_items_report') }}
+                        {{ $pageTitle ?? __('main.sold_items_report') }}
                     </h4>
                 </div>
                 <div class="clearfix"></div>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ route('reports.sold_items_report.search') }}">
+                <form method="POST" action="{{ $formAction ?? route('reports.sold_items_report.search') }}">
                     @csrf
+                    @if(!empty($presetClassification))
+                        <input type="hidden" name="inventory_classification" value="{{ $presetClassification }}">
+                    @endif
                     <div class="row">
                         <div class="col-lg-2 col-md-3">
                             <div class="form-group">

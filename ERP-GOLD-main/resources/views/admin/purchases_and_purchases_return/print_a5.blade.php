@@ -204,7 +204,6 @@
                             <td>{{ $index + 1 }}</td>
                             <td class="description-cell">
                                 <span class="description-main">{{ strip_tags((string) $detail->item->title) }}</span>
-                                <span class="sub-line ltr">{{ $detail->unit->barcode ?: '---' }}</span>
                             </td>
                             <td>
                                 <span class="description-main">{{ $detail->carat_display_label ?: '---' }}</span>

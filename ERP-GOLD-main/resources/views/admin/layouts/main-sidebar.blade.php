@@ -595,7 +595,7 @@
                     </ul>
                 </li> 
             @endcan   
-            @can('employee.inventory_reports.show')                  
+            @can('employee.inventory_reports.show')
                 @php
                     $inventoryReportsSectionActive = request()->routeIs(
                         'reports.items.list',
@@ -617,44 +617,44 @@
                         <span class="side-menu__label">
                          تقارير المخزون
                     </span><i class="angle fe fe-chevron-down"></i>
-                    </a> 
-                    <ul class="slide-menu">  
+                    </a>
+                    <ul class="slide-menu">
                         <li>
                             <a class="slide-item" href="{{route('reports.items.list')}}">
                             {{__('main.item_list_report')}}
                             </a>
-                        </li>  
-                  
+                        </li>
+
                         <li>
                             <a class="slide-item" href="{{route('reports.sold_items_report.index')}}">
                             {{__('main.sold_items_report')}}
                             </a>
-                        </li>    
+                        </li>
                         <li>
                             <a class="slide-item" href="{{route('reports.sales_report.search')}}">
                             {{__('main.sales_report')}}
                             </a>
-                        </li>   
+                        </li>
                         <li>
                             <a class="slide-item" href="{{route('reports.sales_total_report.search')}}">
                             {{__('main.sales_total_report')}}
                             </a>
-                        </li> 
+                        </li>
                         <li>
                             <a class="slide-item" href="{{route('reports.sales_return_total_report.search')}}">
                             {{__('main.sales_return_total_report')}}
                             </a>
-                        </li> 
+                        </li>
                         <li>
                             <a class="slide-item" href="{{route('reports.purchases_report.search')}}">
                             {{__('main.purchase_report')}}
                             </a>
-                        </li>  
+                        </li>
                         <li>
                             <a class="slide-item" href="{{route('reports.purchases_total_report.search')}}">
                             {{__('main.purchase_total_report')}}
                             </a>
-                        </li> 
+                        </li>
                         <li>
                             <a class="slide-item" href="{{route('reports.daily_carat_report.search')}}">
                             التقرير اليومي حسب العيار
@@ -664,21 +664,67 @@
                             <a class="slide-item" href="{{route('reports.gold_stock.search')}}">
                             {{__('main.gold_stock_report')}}
                             </a>
-                        </li>  
-                                                @can('employee.stock_settlements.show')
+                        </li>
+                        @can('employee.stock_settlements.show')
                         <li>
                             <a class="slide-item" href="{{route('stock_settlements.index')}}">
                             {{__('main.stock_settlements')}}
                             </a>
-                        </li> 
+                        </li>
                         <li>
                             <a class="slide-item" href="{{route('stock_settlements.create_by_default')}}">
                             {{__('main.stock_settlements_by_default')}}
                             </a>
-                        </li>   
-                        @endcan                  
+                        </li>
+                        @endcan
                     </ul>
-                </li>     
+                </li>
+
+                {{-- تقارير المقتنيات --}}
+                @php
+                    $collectibleReportsSectionActive = request()->routeIs('reports.collectible.*');
+                @endphp
+                <li class="slide {{ $collectibleReportsSectionActive ? 'is-expanded' : '' }}">
+                    <a class="side-menu__item {{ $collectibleReportsSectionActive ? 'active' : '' }}" data-toggle="slide" href="#">
+                        <i class="fa fa-gem side-menu__icon"></i>
+                        <span class="side-menu__label">تقارير المقتنيات</span>
+                        <i class="angle fe fe-chevron-down"></i>
+                    </a>
+                    <ul class="slide-menu">
+                        <li><a class="slide-item" href="{{ route('reports.collectible.sales_report.search') }}">تقرير المبيعات التفصيلي</a></li>
+                        <li><a class="slide-item" href="{{ route('reports.collectible.sales_total_report.search') }}">تقرير المبيعات الإجمالي</a></li>
+                        <li><a class="slide-item" href="{{ route('reports.collectible.sales_return_report.search') }}">تقرير مرتجعات المبيعات</a></li>
+                        <li><a class="slide-item" href="{{ route('reports.collectible.purchases_report.search') }}">تقرير المشتريات التفصيلي</a></li>
+                        <li><a class="slide-item" href="{{ route('reports.collectible.purchases_total_report.search') }}">تقرير المشتريات الإجمالي</a></li>
+                        <li><a class="slide-item" href="{{ route('reports.collectible.purchases_return_report.search') }}">تقرير مرتجعات المشتريات</a></li>
+                        <li><a class="slide-item" href="{{ route('reports.collectible.weight_report.search') }}">تقرير حركة الوزن</a></li>
+                        <li><a class="slide-item" href="{{ route('reports.collectible.sold_items_report.index') }}">الأصناف المباعة</a></li>
+                        <li><a class="slide-item" href="{{ route('reports.collectible.items.list') }}">قائمة الأصناف</a></li>
+                    </ul>
+                </li>
+
+                {{-- تقارير الفضة --}}
+                @php
+                    $silverReportsSectionActive = request()->routeIs('reports.silver.*');
+                @endphp
+                <li class="slide {{ $silverReportsSectionActive ? 'is-expanded' : '' }}">
+                    <a class="side-menu__item {{ $silverReportsSectionActive ? 'active' : '' }}" data-toggle="slide" href="#">
+                        <i class="fa fa-circle side-menu__icon"></i>
+                        <span class="side-menu__label">تقارير الفضة</span>
+                        <i class="angle fe fe-chevron-down"></i>
+                    </a>
+                    <ul class="slide-menu">
+                        <li><a class="slide-item" href="{{ route('reports.silver.sales_report.search') }}">تقرير المبيعات التفصيلي</a></li>
+                        <li><a class="slide-item" href="{{ route('reports.silver.sales_total_report.search') }}">تقرير المبيعات الإجمالي</a></li>
+                        <li><a class="slide-item" href="{{ route('reports.silver.sales_return_report.search') }}">تقرير مرتجعات المبيعات</a></li>
+                        <li><a class="slide-item" href="{{ route('reports.silver.purchases_report.search') }}">تقرير المشتريات التفصيلي</a></li>
+                        <li><a class="slide-item" href="{{ route('reports.silver.purchases_total_report.search') }}">تقرير المشتريات الإجمالي</a></li>
+                        <li><a class="slide-item" href="{{ route('reports.silver.purchases_return_report.search') }}">تقرير مرتجعات المشتريات</a></li>
+                        <li><a class="slide-item" href="{{ route('reports.silver.weight_report.search') }}">تقرير حركة الوزن</a></li>
+                        <li><a class="slide-item" href="{{ route('reports.silver.sold_items_report.index') }}">الأصناف المباعة</a></li>
+                        <li><a class="slide-item" href="{{ route('reports.silver.items.list') }}">قائمة الأصناف</a></li>
+                    </ul>
+                </li>
             @endcan  
             @can('employee.accounting_reports.show')                  
                 @php

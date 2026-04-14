@@ -23,7 +23,7 @@
 <div class="container-fluid daily-carat-report-page">
     <div class="card shadow mb-4">
         <div class="card-header py-3 text-center">
-            <h4 class="alert alert-primary text-center mb-3">التقرير اليومي للمبيعات والمشتريات حسب العيار</h4>
+            <h4 class="alert alert-primary text-center mb-3">{{ $reportTitle ?? 'التقرير اليومي للمبيعات والمشتريات حسب العيار' }}</h4>
             <div>
                 <strong>{{ $periodFrom }} - {{ $periodTo }}</strong>
                 @if($fromTime || $toTime)

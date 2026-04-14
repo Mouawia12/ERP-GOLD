@@ -12,6 +12,8 @@
         $sheetWidth = $printFormat === 'a5' ? '148mm' : '210mm';
         $screenFontSize = $printFormat === 'a5' ? '12px' : '13px';
         $printFontSize = $printFormat === 'a5' ? '10px' : '11px';
+        $titleFontSize = $printFormat === 'a5' ? '20px' : '24px';
+        $metaFontSize = $printFormat === 'a5' ? '14px' : '16px';
         $headerHeight = $printFormat === 'a5' ? '2.4cm' : '3cm';
         $qrWidth = $printFormat === 'a5' ? '96px' : '120px';
     @endphp
@@ -36,7 +38,7 @@
 
         body, html {
             color: #000;
-            font-family: 'Almarai' !important;
+            font-family: 'Almarai', sans-serif !important;
             font-size: {{ $screenFontSize }} !important;
             font-weight: bold;
             margin: 0;
@@ -44,6 +46,22 @@
             page-break-before: avoid;
             page-break-after: avoid;
             page-break-inside: avoid;
+        }
+
+        h4 {
+            font-size: {{ $titleFontSize }} !important;
+            font-weight: 700 !important;
+        }
+
+        h6 {
+            font-size: {{ $metaFontSize }} !important;
+            font-weight: 700 !important;
+        }
+
+        table,
+        th,
+        td {
+            font-size: inherit;
         }
 
         .invoice-print-sheet {
@@ -156,7 +174,7 @@
             color: #000;
             padding: 0px;
             margin: 0;
-            font-family: 'Almarai' !important;
+            font-family: 'Almarai', sans-serif !important;
             font-size: {{ $printFontSize }} !important;
             font-weight: bold !important;
             page-break-before: avoid;
@@ -313,7 +331,7 @@
                     : ($detail->in_weight ?: $detail->out_weight);
             @endphp
                 <tr>
-                    <td class="text-center" > {!!$detail->item->title . '<br>' . $detail->unit->barcode!!} </td>
+                    <td class="text-center" > {!!$detail->item->title!!} </td>
                     <td class="text-center"> {{ $detail->carat_display_label }} </td>
                     <td class="text-center"> {{$weight}} </td>
 					<td class="text-center"> 1 </td>

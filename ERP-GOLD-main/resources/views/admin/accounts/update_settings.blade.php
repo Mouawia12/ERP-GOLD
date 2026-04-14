@@ -353,15 +353,125 @@
                                                     <option value="{{$brand->id}}" @if($brand -> id == $setting -> suppliers_account) selected @endif>{{$brand->name}}</option>
                                                 @endforeach
                                             </select>
-                                            @error('brand')
-                                            <span class="invalid-feedback" role="alert">
-                                        <strong>{{ $message }}</strong>
-                                    </span>
-                                            @enderror
                                         </div>
                                     </div>
-                                </div> 
-                            </div> 
+                                </div>
+
+                                {{-- حسابات المقتنيات --}}
+                                <div class="col-12 mt-3 mb-2">
+                                    <h5 class="alert alert-warning text-center">حسابات المقتنيات</h5>
+                                </div>
+                                <div class="row col-6">
+                                    <div class="col-12">
+                                        <div class="form-group">
+                                            <label>حساب مبيعات المقتنيات</label>
+                                            <select class="js-example-basic-single w-100" name="collectible_sales_account">
+                                                <option value="">-- اختر الحساب --</option>
+                                                @foreach($accounts as $brand)
+                                                    <option value="{{$brand->id}}" @if($brand->id == $setting->collectible_sales_account) selected @endif>{{$brand->name}}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row col-6">
+                                    <div class="col-12">
+                                        <div class="form-group">
+                                            <label>حساب مرتجعات مبيعات المقتنيات</label>
+                                            <select class="js-example-basic-single w-100" name="collectible_return_sales_account">
+                                                <option value="">-- اختر الحساب --</option>
+                                                @foreach($accounts as $brand)
+                                                    <option value="{{$brand->id}}" @if($brand->id == $setting->collectible_return_sales_account) selected @endif>{{$brand->name}}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row col-6">
+                                    <div class="col-12">
+                                        <div class="form-group">
+                                            <label>حساب مشتريات المقتنيات</label>
+                                            <select class="js-example-basic-single w-100" name="collectible_purchase_account">
+                                                <option value="">-- اختر الحساب --</option>
+                                                @foreach($accounts as $brand)
+                                                    <option value="{{$brand->id}}" @if($brand->id == $setting->collectible_purchase_account) selected @endif>{{$brand->name}}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row col-6">
+                                    <div class="col-12">
+                                        <div class="form-group">
+                                            <label>حساب مرتجعات مشتريات المقتنيات</label>
+                                            <select class="js-example-basic-single w-100" name="collectible_purchase_return_account">
+                                                <option value="">-- اختر الحساب --</option>
+                                                @foreach($accounts as $brand)
+                                                    <option value="{{$brand->id}}" @if($brand->id == $setting->collectible_purchase_return_account) selected @endif>{{$brand->name}}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {{-- حسابات الفضة --}}
+                                <div class="col-12 mt-3 mb-2">
+                                    <h5 class="alert alert-secondary text-center">حسابات الفضة</h5>
+                                </div>
+                                <div class="row col-6">
+                                    <div class="col-12">
+                                        <div class="form-group">
+                                            <label>حساب مبيعات الفضة</label>
+                                            <select class="js-example-basic-single w-100" name="silver_sales_account">
+                                                <option value="">-- اختر الحساب --</option>
+                                                @foreach($accounts as $brand)
+                                                    <option value="{{$brand->id}}" @if($brand->id == $setting->silver_sales_account) selected @endif>{{$brand->name}}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row col-6">
+                                    <div class="col-12">
+                                        <div class="form-group">
+                                            <label>حساب مرتجعات مبيعات الفضة</label>
+                                            <select class="js-example-basic-single w-100" name="silver_return_sales_account">
+                                                <option value="">-- اختر الحساب --</option>
+                                                @foreach($accounts as $brand)
+                                                    <option value="{{$brand->id}}" @if($brand->id == $setting->silver_return_sales_account) selected @endif>{{$brand->name}}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row col-6">
+                                    <div class="col-12">
+                                        <div class="form-group">
+                                            <label>حساب مشتريات الفضة</label>
+                                            <select class="js-example-basic-single w-100" name="silver_purchase_account">
+                                                <option value="">-- اختر الحساب --</option>
+                                                @foreach($accounts as $brand)
+                                                    <option value="{{$brand->id}}" @if($brand->id == $setting->silver_purchase_account) selected @endif>{{$brand->name}}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row col-6">
+                                    <div class="col-12">
+                                        <div class="form-group">
+                                            <label>حساب مرتجعات مشتريات الفضة</label>
+                                            <select class="js-example-basic-single w-100" name="silver_purchase_return_account">
+                                                <option value="">-- اختر الحساب --</option>
+                                                @foreach($accounts as $brand)
+                                                    <option value="{{$brand->id}}" @if($brand->id == $setting->silver_purchase_return_account) selected @endif>{{$brand->name}}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
                         </div> 
                         <div class="row">
                             <div class="col-6" style="display: block; margin: 20px auto; text-align: center;">
