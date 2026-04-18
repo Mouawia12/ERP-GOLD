@@ -55,6 +55,9 @@
             </p>
         </div>
         <div class="mt-2 mt-md-0">
+            <a href="{{ route('customers.report.cash', $customer->id) }}" class="btn btn-outline-primary mr-2">
+                التقرير النقدي
+            </a>
             <a href="{{ route('customers', ['type' => $customer->type]) }}" class="btn btn-outline-secondary">
                 رجوع إلى قائمة {{ $customer->type === 'customer' ? __('main.customers') : __('main.suppliers') }}
             </a>

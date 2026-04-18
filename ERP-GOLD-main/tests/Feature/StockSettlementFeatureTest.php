@@ -80,6 +80,72 @@ class StockSettlementFeatureTest extends TestCase
         $showResponse->assertSee('زيادة');
     }
 
+    public function test_stock_settlement_search_finds_default_unit_barcode_for_handheld_scanner(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.stock_settlements.add',
+        ]);
+
+        $context = $this->prepareSettlementContext($admin->branch_id);
+        $itemId = $this->createSettlementItem($admin->branch_id, $context['carat_id'], $context['crafted_type_id'], 100);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('stock_settlements.search', [], false), [
+                'branch_id' => $admin->branch_id,
+                'code' => '0000012500',
+            ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('status', true);
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.item_id', $itemId);
+        $response->assertJsonPath('data.0.barcode', '0000012500');
+        $response->assertJsonPath('data.0.weight', 2.5);
+    }
+
+    public function test_stock_settlement_pages_expose_print_actions(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.stock_settlements.add',
+            'employee.stock_settlements.show',
+        ]);
+
+        $context = $this->prepareSettlementContext($admin->branch_id);
+        $itemId = $this->createSettlementItem($admin->branch_id, $context['carat_id'], $context['crafted_type_id'], 100);
+
+        $createResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('stock_settlements.create', [], false));
+
+        $createResponse->assertOk();
+        $createResponse->assertSee('print_current_settlement_btn', false);
+        $createResponse->assertSee('print_current_settlement_btn_side', false);
+        $createResponse->assertSee('add_item', false);
+
+        $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('stock_settlements.store', [], false), [
+                'bill_date' => '2026-03-22T10:30',
+                'branch_id' => $admin->branch_id,
+                'account_id' => $context['settlement_account_id'],
+                'item_id' => [$itemId],
+                'actual_balance' => [2],
+                'weight' => [2.5],
+                'diff_weight' => [0.5],
+            ])->assertOk();
+
+        $invoice = Invoice::query()->where('type', 'stock_settlements')->latest('id')->firstOrFail();
+
+        $showResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('stock_settlements.show', $invoice->id, false));
+
+        $showResponse->assertOk();
+        $showResponse->assertSee('print_saved_settlement_btn', false);
+        $showResponse->assertSee('طباعة');
+    }
+
     public function test_default_stock_settlement_store_keeps_snapshot_and_show_page_displays_deficit(): void
     {
         $admin = $this->createAdminUser([

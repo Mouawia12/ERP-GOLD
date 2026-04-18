@@ -41,6 +41,19 @@
                         $selectedSaleMode = in_array($selectedSaleMode, array_keys($saleModes ?? []), true)
                             ? $selectedSaleMode
                             : '';
+                        $selectedClassification = isset($item)
+                            ? $item->inventory_classification
+                            : old('inventory_classification', \App\Models\Item::CLASSIFICATION_GOLD);
+                        $caratFieldLabel = match ($selectedClassification) {
+                            \App\Models\Item::CLASSIFICATION_SILVER => 'عيار الفضة',
+                            \App\Models\Item::CLASSIFICATION_COLLECTIBLE => 'عيار المقتنيات',
+                            default => 'عيار الذهب',
+                        };
+                        $caratFixedNote = match ($selectedClassification) {
+                            \App\Models\Item::CLASSIFICATION_SILVER => 'الفضة تُحفظ على عيار 925 فقط.',
+                            \App\Models\Item::CLASSIFICATION_COLLECTIBLE => 'المقتنيات تُحفظ على عيار 18 فقط.',
+                            default => null,
+                        };
                         $lockWeightField = $lockWeightField ?? false;
                         $weightValue = old('weight');
 
@@ -203,15 +216,23 @@
                         </div>
                         <div class="col-md-2">
                             <div class="form-group">
-                                <label>{{ __('main.carats') }} <span
+                                <label><span id="carats_label_text">{{ $caratFieldLabel }}</span> <span
                                         style="color:red; " class="classification-gold-only">*</span> </label>
                                 <select class="form-control" id="carats_id" name="carats_id">
                                     <option value=""> select...</option>
                                     @foreach($carats as $carat)
                                         <option {{isset($item) ? $item->gold_carat_id == $carat->id ? 'selected' : '' : ''}}
-                                            value="{{$carat -> id}}">{{$carat -> title}}</option>
+                                            value="{{$carat -> id}}"
+                                            data-carat-label="{{ $carat->label }}"
+                                        >{{$carat -> title}}</option>
                                     @endforeach
                                 </select>
+                                <small
+                                    class="text-muted d-block mt-1 fixed-carat-note"
+                                    @if(!$caratFixedNote) style="display:none;" @endif
+                                >
+                                    {{ $caratFixedNote }}
+                                </small>
                             </div>
                         </div> 
                         <div class="col-md-2 sale-mode-weight-group">
@@ -458,6 +479,123 @@ $(document).ready(function () {
     const isEditing = Boolean($('#id').val());
     const singleSaleMode = "{{ \App\Models\Item::SALE_MODE_SINGLE }}";
     const repeatableSaleMode = "{{ \App\Models\Item::SALE_MODE_REPEATABLE }}";
+    const collectibleFixedCaratId = @json($collectibleDefaultCaratId ?? null);
+    const silverFixedCaratId = @json($silverDefaultCaratId ?? null);
+    const itemSuccessToastStorageKey = 'erp_items_form_success_toast';
+
+    function persistSuccessToast(payload) {
+        try {
+            window.sessionStorage.setItem(itemSuccessToastStorageKey, JSON.stringify(payload));
+        } catch (error) {
+            if (typeof window.erpShowSuccessToast === 'function') {
+                window.erpShowSuccessToast(payload.message, payload.title);
+            }
+        }
+    }
+
+    function showPendingSuccessToast() {
+        let storedPayload = null;
+
+        try {
+            storedPayload = window.sessionStorage.getItem(itemSuccessToastStorageKey);
+        } catch (error) {
+            storedPayload = null;
+        }
+
+        if (!storedPayload) {
+            return;
+        }
+
+        try {
+            const toastPayload = JSON.parse(storedPayload);
+
+            if (toastPayload && typeof window.erpShowSuccessToast === 'function') {
+                window.erpShowSuccessToast(toastPayload.message, toastPayload.title);
+            }
+        } catch (error) {
+            // Ignore malformed toast state and continue.
+        }
+
+        try {
+            window.sessionStorage.removeItem(itemSuccessToastStorageKey);
+        } catch (error) {
+            // Ignore storage cleanup issues.
+        }
+    }
+
+    showPendingSuccessToast();
+
+    function resolveCollectibleFixedCaratId() {
+        if (collectibleFixedCaratId) {
+            return String(collectibleFixedCaratId);
+        }
+
+        let matchedId = null;
+
+        $("#carats_id option").each(function() {
+            const optionValue = $(this).val();
+            const optionLabel = String($(this).data('carat-label') || '').trim();
+            const optionText = $(this).text().trim();
+
+            if (!optionValue) {
+                return;
+            }
+
+            if (optionLabel.indexOf('18') !== -1 || optionText.indexOf('18') !== -1) {
+                matchedId = optionValue;
+                return false;
+            }
+        });
+
+        return matchedId;
+    }
+
+    function resolveSilverFixedCaratId() {
+        if (silverFixedCaratId) {
+            return String(silverFixedCaratId);
+        }
+
+        let matchedId = null;
+
+        $("#carats_id option").each(function() {
+            const optionValue = $(this).val();
+            const optionLabel = String($(this).data('carat-label') || '').trim();
+            const optionText = $(this).text().trim();
+
+            if (!optionValue) {
+                return;
+            }
+
+            if (optionLabel.indexOf('925') !== -1 || optionText.indexOf('925') !== -1) {
+                matchedId = optionValue;
+                return false;
+            }
+        });
+
+        return matchedId;
+    }
+
+    function updateCaratFieldPresentation(classification) {
+        let label = 'عيار الذهب';
+        let note = '';
+
+        if (classification === "{{ \App\Models\Item::CLASSIFICATION_SILVER }}") {
+            label = 'عيار الفضة';
+            note = 'الفضة تُحفظ على عيار 925 فقط.';
+        } else if (classification === "{{ \App\Models\Item::CLASSIFICATION_COLLECTIBLE }}") {
+            label = 'عيار المقتنيات';
+            note = 'المقتنيات تُحفظ على عيار 18 فقط.';
+        }
+
+        $("#carats_label_text").text(label);
+
+        if (note) {
+            $(".fixed-carat-note").text(note).show();
+            return;
+        }
+
+        $(".fixed-carat-note").hide().text('');
+    }
 
     $(document).on('submit', '#items_form', function(event) {
             id = 0 ;
@@ -477,15 +615,16 @@ $(document).ready(function () {
                     $('#loader').show();
                 },
                 success: function(result) {
-                    var message = "<div class='alert alert-success'><ul style='margin: 0;'>";
-                    message += "<li>" + result.message + "</li>";
-                    message += "</ul></div>";
-                    $('.response_container').append(message);
-                  setTimeout(function() {
-                    $('#createModal').modal("hide");
+                    const toastPayload = {
+                        title: isEditing ? 'تم تحديث الصنف' : 'تمت إضافة الصنف',
+                        message: isEditing
+                            ? 'تم تحديث بيانات الصنف بنجاح.'
+                            : 'تمت إضافة الصنف بنجاح.'
+                    };
+
+                    persistSuccessToast(toastPayload);
                     $('.response_container').html('');
                     window.location.reload();
-                  }, 2000);
                 },
                 complete: function() {
                     $('#loader').hide();
@@ -532,10 +671,13 @@ $(document).ready(function () {
         var isCollectible = classification === "{{ \App\Models\Item::CLASSIFICATION_COLLECTIBLE }}";
         var isSilver = classification === "{{ \App\Models\Item::CLASSIFICATION_SILVER }}";
         var isCollectibleOrSilver = isCollectible || isSilver;
+        var collectibleCaratId = resolveCollectibleFixedCaratId();
+        var silverCaratId = resolveSilverFixedCaratId();
 
         $("#carats_id").prop('required', isGold).prop('disabled', !isGold && !isSilver);
         $("#item_type").prop('required', isGold).prop('disabled', !isGold);
         $(".classification-gold-only").toggle(isGold);
+        updateCaratFieldPresentation(classification);
 
         // إظهار/إخفاء حقول المقتنيات والفضة
         if (isCollectibleOrSilver) {
@@ -547,21 +689,26 @@ $(document).ready(function () {
         // حقل وزن الذهب 18 يظهر للمقتنيات فقط
         $(".collectible-gold-weight-field").toggle(isCollectible);
 
-        // الفضة: تحديد العيار 925 تلقائياً
-        if (isSilver) {
-            var silverCarat925 = null;
-            $("#carats_id option").each(function() {
-                if ($(this).text().trim() === '925' || $(this).text().indexOf('925') !== -1) {
-                    silverCarat925 = $(this).val();
-                    return false;
-                }
-            });
-            if (silverCarat925) {
-                $("#carats_id").val(silverCarat925);
+        if (isCollectible) {
+            if (collectibleCaratId) {
+                $("#carats_id").val(collectibleCaratId);
             }
             $("#carats_id").prop('disabled', true);
             $("#item_type").val('');
             $("#tax").val('');
+            $("#made_Value").prop('readonly', false);
+            return;
+        }
+
+        // الفضة: تحديد العيار 925 تلقائياً
+        if (isSilver) {
+            if (silverCaratId) {
+                $("#carats_id").val(silverCaratId);
+            }
+            $("#carats_id").prop('disabled', true);
+            $("#item_type").val('');
+            $("#tax").val('');
+            $("#made_Value").prop('readonly', false);
             return;
         }
 

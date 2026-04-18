@@ -7,6 +7,7 @@ use App\Services\Auth\LoginModeService;
 use App\Services\Branding\BrandLogoService;
 use App\Services\Invoices\InvoicePrintSettingsService;
 use App\Services\Invoices\InvoiceTermsService;
+use App\Services\Shifts\SalesShiftModeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -18,9 +19,10 @@ class SystemSettingController extends Controller
         private readonly BrandLogoService $brandLogoService,
         private readonly InvoicePrintSettingsService $invoicePrintSettingsService,
         private readonly InvoiceTermsService $invoiceTermsService,
+        private readonly SalesShiftModeService $salesShiftModeService,
     ) {
-        $this->middleware('permission:employee.system_settings.show', ['only' => ['editLoginMode', 'editInvoiceTerms', 'editInvoicePrint', 'editBranding']]);
-        $this->middleware('permission:employee.system_settings.edit', ['only' => ['updateLoginMode', 'updateInvoiceTerms', 'updateInvoicePrint', 'updateBranding']]);
+        $this->middleware('permission:employee.system_settings.show', ['only' => ['editLoginMode', 'editSalesShiftMode', 'editInvoiceTerms', 'editInvoicePrint', 'editBranding']]);
+        $this->middleware('permission:employee.system_settings.edit', ['only' => ['updateLoginMode', 'updateSalesShiftMode', 'updateInvoiceTerms', 'updateInvoicePrint', 'updateBranding']]);
     }
 
     public function editLoginMode(): View
@@ -42,6 +44,26 @@ class SystemSettingController extends Controller
         return redirect()
             ->route('admin.system-settings.login-mode.edit')
             ->with('success', 'تم تحديث إعداد تسجيل الدخول بنجاح.');
+    }
+
+    public function editSalesShiftMode(): View
+    {
+        return view('admin.settings.sales_shift_mode', [
+            'salesShiftMode' => $this->salesShiftModeService->currentMode(),
+        ]);
+    }
+
+    public function updateSalesShiftMode(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'sales_shift_mode' => 'required|in:' . implode(',', $this->salesShiftModeService->availableModes()),
+        ]);
+
+        $this->salesShiftModeService->setMode($validated['sales_shift_mode']);
+
+        return redirect()
+            ->route('admin.system-settings.sales-shift.edit')
+            ->with('success', 'تم تحديث إعداد اعتماد البيع بالشفت بنجاح.');
     }
 
     public function editInvoiceTerms(): View

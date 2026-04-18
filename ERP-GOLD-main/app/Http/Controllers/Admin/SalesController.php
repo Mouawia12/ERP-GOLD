@@ -10,11 +10,13 @@ use App\Models\GoldCaratType;
 use App\Models\Invoice;
 use App\Models\Item;
 use App\Models\ItemUnit;
+use App\Models\Shift;
 use App\Models\Tax;
 use App\Services\Branches\BranchAccessService;
 use App\Services\Invoices\InvoiceTermsService;
 use App\Services\Invoices\InvoicePartySnapshotService;
 use App\Services\Payments\InvoicePaymentService;
+use App\Services\Shifts\SalesShiftModeService;
 use App\Services\Shifts\ShiftService;
 use App\Services\Zatca\SendZatcaInvoice;
 use App\Services\JournalEntriesService;
@@ -33,6 +35,7 @@ class SalesController extends Controller
         private readonly InvoiceTermsService $invoiceTermsService,
         private readonly InvoicePartySnapshotService $invoicePartySnapshotService,
         private readonly InvoicePaymentService $invoicePaymentService,
+        private readonly SalesShiftModeService $salesShiftModeService,
         private readonly ShiftService $shiftService,
     ) {
     }
@@ -209,7 +212,7 @@ class SalesController extends Controller
             if (count($request->unit_id)) {
                 // store header
                 $branch = Branch::findOrFail($request->branch_id);
-                $activeShift = $this->shiftService->requireActiveShift(Auth::user(), (int) $request->branch_id);
+                $activeShift = $this->resolveSaleShift((int) $request->branch_id);
                 $customer = Customer::query()
                     ->visibleToUser($request->user('admin-web'))
                     ->where('type', 'customer')
@@ -323,7 +326,7 @@ class SalesController extends Controller
                     'taxes_total' => $linesTax,
                     'net_total' => $linesNetTotal,
                     'user_id' => Auth::user()->id,
-                    'shift_id' => $activeShift->id,
+                    'shift_id' => $activeShift?->id,
                 ];
                 $invoiceData = array_merge(
                     $invoiceData,
@@ -461,7 +464,7 @@ class SalesController extends Controller
 
         try {
             DB::beginTransaction();
-            $activeShift = $this->shiftService->requireActiveShift(Auth::user(), (int) $invoice->branch_id);
+            $activeShift = $this->resolveSaleShift((int) $invoice->branch_id);
             $selectedDetailIds = collect($request->input('checkDetail', []))
                 ->filter()
                 ->map(fn ($detailId) => (int) $detailId)
@@ -580,7 +583,7 @@ class SalesController extends Controller
                 'net_total' => $linesNetTotal,
                 'payment_type' => $this->invoicePaymentService->resolveStoredPaymentType($paymentLines),
                 'user_id' => Auth::user()->id,
-                'shift_id' => $activeShift->id,
+                'shift_id' => $activeShift?->id,
             ] + $this->invoicePartySnapshotService->fromInvoice($invoice));
 
             $returnInvoice->details()->createMany($lines);
@@ -613,6 +616,15 @@ class SalesController extends Controller
         abort_unless($invoice->type === 'sale_return', 404);
         $this->branchAccessService->enforceInvoiceAccess(auth('admin-web')->user(), $invoice);
         return view('admin.sales_and_sales_return.print', compact('invoice'));
+    }
+
+    private function resolveSaleShift(int $branchId): ?Shift
+    {
+        if (! $this->salesShiftModeService->requiresShift()) {
+            return null;
+        }
+
+        return $this->shiftService->requireActiveShift(Auth::user(), $branchId);
     }
 
     public function sales_prepare_journal_entry_details($invoice, $craftedCostTotal, $scrapCostTotal, $pureCostTotal)
@@ -814,7 +826,9 @@ class SalesController extends Controller
 
     private function resolveItemTaxData($item): array
     {
-        $tax = $item->goldCarat?->tax;
+        $tax = $item->inventory_classification === Item::CLASSIFICATION_GOLD
+            ? $item->goldCarat?->tax
+            : null;
 
         if ($tax) {
             return [

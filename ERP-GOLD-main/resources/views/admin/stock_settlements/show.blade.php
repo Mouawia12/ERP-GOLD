@@ -16,6 +16,10 @@
                             </p>
                         </div>
                         <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary no-print" id="print_saved_settlement_btn" onclick="window.print()">
+                                <i class="fa fa-print ml-1"></i>
+                                طباعة
+                            </button>
                             <a href="{{ route('stock_settlements.index') }}" class="btn btn-sm btn-outline-primary">العودة إلى القائمة</a>
                             @can('employee.stock_settlements.add')
                                 <a href="{{ route('stock_settlements.create') }}" class="btn btn-sm btn-primary">إنشاء جرد جديد</a>

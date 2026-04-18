@@ -33,6 +33,7 @@ class CustomerStatementReportFeatureTest extends TestCase
     {
         $admin = $this->createAdminUser([
             'employee.customers.show',
+            'employee.customers.add',
         ]);
 
         $customerId = DB::table('customers')->insertGetId([
@@ -120,6 +121,7 @@ class CustomerStatementReportFeatureTest extends TestCase
     {
         $admin = $this->createAdminUser([
             'employee.customers.show',
+            'employee.customers.add',
         ]);
 
         $customerId = DB::table('customers')->insertGetId([
@@ -196,6 +198,7 @@ class CustomerStatementReportFeatureTest extends TestCase
     {
         $admin = $this->createAdminUser([
             'employee.customers.show',
+            'employee.customers.add',
         ]);
 
         $otherBranch = Branch::create([
@@ -345,6 +348,7 @@ class CustomerStatementReportFeatureTest extends TestCase
     {
         $admin = $this->createAdminUser([
             'employee.suppliers.show',
+            'employee.suppliers.add',
         ]);
 
         $supplierId = DB::table('customers')->insertGetId([
@@ -389,6 +393,330 @@ class CustomerStatementReportFeatureTest extends TestCase
         $response->assertSee('شبكة / بطاقة');
         $response->assertSee('1,035.00');
         $response->assertSee('7.000');
+    }
+
+    public function test_customer_management_directory_is_separate_from_report_directory(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.customers.show',
+            'employee.customers.add',
+        ]);
+
+        $customerId = DB::table('customers')->insertGetId([
+            'name' => 'عميل روابط التقارير',
+            'phone' => '0557444444',
+            'type' => 'customer',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $managementResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('customers', ['type' => 'customer'], false));
+
+        $managementResponse->assertOk();
+        $managementResponse->assertSee('العملاء');
+        $managementResponse->assertSee('id="createButton"', false);
+        $managementResponse->assertDontSee(route('customers.report', ['id' => $customerId], false), false);
+        $managementResponse->assertDontSee(route('customers.report.cash', ['id' => $customerId], false), false);
+
+        $reportDirectoryResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('customers.reports.index', ['type' => 'customer'], false));
+
+        $reportDirectoryResponse->assertOk();
+        $reportDirectoryResponse->assertSee('تقارير العملاء');
+        $reportDirectoryResponse->assertSee(route('customers.report', ['id' => $customerId], false), false);
+        $reportDirectoryResponse->assertSee(route('customers.report.cash', ['id' => $customerId], false), false);
+        $reportDirectoryResponse->assertSee('تفصيلي');
+        $reportDirectoryResponse->assertSee('نقدي');
+        $reportDirectoryResponse->assertDontSee('id="createButton"', false);
+    }
+
+    public function test_supplier_management_directory_is_separate_from_report_directory(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.suppliers.show',
+            'employee.suppliers.add',
+        ]);
+
+        $supplierId = DB::table('customers')->insertGetId([
+            'name' => 'مورد روابط التقارير',
+            'phone' => '0557555555',
+            'type' => 'supplier',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $managementResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('customers', ['type' => 'supplier'], false));
+
+        $managementResponse->assertOk();
+        $managementResponse->assertSee('الموردين');
+        $managementResponse->assertSee('id="createButton"', false);
+        $managementResponse->assertDontSee(route('customers.report', ['id' => $supplierId], false), false);
+        $managementResponse->assertDontSee(route('customers.report.cash', ['id' => $supplierId], false), false);
+
+        $reportDirectoryResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('customers.reports.index', ['type' => 'supplier'], false));
+
+        $reportDirectoryResponse->assertOk();
+        $reportDirectoryResponse->assertSee('تقارير الموردين');
+        $reportDirectoryResponse->assertSee(route('customers.report', ['id' => $supplierId], false), false);
+        $reportDirectoryResponse->assertSee(route('customers.report.cash', ['id' => $supplierId], false), false);
+        $reportDirectoryResponse->assertSee('تفصيلي');
+        $reportDirectoryResponse->assertSee('نقدي');
+        $reportDirectoryResponse->assertDontSee('id="createButton"', false);
+    }
+
+    public function test_customer_cash_report_displays_account_movements_and_respects_filters(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.customers.show',
+        ]);
+
+        $otherBranch = Branch::create([
+            'name' => ['ar' => 'فرع نقدي آخر', 'en' => 'Other Cash Branch'],
+            'phone' => '654987321',
+            'status' => true,
+        ]);
+
+        $otherUser = User::create([
+            'name' => 'Cash Other User',
+            'email' => 'customer-cash-user-'.uniqid().'@example.com',
+            'password' => Hash::make('secret123'),
+            'branch_id' => $admin->branch_id,
+            'status' => true,
+            'profile_pic' => 'default.png',
+        ]);
+
+        $branchUser = User::create([
+            'name' => 'Cash Branch User',
+            'email' => 'customer-cash-branch-'.uniqid().'@example.com',
+            'password' => Hash::make('secret123'),
+            'branch_id' => $otherBranch->id,
+            'status' => true,
+            'profile_pic' => 'default.png',
+        ]);
+
+        $customerAccountId = $this->insertAccount('ذمم عميل نقدي', 'CR-CASH-1001');
+        $safeAccountId = $this->insertAccount('الصندوق النقدي', 'SAFE-CASH-1001');
+        $financialYearId = $this->createFinancialYear();
+
+        $customerId = DB::table('customers')->insertGetId([
+            'name' => 'عميل التقرير النقدي',
+            'phone' => '0557555555',
+            'type' => 'customer',
+            'account_id' => $customerAccountId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $adminShiftId = $this->insertShift($admin->branch_id, $admin->id, '2026-03-22 15:00:00');
+
+        $matchingInvoiceId = $this->insertInvoice([
+            'bill_number' => 'INV-CASH-MATCH',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+            'user_id' => $admin->id,
+            'type' => 'sale',
+            'notes' => 'فاتورة نقدية مطابقة',
+            'date' => '2026-03-22',
+            'time' => '15:20:00',
+            'customer_id' => $customerId,
+        ]);
+
+        $matchingJournalId = $this->insertJournalEntry([
+            'journal_date' => '2026-03-22',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+            'journalable_type' => 'App\\Models\\Invoice',
+            'journalable_id' => $matchingInvoiceId,
+        ]);
+
+        $this->insertJournalEntryDocument([
+            'journal_id' => $matchingJournalId,
+            'account_id' => $customerAccountId,
+            'document_date' => '2026-03-22',
+            'debit' => 500,
+            'credit' => 0,
+        ]);
+
+        $otherUserInvoiceId = $this->insertInvoice([
+            'bill_number' => 'INV-CASH-OTHER-USER',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+            'user_id' => $otherUser->id,
+            'type' => 'sale',
+            'notes' => 'فاتورة مستخدم آخر',
+            'date' => '2026-03-22',
+            'time' => '15:25:00',
+            'customer_id' => $customerId,
+        ]);
+
+        $otherUserJournalId = $this->insertJournalEntry([
+            'journal_date' => '2026-03-22',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+            'journalable_type' => 'App\\Models\\Invoice',
+            'journalable_id' => $otherUserInvoiceId,
+        ]);
+
+        $this->insertJournalEntryDocument([
+            'journal_id' => $otherUserJournalId,
+            'account_id' => $customerAccountId,
+            'document_date' => '2026-03-22',
+            'debit' => 650,
+            'credit' => 0,
+        ]);
+
+        $otherBranchInvoiceId = $this->insertInvoice([
+            'bill_number' => 'INV-CASH-OTHER-BRANCH',
+            'financial_year' => $financialYearId,
+            'branch_id' => $otherBranch->id,
+            'user_id' => $branchUser->id,
+            'type' => 'sale',
+            'notes' => 'فاتورة فرع آخر',
+            'date' => '2026-03-22',
+            'time' => '15:35:00',
+            'customer_id' => $customerId,
+        ]);
+
+        $otherBranchJournalId = $this->insertJournalEntry([
+            'journal_date' => '2026-03-22',
+            'financial_year' => $financialYearId,
+            'branch_id' => $otherBranch->id,
+            'journalable_type' => 'App\\Models\\Invoice',
+            'journalable_id' => $otherBranchInvoiceId,
+        ]);
+
+        $this->insertJournalEntryDocument([
+            'journal_id' => $otherBranchJournalId,
+            'account_id' => $customerAccountId,
+            'document_date' => '2026-03-22',
+            'debit' => 700,
+            'credit' => 0,
+        ]);
+
+        $otherTimeInvoiceId = $this->insertInvoice([
+            'bill_number' => 'INV-CASH-OTHER-TIME',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+            'user_id' => $admin->id,
+            'type' => 'sale',
+            'notes' => 'فاتورة وقت آخر',
+            'date' => '2026-03-22',
+            'time' => '14:10:00',
+            'customer_id' => $customerId,
+        ]);
+
+        $otherTimeJournalId = $this->insertJournalEntry([
+            'journal_date' => '2026-03-22',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+            'journalable_type' => 'App\\Models\\Invoice',
+            'journalable_id' => $otherTimeInvoiceId,
+        ]);
+
+        $this->insertJournalEntryDocument([
+            'journal_id' => $otherTimeJournalId,
+            'account_id' => $customerAccountId,
+            'document_date' => '2026-03-22',
+            'debit' => 720,
+            'credit' => 0,
+        ]);
+
+        $voucherId = $this->insertFinancialVoucher([
+            'bill_number' => 'R-CASH-0001',
+            'type' => 'receipt',
+            'branch_id' => $admin->branch_id,
+            'financial_year' => $financialYearId,
+            'from_account_id' => $customerAccountId,
+            'to_account_id' => $safeAccountId,
+            'date' => '2026-03-22',
+            'total_amount' => 200,
+            'shift_id' => $adminShiftId,
+            'created_at' => '2026-03-22 15:40:00',
+            'updated_at' => '2026-03-22 15:40:00',
+        ]);
+
+        $voucherJournalId = $this->insertJournalEntry([
+            'journal_date' => '2026-03-22',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+            'journalable_type' => 'App\\Models\\FinancialVoucher',
+            'journalable_id' => $voucherId,
+        ]);
+
+        $this->insertJournalEntryDocument([
+            'journal_id' => $voucherJournalId,
+            'account_id' => $customerAccountId,
+            'document_date' => '2026-03-22',
+            'debit' => 0,
+            'credit' => 200,
+        ]);
+
+        $manualJournalId = $this->insertJournalEntry([
+            'journal_date' => '2026-03-22',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+            'notes' => 'قيد يدوي مستبعد',
+            'journalable_type' => null,
+            'journalable_id' => null,
+        ]);
+
+        $this->insertJournalEntryDocument([
+            'journal_id' => $manualJournalId,
+            'account_id' => $customerAccountId,
+            'document_date' => '2026-03-22',
+            'debit' => 50,
+            'credit' => 0,
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('customers.report.cash', ['id' => $customerId], false));
+
+        $response->assertOk();
+        $response->assertSee('كشف العميل النقدي');
+        $response->assertSee('INV-CASH-MATCH');
+        $response->assertSee('R-CASH-0001');
+        $response->assertSee('فاتورة');
+        $response->assertSee('سند مالي');
+        $response->assertSee('500.00');
+        $response->assertSee('200.00');
+        $response->assertSee('ذمم عميل نقدي');
+
+        $filteredResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('customers.report.cash', [
+                'id' => $customerId,
+                'from_date' => '2026-03-22',
+                'to_date' => '2026-03-22',
+                'from_time' => '15:00',
+                'to_time' => '16:00',
+                'branch_id' => $admin->branch_id,
+                'user_id' => $admin->id,
+                'invoice_number' => 'INV-CASH-MATCH',
+                'source_type' => 'invoice',
+            ], false));
+
+        $filteredResponse->assertOk();
+        $filteredResponse->assertSee('INV-CASH-MATCH');
+        $filteredResponse->assertSee('فاتورة نقدية مطابقة');
+        $filteredResponse->assertDontSee('R-CASH-0001');
+        $filteredResponse->assertDontSee('INV-CASH-OTHER-USER');
+        $filteredResponse->assertDontSee('INV-CASH-OTHER-BRANCH');
+        $filteredResponse->assertDontSee('INV-CASH-OTHER-TIME');
+        $filteredResponse->assertDontSee('قيد يدوي مستبعد');
+        $filteredResponse->assertSee('500.00');
+        $filteredResponse->assertDontSee('200.00');
+        $filteredResponse->assertDontSee('650.00');
+        $filteredResponse->assertDontSee('700.00');
+        $filteredResponse->assertDontSee('720.00');
+        $filteredResponse->assertDontSee('50.00');
     }
 
     public function test_customer_statement_report_includes_receipt_and_payment_vouchers_with_filters(): void
@@ -657,6 +985,19 @@ class CustomerStatementReportFeatureTest extends TestCase
         ]);
     }
 
+    private function createFinancialYear(): int
+    {
+        return DB::table('financial_years')->insertGetId([
+            'description' => 'FY 2026',
+            'from' => '2026-01-01',
+            'to' => '2026-12-31',
+            'is_closed' => false,
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
     private function insertShift(int $branchId, int $userId, string $openedAt): int
     {
         return DB::table('shifts')->insertGetId([
@@ -692,6 +1033,43 @@ class CustomerStatementReportFeatureTest extends TestCase
             'shift_id' => null,
             'created_at' => now(),
             'updated_at' => now(),
+        ], $attributes));
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function insertJournalEntry(array $attributes): int
+    {
+        return DB::table('journal_entries')->insertGetId(array_merge([
+            'serial' => null,
+            'journal_date' => '2026-03-22',
+            'notes' => null,
+            'financial_year' => null,
+            'branch_id' => null,
+            'journalable_type' => null,
+            'journalable_id' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+            'deleted_at' => null,
+        ], $attributes));
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function insertJournalEntryDocument(array $attributes): int
+    {
+        return DB::table('journal_entry_documents')->insertGetId(array_merge([
+            'journal_id' => null,
+            'account_id' => null,
+            'document_date' => '2026-03-22',
+            'credit' => 0,
+            'debit' => 0,
+            'notes' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+            'deleted_at' => null,
         ], $attributes));
     }
 

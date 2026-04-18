@@ -122,7 +122,7 @@ class StockSettlementController extends Controller
 
     public function search(Request $request)
     {
-        $code = $request->code;
+        $code = trim((string) $request->code);
         if (empty($code)) {
             return response()->json([
                 'status' => false,
@@ -130,28 +130,37 @@ class StockSettlementController extends Controller
                 'data' => [],
             ]);
         }
-        $branch_id = $request->branch_id;
-        $units = ItemUnit::where(function ($query) use ($code, $branch_id) {
-            $query
-                ->where('is_default', 0)
-                ->where('is_sold', 0)
-                ->where(function ($q) use ($branch_id, $code) {
-                    $q
-                        ->where(function ($q2) use ($branch_id, $code) {
-                            $q2
-                                ->where('is_default', 0)
-                                ->where('barcode', 'like', '%' . $code . '%')
-                                ->whereHas('item', function ($q3) use ($branch_id) {
-                                    $q3->where('branch_id', $branch_id);
-                                });
-                        })
-                        ->orWhereHas('item', function ($q2) use ($branch_id, $code) {
-                            $q2
-                                ->where('branch_id', $branch_id)
-                                ->where('title', 'like', '%' . $code . '%');
-                        });
-                });
-        })->get();
+        $branch_id = (int) $request->branch_id;
+        $units = ItemUnit::query()
+            ->with(['item.goldCarat', 'item.goldCaratType'])
+            ->where('is_sold', 0)
+            ->where('weight', '>', 0)
+            ->whereHas('item', function ($itemQuery) use ($branch_id, $code) {
+                $itemQuery
+                    ->where('branch_id', $branch_id)
+                    ->where(function ($searchQuery) use ($code) {
+                        $searchQuery
+                            ->where('title', 'like', '%' . $code . '%')
+                            ->orWhere('code', 'like', '%' . $code . '%');
+                    });
+            })
+            ->orWhere(function ($unitQuery) use ($branch_id, $code) {
+                $unitQuery
+                    ->where('is_sold', 0)
+                    ->where('weight', '>', 0)
+                    ->whereNotNull('barcode')
+                    ->where('barcode', '!=', '')
+                    ->where('barcode', 'like', '%' . $code . '%')
+                    ->whereHas('item', function ($itemQuery) use ($branch_id) {
+                        $itemQuery->where('branch_id', $branch_id);
+                    });
+            })
+            ->orderByRaw('CASE WHEN barcode = ? THEN 0 WHEN barcode LIKE ? THEN 1 ELSE 2 END', [$code, $code . '%'])
+            ->orderByRaw('CASE WHEN is_default = 0 THEN 0 ELSE 1 END')
+            ->orderBy('id')
+            ->limit(25)
+            ->get();
+
         return response()->json([
             'status' => true,
             'data' => $this->formatSearch($units),
@@ -184,16 +193,22 @@ class StockSettlementController extends Controller
     private function formatSearch($units)
     {
         return $units->map(function ($unit) {
+            $item = $unit->item;
+            $itemName = $item?->getTranslation('title', 'ar') ?? $item?->title ?? '-';
+            $goldCaratTitle = $item?->goldCarat?->getTranslation('title', 'ar') ?? $item?->goldCarat?->title;
+            $goldCaratTypeTitle = $item?->goldCaratType?->title;
+            $caratLabel = trim(implode(' <br> ', array_filter([$goldCaratTitle, $goldCaratTypeTitle])));
+
             return [
-                'item_id' => $unit->item->id,
-                'actual_balance' => $unit->item->actual_balance,
+                'item_id' => $item->id,
+                'actual_balance' => (float) $item->actual_balance,
                 'unit_id' => $unit->id,
                 'barcode' => $unit->barcode,
-                'weight' => $unit->weight,
-                'item_name' => $unit->item->title . ' <br> ' . $unit->barcode,
-                'item_name_without_break' => $unit->item->title . ' ' . $unit->barcode,
-                'carat' => $unit->item->goldCarat->title . ' <br> ' . $unit->item->goldCaratType->title,
-                'carat_id' => $unit->item->goldCarat->id,
+                'weight' => (float) $unit->weight,
+                'item_name' => $itemName . ' <br> ' . $unit->barcode,
+                'item_name_without_break' => trim($itemName . ' ' . $unit->barcode),
+                'carat' => $caratLabel !== '' ? $caratLabel : ($item->inventory_classification_label ?? '-'),
+                'carat_id' => $item->gold_carat_id,
                 'diff_weight' => 0,
             ];
         });

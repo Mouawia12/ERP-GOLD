@@ -86,7 +86,10 @@ Route::group(
 
                     Route::get('/customers/{type}', [CustomerController::class, 'index'])->name('customers');
                     Route::get('/customers/cash/{type}', [CustomerController::class, 'cashDirectory'])->name('customers.cash');
+                    Route::get('/customers/reports/{type}', [CustomerController::class, 'reportDirectory'])->name('customers.reports.index');
+                    Route::get('/customers/reports/{type}/cash', [CustomerController::class, 'cashReportDirectory'])->name('customers.reports.cash');
                     Route::get('/customers/report/{id}', [CustomerController::class, 'report'])->name('customers.report');
+                    Route::get('/customers/report/{id}/cash', [CustomerController::class, 'cashReport'])->name('customers.report.cash');
                     Route::post('customers/store/{type}', [CustomerController::class, 'store'])->name('customers.store');
                     Route::post('customers/quick-store/{type}', [CustomerController::class, 'quickStore'])->name('customers.quick-store');
                     Route::post('/customers/delete/{id}', [CustomerController::class, 'destroy'])->name('customers.delete');
@@ -154,6 +157,8 @@ Route::group(
                     Route::get('/items/delete/{id}', [ItemController::class, 'destroy'])->name('items.delete');
                     Route::get('/items/get/{id}', [ItemController::class, 'show'])->name('items.get');
                     Route::get('/items/get_code', [ItemController::class, 'getItemCode'])->name('items.get_code');
+                    Route::get('/items/lost-barcodes', [ItemController::class, 'lost_barcodes'])->name('items.lost_barcodes');
+                    Route::post('/items/lost-barcodes/search', [ItemController::class, 'lost_barcodes_search'])->name('items.lost_barcodes.search');
                     Route::get('/items/{id}/barcode_table', [ItemController::class, 'barcodes_table'])->name('items.barcode_table');
                     Route::post('/items/{id}/store_barcodes', [ItemController::class, 'store_barcodes'])->name('items.store_barcodes');
                     Route::get('/items/{id}/print_barcodes', [ItemController::class, 'print_barcodes'])->name('items.print_barcodes');
@@ -288,6 +293,10 @@ Route::group(
                         ->name('admin.system-settings.login-mode.edit');
                     Route::patch('system-settings/login-mode', [SystemSettingController::class, 'updateLoginMode'])
                         ->name('admin.system-settings.login-mode.update');
+                    Route::get('system-settings/sales-shift', [SystemSettingController::class, 'editSalesShiftMode'])
+                        ->name('admin.system-settings.sales-shift.edit');
+                    Route::patch('system-settings/sales-shift', [SystemSettingController::class, 'updateSalesShiftMode'])
+                        ->name('admin.system-settings.sales-shift.update');
                     Route::get('system-settings/invoice-terms', [SystemSettingController::class, 'editInvoiceTerms'])
                         ->name('admin.system-settings.invoice-terms.edit');
                     Route::patch('system-settings/invoice-terms', [SystemSettingController::class, 'updateInvoiceTerms'])

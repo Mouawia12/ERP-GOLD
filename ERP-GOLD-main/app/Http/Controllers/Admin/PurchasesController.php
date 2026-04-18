@@ -10,6 +10,7 @@ use App\Models\FinancialYear;
 use App\Models\GoldCarat;
 use App\Models\GoldCaratType;
 use App\Models\Invoice;
+use App\Models\Item;
 use App\Models\ItemUnit;
 use App\Models\Tax;
 use App\Services\Branches\BranchAccessService;
@@ -876,7 +877,11 @@ class PurchasesController extends Controller
 
     private function resolvePurchaseTaxData($item, string $caratType): array
     {
-        if ($caratType === 'crafted' && $item->goldCarat?->tax) {
+        if (
+            $item->inventory_classification === Item::CLASSIFICATION_GOLD
+            && $caratType === 'crafted'
+            && $item->goldCarat?->tax
+        ) {
             return [
                 'id' => $item->goldCarat->tax->id,
                 'rate' => (float) $item->goldCarat->tax->rate,

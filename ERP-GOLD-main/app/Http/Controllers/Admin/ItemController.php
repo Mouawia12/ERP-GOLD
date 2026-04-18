@@ -12,6 +12,7 @@ use App\Models\ItemUnit;
 use App\Services\Branches\BranchContextService;
 use App\Services\Items\BarcodePrintProfileService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -116,8 +117,10 @@ class ItemController extends Controller
         $inventoryClassifications = Item::inventoryClassificationOptions();
         $saleModes = Item::saleModeOptions();
         $canManageBranchPublications = $branches->count() > 1;
+        $collectibleDefaultCaratId = $this->resolveCollectibleDefaultCaratId($carats);
+        $silverDefaultCaratId = $this->resolveSilverDefaultCaratId($carats);
 
-        return view('admin.items.form', compact('categories', 'carats', 'caratTypes', 'branches', 'inventoryClassifications', 'saleModes', 'canManageBranchPublications'));
+        return view('admin.items.form', compact('categories', 'carats', 'caratTypes', 'branches', 'inventoryClassifications', 'saleModes', 'canManageBranchPublications', 'collectibleDefaultCaratId', 'silverDefaultCaratId'));
     }
 
     public function barcodes_table($itemId, $returnType = 'json', ?string $paperProfileKey = null)
@@ -163,8 +166,10 @@ class ItemController extends Controller
         $saleModes = Item::saleModeOptions();
         $canManageBranchPublications = $branches->count() > 1;
         $lockWeightField = $item?->sale_mode === Item::SALE_MODE_SINGLE && $item->units->where('is_sold', false)->isNotEmpty();
+        $collectibleDefaultCaratId = $this->resolveCollectibleDefaultCaratId($carats);
+        $silverDefaultCaratId = $this->resolveSilverDefaultCaratId($carats);
 
-        return view('admin.items.form', compact('item', 'categories', 'carats', 'caratTypes', 'branches', 'inventoryClassifications', 'saleModes', 'canManageBranchPublications', 'lockWeightField'));
+        return view('admin.items.form', compact('item', 'categories', 'carats', 'caratTypes', 'branches', 'inventoryClassifications', 'saleModes', 'canManageBranchPublications', 'lockWeightField', 'collectibleDefaultCaratId', 'silverDefaultCaratId'));
     }
 
     /**
@@ -270,6 +275,26 @@ class ItemController extends Controller
         $validated = $validator->validated();
         $classification = $validated['inventory_classification'];
         $saleMode = $validated['sale_mode'];
+        $collectibleDefaultCaratId = $classification === Item::CLASSIFICATION_COLLECTIBLE
+            ? $this->resolveCollectibleDefaultCaratId()
+            : null;
+        $silverDefaultCaratId = $classification === Item::CLASSIFICATION_SILVER
+            ? $this->resolveSilverDefaultCaratId()
+            : null;
+
+        if ($classification === Item::CLASSIFICATION_COLLECTIBLE && ! $collectibleDefaultCaratId) {
+            return response()->json([
+                'status' => false,
+                'errors' => ['تعذر العثور على عيار 18 اللازم لحفظ أصناف المقتنيات.'],
+            ], 422);
+        }
+
+        if ($classification === Item::CLASSIFICATION_SILVER && ! $silverDefaultCaratId) {
+            return response()->json([
+                'status' => false,
+                'errors' => ['تعذر العثور على عيار 925 اللازم لحفظ أصناف الفضة.'],
+            ], 422);
+        }
 
         try {
             DB::beginTransaction();
@@ -294,7 +319,11 @@ class ItemController extends Controller
                 'inventory_classification' => $classification,
                 'sale_mode' => $saleMode,
                 'category_id' => $validated['category_id'],
-                'gold_carat_id' => $classification === Item::CLASSIFICATION_GOLD ? ($validated['carats_id'] ?? null) : ($classification === Item::CLASSIFICATION_SILVER ? ($validated['carats_id'] ?? null) : null),
+                'gold_carat_id' => $classification === Item::CLASSIFICATION_GOLD
+                    ? ($validated['carats_id'] ?? null)
+                    : ($classification === Item::CLASSIFICATION_SILVER
+                        ? $silverDefaultCaratId
+                        : ($classification === Item::CLASSIFICATION_COLLECTIBLE ? $collectibleDefaultCaratId : null)),
                 'gold_carat_type_id' => $classification === Item::CLASSIFICATION_GOLD ? ($validated['item_type'] ?? null) : null,
                 'no_metal' => $validated['no_metal'] ?? 0,
                 'no_metal_type' => $validated['no_metal_type'] ?? 'fixed',
@@ -433,6 +462,91 @@ class ItemController extends Controller
         $paperProfile = app(BarcodePrintProfileService::class)->resolve($request->query('paper_profile'));
 
         return view('admin.items.print_barcode', compact('unit', 'paperProfile'));
+    }
+
+    public function lost_barcodes(Request $request)
+    {
+        $currentUser = $this->currentAdminUser();
+        $branches = $this->publicationBranchesForUser($currentUser);
+        $selectedBranchId = $this->resolveLostBarcodeBranchId($request, $currentUser, $branches);
+        $paperProfiles = app(BarcodePrintProfileService::class)->all();
+        $defaultPaperProfile = app(BarcodePrintProfileService::class)->resolve($request->query('paper_profile'));
+
+        return view('admin.items.lost_barcodes', compact('branches', 'selectedBranchId', 'paperProfiles', 'defaultPaperProfile'));
+    }
+
+    public function lost_barcodes_search(Request $request)
+    {
+        $currentUser = $this->currentAdminUser();
+        $branches = $this->publicationBranchesForUser($currentUser);
+        $allowedBranchIds = $branches->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+        $requestedBranchId = filled($request->input('branch_id')) ? (int) $request->input('branch_id') : null;
+
+        if ($requestedBranchId && $allowedBranchIds !== [] && ! in_array($requestedBranchId, $allowedBranchIds, true)) {
+            abort(403);
+        }
+
+        $selectedBranchId = $this->resolveLostBarcodeBranchId($request, $currentUser, $branches);
+
+        $validator = Validator::make([
+            'branch_id' => $selectedBranchId,
+            'weight' => $request->input('weight'),
+        ], [
+            'branch_id' => ['required', 'integer', 'exists:branches,id'],
+            'weight' => ['required', 'numeric', 'gt:0'],
+        ], [
+            'branch_id.required' => 'اختر الفرع أولًا قبل البحث عن الباركود.',
+            'weight.required' => 'أدخل وزن القطعة قبل البحث.',
+            'weight.numeric' => 'الوزن يجب أن يكون رقمًا صالحًا.',
+            'weight.gt' => 'الوزن يجب أن يكون أكبر من صفر.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'errors' => $validator->errors()->all(),
+                'data' => [],
+            ], 422);
+        }
+
+        $validated = $validator->validated();
+        $searchWeight = round((float) $validated['weight'], 3);
+        $tolerance = 0.05;
+        $minWeight = max(0, $searchWeight - $tolerance);
+        $maxWeight = $searchWeight + $tolerance;
+
+        $units = ItemUnit::query()
+            ->with([
+                'item.branch',
+                'item.goldCarat',
+                'item.goldCaratType',
+            ])
+            ->where('is_sold', false)
+            ->where('weight', '>', 0)
+            ->whereNotNull('barcode')
+            ->where('barcode', '!=', '')
+            ->whereBetween('weight', [$minWeight, $maxWeight])
+            ->whereHas('item', function ($itemQuery) use ($validated) {
+                $branchId = (int) $validated['branch_id'];
+
+                $itemQuery
+                    ->where(function ($visibilityQuery) use ($branchId) {
+                        $visibilityQuery->publishedToBranch($branchId);
+                        $visibilityQuery->orWhere('branch_id', $branchId);
+                    });
+            })
+            ->orderByRaw('ABS(weight - ?) asc', [$searchWeight])
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => $units->isEmpty()
+                ? 'لا توجد قطع مطابقة للوزن المدخل.'
+                : 'تم العثور على القطع المطابقة، اختر القطعة ثم أعد طباعة باركودها.',
+            'data' => $this->formatLostBarcodeUnits($units),
+        ]);
     }
 
     /**
@@ -740,6 +854,39 @@ class ItemController extends Controller
             : $itemTitle . ' ' . $barcode;
     }
 
+    private function formatLostBarcodeUnits(Collection $units): array
+    {
+        return $units->map(function (ItemUnit $unit) {
+            $item = $unit->item;
+            $branchName = $item->branch?->getTranslation('name', 'ar') ?? $item->branch?->name ?? '-';
+
+            if ($item->inventory_classification === Item::CLASSIFICATION_GOLD) {
+                $caratLabel = trim(implode(' - ', array_filter([
+                    $item->goldCarat?->getTranslation('title', 'ar') ?? $item->goldCarat?->title,
+                    $item->goldCaratType?->title,
+                ])));
+            } elseif ($item->inventory_classification === Item::CLASSIFICATION_SILVER) {
+                $caratLabel = 'فضة - ' . ($item->goldCarat?->getTranslation('title', 'ar') ?? $item->goldCarat?->title ?? '925');
+            } elseif ($item->inventory_classification === Item::CLASSIFICATION_COLLECTIBLE) {
+                $caratLabel = 'مقتنيات - ' . ($item->goldCarat?->getTranslation('title', 'ar') ?? $item->goldCarat?->title ?? 'عيار 18');
+            } else {
+                $caratLabel = $item->inventory_classification_label;
+            }
+
+            return [
+                'unit_id' => $unit->id,
+                'item_code' => $item->code,
+                'barcode' => $unit->barcode,
+                'weight' => number_format((float) $unit->weight, 3),
+                'name_ar' => $item->getTranslation('title', 'ar'),
+                'name_en' => $item->getTranslation('title', 'en'),
+                'branch_name' => $branchName,
+                'carat_label' => $caratLabel,
+                'print_url' => route('items.units.print_barcode', $unit->id, false),
+            ];
+        })->values()->all();
+    }
+
     private function syncPublishedBranches(Item $item, Request $request, int $ownerBranchId, ?int $publisherUserId = null): void
     {
         $currentUser = $this->currentAdminUser();
@@ -795,6 +942,31 @@ class ItemController extends Controller
             ->get();
     }
 
+    private function resolveLostBarcodeBranchId(Request $request, $user, ?Collection $branches = null): ?int
+    {
+        $branches = $branches ?? $this->publicationBranchesForUser($user);
+        $allowedBranchIds = $branches->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+        $requestedBranchId = filled($request->input('branch_id')) ? (int) $request->input('branch_id') : null;
+
+        if ($requestedBranchId && ($allowedBranchIds === [] || in_array($requestedBranchId, $allowedBranchIds, true))) {
+            return $requestedBranchId;
+        }
+
+        if ($user) {
+            $currentBranchId = app(BranchContextService::class)->currentBranchId($user, $request->session());
+
+            if ($currentBranchId && ($allowedBranchIds === [] || in_array($currentBranchId, $allowedBranchIds, true))) {
+                return $currentBranchId;
+            }
+
+            if (! empty($user->branch_id) && ($allowedBranchIds === [] || in_array((int) $user->branch_id, $allowedBranchIds, true))) {
+                return (int) $user->branch_id;
+            }
+        }
+
+        return $allowedBranchIds[0] ?? null;
+    }
+
     /**
      * @return array<int, int>
      */
@@ -811,6 +983,39 @@ class ItemController extends Controller
         }
 
         return $branchIds;
+    }
+
+    private function resolveCollectibleDefaultCaratId(?Collection $carats = null): ?int
+    {
+        return $this->resolveCaratIdByMarker('18', $carats);
+    }
+
+    private function resolveSilverDefaultCaratId(?Collection $carats = null): ?int
+    {
+        return $this->resolveCaratIdByMarker('925', $carats);
+    }
+
+    private function resolveCaratIdByMarker(string $marker, ?Collection $carats = null): ?int
+    {
+        $carats = $carats ?? GoldCarat::query()->get();
+
+        $carat = $carats->first(function (GoldCarat $carat) use ($marker) {
+            $candidates = [
+                (string) $carat->label,
+                (string) $carat->getTranslation('title', 'ar'),
+                (string) $carat->getTranslation('title', 'en'),
+            ];
+
+            foreach ($candidates as $candidate) {
+                if (preg_match('/(^|[^0-9])' . preg_quote($marker, '/') . '([^0-9]|$)/u', $candidate)) {
+                    return true;
+                }
+            }
+
+            return false;
+        });
+
+        return $carat?->id ? (int) $carat->id : null;
     }
 
     private function branchAlreadyHasItemNamed(string $itemName, int $branchId, ?int $ignoredItemId = null): bool

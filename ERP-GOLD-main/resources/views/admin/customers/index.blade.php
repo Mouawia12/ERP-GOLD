@@ -43,8 +43,11 @@
                 <div class="card-header pb-0" id="head-right" >
                     <div class="col-lg-12 margin-tb text-center">
                         @php
+                            $isReportDirectory = !empty($reportDirectory);
                             $isCashListing = !empty($cashDirectory) || !empty($cashOnly);
-                            $directoryRouteName = $isCashListing ? 'customers.cash' : 'customers';
+                            $directoryRouteName = $isReportDirectory
+                                ? ($isCashListing ? 'customers.reports.cash' : 'customers.reports.index')
+                                : ($isCashListing ? 'customers.cash' : 'customers');
                             $allPartiesRoute = route('customers', array_filter([
                                 'type' => $type,
                                 'identity_number' => $identityNumber ?? null,
@@ -53,13 +56,27 @@
                                 'type' => $type,
                                 'identity_number' => $identityNumber ?? null,
                             ], fn ($value) => $value !== null && $value !== ''));
-                            $directoryTitle = !empty($cashDirectory)
-                                ? ($type == 'customer' ? 'العملاء النقديون' : 'الموردون النقديون')
-                                : ($type == 'customer' ? __('main.customers') : __('main.suppliers'));
+                            $allReportsRoute = route('customers.reports.index', array_filter([
+                                'type' => $type,
+                                'identity_number' => $identityNumber ?? null,
+                            ], fn ($value) => $value !== null && $value !== ''));
+                            $cashReportsRoute = route('customers.reports.cash', array_filter([
+                                'type' => $type,
+                                'identity_number' => $identityNumber ?? null,
+                            ], fn ($value) => $value !== null && $value !== ''));
+                            $directoryTitle = $isReportDirectory
+                                ? ($isCashListing
+                                    ? ($type == 'customer' ? 'تقارير العملاء النقدية' : 'تقارير الموردين النقدية')
+                                    : ($type == 'customer' ? 'تقارير العملاء' : 'تقارير الموردين'))
+                                : ($isCashListing
+                                    ? ($type == 'customer' ? 'العملاء النقديون' : 'الموردون النقديون')
+                                    : ($type == 'customer' ? __('main.customers') : __('main.suppliers')));
+                            $primaryAlertClass = $isReportDirectory ? 'alert alert-info' : 'alert alert-primary';
                         @endphp
-                        <h4  class="alert alert-primary text-center">
+                        <h4  class="{{ $primaryAlertClass }} text-center">
                          [ {{$directoryTitle}} ] 
                         </h4>
+                        @if(!$isReportDirectory)
                         @canany(['employee.customers.add','employee.suppliers.add' ])     
                             <button type="button" class="btn btn-labeled btn-info " id="createButton">
                                 <span class="btn-label" style="margin-right: 10px;">
@@ -67,18 +84,23 @@
                                 {{__('main.add_new')}}
                             </button> 
                         @endcan
+                        @endif
                         <div class="mt-3">
                             <a
-                                href="{{ $allPartiesRoute }}"
+                                href="{{ $isReportDirectory ? $allReportsRoute : $allPartiesRoute }}"
                                 class="btn {{ empty($isCashListing) ? 'btn-primary' : 'btn-outline-primary' }}"
                             >
-                                كل {{ $type == 'customer' ? __('main.customers') : __('main.suppliers') }}
+                                {{ $isReportDirectory
+                                    ? ($type == 'customer' ? 'كل تقارير العملاء' : 'كل تقارير الموردين')
+                                    : ('كل ' . ($type == 'customer' ? __('main.customers') : __('main.suppliers'))) }}
                             </a>
                             <a
-                                href="{{ $cashPartiesRoute }}"
+                                href="{{ $isReportDirectory ? $cashReportsRoute : $cashPartiesRoute }}"
                                 class="btn {{ !empty($isCashListing) ? 'btn-primary' : 'btn-outline-primary' }}"
                             >
-                                {{ $type == 'customer' ? 'العملاء النقديون' : 'الموردون النقديون' }}
+                                {{ $isReportDirectory
+                                    ? ($type == 'customer' ? 'تقارير العملاء النقديين' : 'تقارير الموردين النقديين')
+                                    : ($type == 'customer' ? 'العملاء النقديون' : 'الموردون النقديون') }}
                             </a>
                         </div>
                         <form method="GET" action="{{ route($directoryRouteName, ['type' => $type]) }}" class="mt-3">
@@ -89,7 +111,9 @@
                                             type="text"
                                             name="identity_number"
                                             class="form-control text-right"
-                                            placeholder="{{ !empty($cashDirectory) ? 'بحث داخل الأطراف النقدية برقم الهوية' : 'بحث برقم الهوية' }}"
+                                            placeholder="{{ $isReportDirectory
+                                                ? (!empty($cashDirectory) ? 'بحث في تقارير الأطراف النقدية برقم الهوية' : 'بحث في التقارير برقم الهوية')
+                                                : (!empty($cashDirectory) ? 'بحث داخل الأطراف النقدية برقم الهوية' : 'بحث برقم الهوية') }}"
                                             value="{{ $identityNumber ?? '' }}"
                                         >
                                         <div class="input-group-append">
@@ -103,7 +127,9 @@
                                         </div>
                                     </div>
                                     @if(!empty($isCashListing))
-                                        <small class="text-muted d-block mt-2">هذه القائمة تعرض الأطراف النقدية فقط.</small>
+                                        <small class="text-muted d-block mt-2">
+                                            {{ $isReportDirectory ? 'هذه القائمة تعرض تقارير الأطراف النقدية فقط.' : 'هذه القائمة تعرض الأطراف النقدية فقط.' }}
+                                        </small>
                                     @endif
                                     @if(!empty($identityNumber))
                                         <small class="text-muted d-block mt-2">التصفية الحالية على رقم الهوية: {{ $identityNumber }}</small>
@@ -130,7 +156,7 @@
                                             <th>رقم الهوية</th>
                                             <th>{{__('main.email')}}</th> 
                                             <th>{{__('main.vat_no')}}</th>
-                                            <th>{{__('main.actions')}}</th>
+                                            <th>{{ $isReportDirectory ? 'التقارير' : __('main.actions') }}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -150,14 +176,22 @@
                                                 <td class="text-center">{{$customer -> email}}</td> 
                                                 <td class="text-center">{{$customer -> tax_number}}</td>
                                                 <td class="text-center">
+                                                @if($isReportDirectory)
                                                 <a
                                                     href="{{ route('customers.report', $customer->id) }}"
-                                                    class="btn btn-labeled btn-primary"
-                                                    title="كشف الطرف"
+                                                    class="btn btn-primary btn-sm"
+                                                    title="التقرير التفصيلي"
                                                 >
-                                                    <i class="fa fa-file-text-o"></i>
+                                                    تفصيلي
                                                 </a>
-
+                                                <a
+                                                    href="{{ route('customers.report.cash', $customer->id) }}"
+                                                    class="btn btn-outline-primary btn-sm"
+                                                    title="التقرير النقدي"
+                                                >
+                                                    نقدي
+                                                </a>
+                                                @else
                                                 @canany(['employee.customers.edit','employee.suppliers.edit'])    
                                                 <button type="button" class="btn btn-labeled btn-info editBtn"
                                                     url="{{route('customers.get', $customer->id)}}" > 
@@ -170,6 +204,7 @@
                                                     <i class="fa fa-trash"></i>
                                                 </button>
                                                 @endcanany 
+                                                @endif
                                             </td>
                                             </tr>
                                     @endforeach 
@@ -379,7 +414,9 @@
 @section('js')
 <script type="text/javascript">
     let id = 0;
-    document.title = "{{$type == 'customer' ? __('main.customers') : __('main.suppliers')}}";
+    document.title = @json(!empty($reportDirectory)
+        ? ($type == 'customer' ? 'تقارير العملاء' : 'تقارير الموردين')
+        : ($type == 'customer' ? __('main.customers') : __('main.suppliers')));
 
     $(document).ready(function(){
         const $createModal = $('#createModal');

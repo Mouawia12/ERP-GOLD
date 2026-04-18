@@ -49,11 +49,20 @@
             --erp-main-header-row-height: 64px;
             --erp-main-header-height: 64px;
             --erp-main-header-offset: 0px;
+            --erp-main-header-gap: 14px;
+            --erp-main-header-bottom-gap: 14px;
+            --erp-layout-gutter: 16px;
         }
 
         @font-face {
             font-family: 'Tajawal-Regular';
             src: url("{{asset('fonts/Tajawal-Regular.ttf')}}");
+        }
+
+        html,
+        body {
+            max-width: 100%;
+            overflow-x: hidden;
         }
 
         body, html,table {
@@ -122,7 +131,8 @@
             background: #444!important;
         }
         div#main-footer {
-            width: 100%;
+            width: auto;
+            max-width: 100%;
             bottom: 0;
         }
         .btn-secondary {
@@ -152,8 +162,9 @@
         }
   
         .dt-buttons.btn-group.flex-wrap {
-            padding-right: 15% !important;
-            padding-bottom:1% !important;
+            padding-right: 0 !important;
+            padding-bottom: 0 !important;
+            gap: 6px;
         }
 
         .global-loader { 
@@ -172,6 +183,23 @@
             width: 100%;
             height: var(--erp-main-header-offset, 0px);
             transition: height .18s ease;
+        }
+
+        .main-content.app-content {
+            width: auto;
+            max-width: 100%;
+            min-width: 0;
+            overflow-x: hidden;
+            box-sizing: border-box;
+        }
+
+        .main-content.app-content > .container-fluid,
+        .main-footer > .container-fluid {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            overflow-x: hidden;
+            box-sizing: border-box;
         }
     </style>
 </head>

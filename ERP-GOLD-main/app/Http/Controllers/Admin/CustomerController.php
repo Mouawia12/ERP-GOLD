@@ -10,10 +10,12 @@ use App\Models\Customer;
 use App\Models\FinancialVoucher;
 use App\Models\GoldCarat;
 use App\Models\Invoice;
+use App\Models\JournalEntryDocument;
 use App\Models\User;
 use App\Services\Branches\BranchContextService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class CustomerController extends Controller
@@ -29,15 +31,25 @@ class CustomerController extends Controller
      */
     public function index(Request $request, $type)
     {
-        return $this->renderIndex($request, $type, false);
+        return $this->renderIndex($request, $type, false, false);
     }
 
     public function cashDirectory(Request $request, $type)
     {
-        return $this->renderIndex($request, $type, true);
+        return $this->renderIndex($request, $type, true, false);
     }
 
-    private function renderIndex(Request $request, $type, bool $cashDirectory)
+    public function reportDirectory(Request $request, $type)
+    {
+        return $this->renderIndex($request, $type, false, true);
+    }
+
+    public function cashReportDirectory(Request $request, $type)
+    {
+        return $this->renderIndex($request, $type, true, true);
+    }
+
+    private function renderIndex(Request $request, $type, bool $cashDirectory, bool $reportDirectory)
     {
         $type = $this->normalizeType($type);
         $this->authorizeTypePermission($type, 'show');
@@ -66,6 +78,7 @@ class CustomerController extends Controller
             'accounts' => $accounts,
             'cashOnly' => $cashOnly,
             'cashDirectory' => $cashDirectory,
+            'reportDirectory' => $reportDirectory,
             'identityNumber' => $identityNumber,
         ]);
     }
@@ -466,6 +479,80 @@ class CustomerController extends Controller
         ]);
     }
 
+    public function cashReport(Request $request, $id)
+    {
+        $currentUser = $request->user('admin-web');
+        $customer = Customer::query()->visibleToUser($currentUser)->findOrFail($id);
+        $this->authorizeTypePermission($customer->type, 'show');
+        $accessibleBranchIds = $this->accessibleBranchIds($currentUser);
+
+        $filters = Validator::make($request->all(), [
+            'from_date' => 'nullable|date',
+            'to_date' => 'nullable|date',
+            'from_time' => 'nullable|string|max:8',
+            'to_time' => 'nullable|string|max:8',
+            'branch_id' => 'nullable|exists:branches,id',
+            'user_id' => 'nullable|exists:users,id',
+            'invoice_number' => 'nullable|string|max:191',
+            'source_type' => 'nullable|in:invoice,voucher,manual',
+        ])->validate();
+
+        $filters['invoice_number'] = $this->normalizeOptionalFilter(
+            $filters['invoice_number'] ?? $request->input('billNumber')
+        );
+        $filters['source_type'] = $this->normalizeOptionalFilter($filters['source_type'] ?? null);
+        $filters['from_time'] = $this->normalizeTime($filters['from_time'] ?? null);
+        $filters['to_time'] = $this->normalizeTime($filters['to_time'] ?? null);
+
+        $account = $customer->account;
+        $accountName = null;
+        $documents = collect();
+        $openingBalance = [
+            'debit' => 0.0,
+            'credit' => 0.0,
+            'net' => 0.0,
+        ];
+
+        if ($account) {
+            $rawAccountName = $account->getRawOriginal('name');
+            $decodedAccountName = json_decode((string) $rawAccountName, true);
+            $accountName = is_array($decodedAccountName)
+                ? ($decodedAccountName[app()->getLocale()] ?? reset($decodedAccountName) ?: (string) $rawAccountName)
+                : (string) $rawAccountName;
+
+            $openingBalance = $this->openingBalanceForCustomerCashStatement($account, $filters, $accessibleBranchIds);
+
+            $documents = $this->customerCashDocumentsQuery($account, $filters, $accessibleBranchIds)
+                ->orderBy('document_date')
+                ->orderBy('id')
+                ->get()
+                ->map(function (JournalEntryDocument $document) {
+                    return $this->mapCustomerCashDocument($document);
+                })
+                ->values();
+        }
+
+        $periodDebit = round((float) $documents->sum('debit'), 2);
+        $periodCredit = round((float) $documents->sum('credit'), 2);
+        $closingNet = round($openingBalance['net'] + $periodDebit - $periodCredit, 2);
+
+        return view('admin.customers.cash_report', [
+            'customer' => $customer,
+            'account' => $account,
+            'accountName' => $accountName,
+            'documents' => $documents,
+            'openingBalance' => $openingBalance,
+            'periodTotals' => [
+                'debit' => $periodDebit,
+                'credit' => $periodCredit,
+            ],
+            'closingNet' => $closingNet,
+            'branches' => $this->branchesQuery($currentUser)->orderBy('name')->get(),
+            'users' => $this->usersQuery($currentUser)->orderBy('name')->get(),
+            'filters' => $filters,
+        ]);
+    }
+
     /**
      * Display the specified resource.
      *
@@ -847,6 +934,225 @@ class CustomerController extends Controller
                 return $row['operation_label'] . '|' . $row['carat_title'];
             })
             ->values();
+    }
+
+    private function customerCashDocumentsQuery(Account $account, array $filters, array $accessibleBranchIds)
+    {
+        $accountIds = $this->customerCashAccountIds($account);
+
+        $query = JournalEntryDocument::query()
+            ->with(['journal_entry.branch', 'journal_entry.journalable'])
+            ->whereIn('account_id', $accountIds)
+            ->when($filters['from_date'] ?? null, function ($builder, $value) {
+                return $builder->where('document_date', '>=', $value);
+            })
+            ->when($filters['to_date'] ?? null, function ($builder, $value) {
+                return $builder->where('document_date', '<=', $value);
+            });
+
+        $this->applyCustomerCashFilters($query, $filters, $accessibleBranchIds);
+
+        return $query;
+    }
+
+    private function applyCustomerCashFilters($query, array $filters, array $accessibleBranchIds, bool $includeTimeFilters = true): void
+    {
+        if ($accessibleBranchIds !== []) {
+            $query->whereHas('journal_entry', function ($journalQuery) use ($accessibleBranchIds) {
+                $journalQuery->whereIn('branch_id', $accessibleBranchIds);
+            });
+        }
+
+        if ($filters['branch_id'] ?? null) {
+            $query->whereHas('journal_entry', function ($journalQuery) use ($filters) {
+                $journalQuery->where('branch_id', $filters['branch_id']);
+            });
+        }
+
+        if (($filters['source_type'] ?? null) !== null) {
+            $query->whereHas('journal_entry', function ($journalQuery) use ($filters) {
+                match ($filters['source_type']) {
+                    'manual' => $journalQuery->whereNull('journalable_type'),
+                    'invoice' => $journalQuery->whereHasMorph('journalable', [Invoice::class]),
+                    'voucher' => $journalQuery->whereHasMorph('journalable', [FinancialVoucher::class]),
+                    default => null,
+                };
+            });
+        }
+
+        if (($filters['invoice_number'] ?? null) !== null) {
+            $query->whereHas('journal_entry', function ($journalQuery) use ($filters) {
+                $journalQuery->where(function ($referenceQuery) use ($filters) {
+                    $referenceQuery
+                        ->where('serial', $filters['invoice_number'])
+                        ->orWhereHasMorph('journalable', [Invoice::class], function ($invoiceQuery) use ($filters) {
+                            $invoiceQuery->where('bill_number', $filters['invoice_number']);
+                        })
+                        ->orWhereHasMorph('journalable', [FinancialVoucher::class], function ($voucherQuery) use ($filters) {
+                            $voucherQuery->where('bill_number', $filters['invoice_number']);
+                        });
+                });
+            });
+        }
+
+        if (($filters['user_id'] ?? null) !== null) {
+            $query->whereHas('journal_entry', function ($journalQuery) use ($filters) {
+                $journalQuery->where(function ($sourceQuery) use ($filters) {
+                    $sourceQuery
+                        ->whereHasMorph('journalable', [Invoice::class], function ($invoiceQuery) use ($filters) {
+                            $invoiceQuery->where('user_id', $filters['user_id']);
+                        })
+                        ->orWhereHasMorph('journalable', [FinancialVoucher::class], function ($voucherQuery) use ($filters) {
+                            $voucherQuery->whereHas('shift', function ($shiftQuery) use ($filters) {
+                                $shiftQuery->where('user_id', $filters['user_id']);
+                            });
+                        });
+                });
+            });
+        }
+
+        if ($includeTimeFilters && ($filters['from_time'] ?? null) !== null) {
+            $query->whereHas('journal_entry', function ($journalQuery) use ($filters) {
+                $journalQuery->where(function ($sourceQuery) use ($filters) {
+                    $sourceQuery
+                        ->whereHasMorph('journalable', [Invoice::class], function ($invoiceQuery) use ($filters) {
+                            $invoiceQuery->where('time', '>=', $filters['from_time']);
+                        })
+                        ->orWhereHasMorph('journalable', [FinancialVoucher::class], function ($voucherQuery) use ($filters) {
+                            $voucherQuery->whereTime('created_at', '>=', $filters['from_time']);
+                        });
+                });
+            });
+        }
+
+        if ($includeTimeFilters && ($filters['to_time'] ?? null) !== null) {
+            $query->whereHas('journal_entry', function ($journalQuery) use ($filters) {
+                $journalQuery->where(function ($sourceQuery) use ($filters) {
+                    $sourceQuery
+                        ->whereHasMorph('journalable', [Invoice::class], function ($invoiceQuery) use ($filters) {
+                            $invoiceQuery->where('time', '<=', $filters['to_time']);
+                        })
+                        ->orWhereHasMorph('journalable', [FinancialVoucher::class], function ($voucherQuery) use ($filters) {
+                            $voucherQuery->whereTime('created_at', '<=', $filters['to_time']);
+                        });
+                });
+            });
+        }
+    }
+
+    /**
+     * @return array{debit:float,credit:float,net:float}
+     */
+    private function openingBalanceForCustomerCashStatement(Account $account, array $filters, array $accessibleBranchIds): array
+    {
+        $debit = 0.0;
+        $credit = 0.0;
+        $accountIds = $this->customerCashAccountIds($account);
+
+        if ($this->canUseGlobalOpeningBalanceForCustomerCash($filters, $accessibleBranchIds)) {
+            $openingTotals = DB::table('opening_balances')
+                ->whereIn('account_id', $accountIds)
+                ->select(DB::raw('COALESCE(SUM(debit), 0) as debit_total, COALESCE(SUM(credit), 0) as credit_total'))
+                ->first();
+
+            $debit += (float) ($openingTotals->debit_total ?? 0);
+            $credit += (float) ($openingTotals->credit_total ?? 0);
+        }
+
+        if ($filters['from_date'] ?? null) {
+            $query = JournalEntryDocument::query()
+                ->whereIn('account_id', $accountIds)
+                ->where(function ($builder) use ($filters) {
+                    $builder->where('document_date', '<', $filters['from_date']);
+
+                    if ($filters['from_time'] !== null) {
+                        $builder->orWhere(function ($sameDayQuery) use ($filters) {
+                            $sameDayQuery
+                                ->where('document_date', $filters['from_date'])
+                                ->whereHas('journal_entry', function ($journalQuery) use ($filters) {
+                                    $journalQuery->where(function ($sourceQuery) use ($filters) {
+                                        $sourceQuery
+                                            ->whereHasMorph('journalable', [Invoice::class], function ($invoiceQuery) use ($filters) {
+                                                $invoiceQuery->where('time', '<', $filters['from_time']);
+                                            })
+                                            ->orWhereHasMorph('journalable', [FinancialVoucher::class], function ($voucherQuery) use ($filters) {
+                                                $voucherQuery->whereTime('created_at', '<', $filters['from_time']);
+                                            });
+                                    });
+                                });
+                        });
+                    }
+                });
+
+            $this->applyCustomerCashFilters($query, $filters, $accessibleBranchIds, false);
+
+            $totals = $query
+                ->select(DB::raw('COALESCE(SUM(debit), 0) as debit_total, COALESCE(SUM(credit), 0) as credit_total'))
+                ->first();
+
+            $debit += (float) ($totals->debit_total ?? 0);
+            $credit += (float) ($totals->credit_total ?? 0);
+        }
+
+        return [
+            'debit' => round($debit, 2),
+            'credit' => round($credit, 2),
+            'net' => round($debit - $credit, 2),
+        ];
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function customerCashAccountIds(Account $account): array
+    {
+        return [$account->getKey()];
+    }
+
+    private function canUseGlobalOpeningBalanceForCustomerCash(array $filters, array $accessibleBranchIds): bool
+    {
+        return $accessibleBranchIds === []
+            && ($filters['branch_id'] ?? null) === null
+            && ($filters['user_id'] ?? null) === null
+            && ($filters['invoice_number'] ?? null) === null
+            && ($filters['source_type'] ?? null) === null
+            && ($filters['from_time'] ?? null) === null
+            && ($filters['to_time'] ?? null) === null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function mapCustomerCashDocument(JournalEntryDocument $document): array
+    {
+        $journal = $document->journal_entry;
+        $source = $journal?->journalable;
+        $isInvoice = $source instanceof Invoice;
+        $isVoucher = $source instanceof FinancialVoucher;
+
+        $time = $isInvoice
+            ? ($source->time ?? null)
+            : ($isVoucher
+                ? optional($source->created_at)->format('H:i:s')
+                : optional($journal?->created_at)->format('H:i:s'));
+
+        $userName = $isInvoice
+            ? ($source->user?->name ?? '-')
+            : ($isVoucher ? ($source->shift?->user?->name ?? '-') : '-');
+
+        return [
+            'id' => $document->id,
+            'date' => $document->document_date,
+            'time' => $time ?? '-',
+            'branch_name' => $journal?->branch?->name ?? '-',
+            'user_name' => $userName,
+            'source_type' => $isInvoice ? 'invoice' : ($isVoucher ? 'voucher' : 'manual'),
+            'source_type_label' => $isInvoice ? 'فاتورة' : ($isVoucher ? 'سند مالي' : 'قيد يدوي'),
+            'reference_number' => $isInvoice || $isVoucher ? ($source->bill_number ?? $journal?->serial) : ($journal?->serial ?? '-'),
+            'document_label' => $journal?->custom_notes ?? $document->notes ?? '-',
+            'debit' => round((float) $document->debit, 2),
+            'credit' => round((float) $document->credit, 2),
+        ];
     }
 
     private function normalizeOptionalFilter($value): mixed

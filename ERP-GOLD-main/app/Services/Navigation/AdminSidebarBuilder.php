@@ -113,6 +113,12 @@ class AdminSidebarBuilder
                         'active_patterns' => ['admin.system-settings.login-mode.*'],
                     ],
                     [
+                        'label' => 'اعتماد البيع بالشفت',
+                        'route' => 'admin.system-settings.sales-shift.edit',
+                        'permission' => 'employee.system_settings.show',
+                        'active_patterns' => ['admin.system-settings.sales-shift.*'],
+                    ],
+                    [
                         'label' => 'شروط الفاتورة',
                         'route' => 'admin.system-settings.invoice-terms.edit',
                         'permission' => 'employee.system_settings.show',

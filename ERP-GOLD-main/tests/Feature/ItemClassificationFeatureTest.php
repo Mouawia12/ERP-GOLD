@@ -56,7 +56,7 @@ class ItemClassificationFeatureTest extends TestCase
         $admin = $this->createAdminUser([
             'employee.items.add',
         ]);
-        [$branch, $categoryId, $caratId, $caratTypeId] = $this->createItemCatalogLookups();
+        [$branch, $categoryId, $caratId, $caratTypeId, $silverCaratId] = $this->createItemCatalogLookups();
 
         $invalidGoldResponse = $this
             ->actingAs($admin, 'admin-web')
@@ -90,6 +90,7 @@ class ItemClassificationFeatureTest extends TestCase
                 'name_ar' => 'سوار فضي',
                 'name_en' => 'Silver Bracelet',
                 'category_id' => $categoryId,
+                'carats_id' => $caratId,
                 'cost_per_gram' => 45,
                 'labor_cost_per_gram' => 7,
             ], [
@@ -104,7 +105,7 @@ class ItemClassificationFeatureTest extends TestCase
         $this->assertNotNull($savedItem);
         $this->assertSame(Item::CLASSIFICATION_SILVER, $savedItem->inventory_classification);
         $this->assertSame(Item::SALE_MODE_REPEATABLE, $savedItem->sale_mode);
-        $this->assertNull($savedItem->gold_carat_id);
+        $this->assertSame($silverCaratId, (int) $savedItem->gold_carat_id);
         $this->assertNull($savedItem->gold_carat_type_id);
         $this->assertSame('سوار فضي', $savedItem->getTranslation('title', 'ar'));
 
@@ -173,6 +174,47 @@ class ItemClassificationFeatureTest extends TestCase
         $this->assertDatabaseMissing('items', [
             'branch_id' => $branch->id,
         ]);
+    }
+
+    public function test_collectible_items_are_forced_to_18_carat_when_saved(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.items.add',
+        ]);
+        [$branch, $categoryId, $goldCarat21Id] = $this->createItemCatalogLookups();
+        $taxId = (int) DB::table('taxes')->value('id');
+        $goldCarat18Id = DB::table('gold_carats')->insertGetId([
+            'title' => json_encode(['ar' => 'عيار 18', 'en' => '18K'], JSON_UNESCAPED_UNICODE),
+            'label' => 'C18',
+            'tax_id' => $taxId,
+            'transform_factor' => '0.857143',
+            'is_pure' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('items.store', [], false), [
+                'branch_id' => $branch->id,
+                'inventory_classification' => Item::CLASSIFICATION_COLLECTIBLE,
+                'sale_mode' => Item::SALE_MODE_REPEATABLE,
+                'name_ar' => 'قطعة مقتنيات',
+                'name_en' => 'Collectible Piece',
+                'category_id' => $categoryId,
+                'carats_id' => $goldCarat21Id,
+                'cost_per_gram' => 180,
+            ], [
+                'Accept' => 'application/json',
+            ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('status', true);
+
+        $savedItem = Item::query()->where('inventory_classification', Item::CLASSIFICATION_COLLECTIBLE)->latest('id')->firstOrFail();
+
+        $this->assertSame($goldCarat18Id, (int) $savedItem->gold_carat_id);
+        $this->assertNull($savedItem->gold_carat_type_id);
     }
 
     public function test_repeatable_sale_item_can_be_saved_without_weight_and_uses_zero_weight_without_barcode(): void
@@ -267,7 +309,7 @@ class ItemClassificationFeatureTest extends TestCase
     }
 
     /**
-     * @return array{0:Branch,1:int,2:int,3:int}
+     * @return array{0:Branch,1:int,2:int,3:int,4:int}
      */
     private function createItemCatalogLookups(): array
     {
@@ -303,6 +345,16 @@ class ItemClassificationFeatureTest extends TestCase
             'updated_at' => now(),
         ]);
 
+        $silverCaratId = DB::table('gold_carats')->insertGetId([
+            'title' => json_encode(['ar' => 'فضة 925', 'en' => 'Silver 925'], JSON_UNESCAPED_UNICODE),
+            'label' => 'S925',
+            'tax_id' => $taxId,
+            'transform_factor' => '1',
+            'is_pure' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         $caratTypeId = DB::table('gold_carat_types')->insertGetId([
             'title' => 'مشغول',
             'key' => 'crafted',
@@ -310,7 +362,7 @@ class ItemClassificationFeatureTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        return [$branch, $categoryId, $caratId, $caratTypeId];
+        return [$branch, $categoryId, $caratId, $caratTypeId, $silverCaratId];
     }
 
     /**

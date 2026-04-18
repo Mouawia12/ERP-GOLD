@@ -22,13 +22,11 @@ class BrandLogoService
 
     public function logoUrl(): string
     {
-        $path = $this->logoPath();
-
-        if ($path && Storage::disk('public')->exists($path)) {
-            return Storage::disk('public')->url($path);
+        if ($storedLogoUrl = $this->storedLogoUrl()) {
+            return $storedLogoUrl;
         }
 
-        return asset('assets/img/logo.png');
+        return asset('assets/img/althaki-logo.png');
     }
 
     public function storeUploadedLogo(UploadedFile $file): string
@@ -43,5 +41,16 @@ class BrandLogoService
         SystemSetting::putValue(self::SETTING_KEY, $newPath);
 
         return $newPath;
+    }
+
+    private function storedLogoUrl(): ?string
+    {
+        $path = $this->logoPath();
+
+        if (! $path || ! Storage::disk('public')->exists($path)) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($path);
     }
 }

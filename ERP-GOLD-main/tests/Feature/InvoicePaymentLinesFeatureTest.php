@@ -9,6 +9,7 @@ use App\Models\FinancialYear;
 use App\Models\GoldPrice;
 use App\Models\Invoice;
 use App\Models\Shift;
+use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -243,6 +244,82 @@ class InvoicePaymentLinesFeatureTest extends TestCase
         ]);
         $response->assertJsonPath('errors.0', 'الحساب البنكي المحدد غير صالح لهذا الفرع.');
         $this->assertDatabaseCount('invoices', 0);
+    }
+
+    public function test_sales_store_requires_active_shift_when_sales_shift_mode_is_enabled(): void
+    {
+        $branch = $this->createBranch('فرع إلزام الشفت');
+        $user = $this->createUser($branch, 'sales-shift-required@example.com');
+        $this->createFinancialYear();
+        $this->createWarehouse($branch);
+        [$customerId, $supplierId] = $this->createTradingParties();
+        [$itemUnitId] = $this->createInventoryFixture($branch);
+        $this->createBranchAccountSettings($branch, $customerId, $supplierId);
+
+        SystemSetting::putValue('sales_shift_mode', 'enabled');
+
+        $response = $this->actingAs($user, 'admin-web')
+            ->postJson(route('sales.store', ['type' => 'simplified'], false), [
+                'type' => 'simplified',
+                'bill_date' => '2026-03-22 12:30:00',
+                'branch_id' => $branch->id,
+                'customer_id' => $customerId,
+                'cash' => 115,
+                'payment_lines' => [],
+                'unit_id' => [$itemUnitId],
+                'quantity' => [1],
+                'weight' => [1],
+                'gram_price' => [100],
+                'discount' => [0],
+                'no_metal' => [0],
+            ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonFragment([
+            'status' => false,
+        ]);
+        $response->assertJsonPath('errors.0', 'يجب فتح شفت نشط على هذا الفرع قبل تسجيل العملية.');
+        $this->assertDatabaseCount('invoices', 0);
+    }
+
+    public function test_sales_store_allows_saving_without_shift_when_sales_shift_mode_is_disabled(): void
+    {
+        $branch = $this->createBranch('فرع تعطيل الشفت');
+        $user = $this->createUser($branch, 'sales-shift-disabled@example.com');
+        $this->createFinancialYear();
+        $this->createWarehouse($branch);
+        [$customerId, $supplierId] = $this->createTradingParties();
+        [$itemUnitId] = $this->createInventoryFixture($branch);
+        $this->createBranchAccountSettings($branch, $customerId, $supplierId);
+
+        SystemSetting::putValue('sales_shift_mode', 'disabled');
+
+        $response = $this->actingAs($user, 'admin-web')
+            ->postJson(route('sales.store', ['type' => 'simplified'], false), [
+                'type' => 'simplified',
+                'bill_date' => '2026-03-22 13:00:00',
+                'branch_id' => $branch->id,
+                'customer_id' => $customerId,
+                'bill_client_name' => 'عميل بدون شفت',
+                'cash' => 115,
+                'payment_lines' => [],
+                'unit_id' => [$itemUnitId],
+                'quantity' => [1],
+                'weight' => [1],
+                'gram_price' => [100],
+                'discount' => [0],
+                'no_metal' => [0],
+            ]);
+
+        $response->assertOk()->assertJson([
+            'status' => true,
+        ]);
+
+        $invoice = Invoice::query()->where('type', 'sale')->firstOrFail();
+
+        $this->assertNull($invoice->shift_id);
+        $this->assertSame('عميل بدون شفت', $invoice->bill_client_name);
+        $this->assertDatabaseCount('shifts', 0);
     }
 
     public function test_sale_invoice_keeps_stored_unit_price_after_gold_price_changes(): void
@@ -652,6 +729,68 @@ class InvoicePaymentLinesFeatureTest extends TestCase
         $response->assertOk();
         $response->assertSee('window.currentSalesReturnBankAccounts', false);
         $response->assertSee('SR-CREATE-1');
+    }
+
+    public function test_sales_return_store_allows_saving_without_shift_when_sales_shift_mode_is_disabled(): void
+    {
+        $branch = $this->createBranch('فرع مرتجع بدون شفت');
+        $user = $this->createUser($branch, 'sales-return-without-shift@example.com');
+        $this->createFinancialYear();
+        $this->createWarehouse($branch);
+        [$customerId, $supplierId] = $this->createTradingParties();
+        [$itemUnitId] = $this->createInventoryFixture($branch);
+        $this->createBranchAccountSettings($branch, $customerId, $supplierId);
+
+        SystemSetting::putValue('sales_shift_mode', 'disabled');
+
+        $saleResponse = $this->actingAs($user, 'admin-web')
+            ->postJson(route('sales.store', ['type' => 'simplified'], false), [
+                'type' => 'simplified',
+                'bill_date' => '2026-03-23 10:00:00',
+                'branch_id' => $branch->id,
+                'customer_id' => $customerId,
+                'bill_client_name' => 'عميل مرتجع بدون شفت',
+                'cash' => 115,
+                'payment_lines' => [],
+                'unit_id' => [$itemUnitId],
+                'quantity' => [1],
+                'weight' => [1],
+                'gram_price' => [100],
+                'discount' => [0],
+                'no_metal' => [0],
+            ]);
+
+        $saleResponse->assertOk()->assertJson([
+            'status' => true,
+        ]);
+
+        $saleInvoice = Invoice::query()
+            ->with('details')
+            ->where('type', 'sale')
+            ->firstOrFail();
+
+        $this->assertNull($saleInvoice->shift_id);
+
+        $saleDetailId = $saleInvoice->details->firstOrFail()->id;
+
+        $returnResponse = $this->actingAs($user, 'admin-web')
+            ->post(route('sales_return.store', ['type' => 'simplified', 'id' => $saleInvoice->id], false), [
+                'checkDetail' => [$saleDetailId],
+                'cash' => 115,
+                'payment_lines' => [],
+            ]);
+
+        $returnResponse
+            ->assertRedirect(route('sales_return.index', ['type' => 'simplified'], false))
+            ->assertSessionHasNoErrors();
+
+        $returnInvoice = Invoice::query()
+            ->where('type', 'sale_return')
+            ->firstOrFail();
+
+        $this->assertNull($returnInvoice->shift_id);
+        $this->assertSame('عميل مرتجع بدون شفت', $returnInvoice->bill_client_name);
+        $this->assertDatabaseCount('shifts', 0);
     }
 
     public function test_purchase_return_store_supports_receipt_payment_lines_and_increases_shift_expected_cash_by_cash_refund(): void

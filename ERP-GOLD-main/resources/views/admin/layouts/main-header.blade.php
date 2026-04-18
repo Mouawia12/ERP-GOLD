@@ -5,23 +5,38 @@
         height: auto !important;
         min-height: var(--erp-main-header-row-height, 64px) !important;
         margin-bottom: 0 !important;
+        transition: padding-right .28s ease, height .18s ease;
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
     }
 
     .main-header > .container-fluid.main-header__nav-row {
         height: auto !important;
         min-height: var(--erp-main-header-row-height, 64px);
         align-items: center;
+        padding: 10px 18px;
+        background: rgba(255, 255, 255, 0.98);
+        border: 1px solid rgba(221, 230, 243, 0.95);
+        border-radius: 22px;
+        box-shadow: 0 16px 34px rgba(28, 46, 78, 0.1);
     }
 
     .responsive-logo a {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
+        min-height: 46px;
+        padding: 4px 0;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
     }
 
     .responsive-logo .brand-header-logo {
-        width: 112px;
+        width: 156px;
         max-width: 100%;
-        max-height: 48px;
+        max-height: 64px;
         object-fit: contain;
     }
 
@@ -37,6 +52,7 @@
     .main-header-left {
         display: flex;
         align-items: center;
+        flex: 0 0 auto;
     }
 
     .main-header__nav-row {
@@ -46,32 +62,31 @@
         flex-wrap: wrap;
     }
 
-    .gold-price-ticker-dock {
-        width: 100%;
-        padding: 6px 0 10px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 249, 253, 0.94) 100%);
-        border-top: 1px solid rgba(226, 232, 240, 0.75);
+    .main-header__ticker-slot {
+        flex: 1 1 520px;
+        min-width: 320px;
     }
 
     .gold-price-ticker-shell {
         width: 100%;
         display: flex;
-        justify-content: center;
+        align-items: center;
+        justify-content: flex-start;
         margin-inline: 0;
     }
 
     .gold-price-ticker {
         width: 100%;
-        min-height: 52px;
+        min-height: 48px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 14px;
-        padding: 10px 16px;
-        border-radius: 18px;
+        gap: 12px;
+        padding: 8px 14px;
+        border-radius: 16px;
         border: 1px solid rgba(191, 162, 83, 0.34);
         background: linear-gradient(135deg, rgba(255, 249, 234, 0.98) 0%, rgba(248, 238, 204, 0.98) 100%);
-        box-shadow: 0 18px 40px rgba(146, 111, 27, 0.12);
+        box-shadow: 0 12px 28px rgba(146, 111, 27, 0.1);
         color: #5a430f;
     }
 
@@ -82,10 +97,9 @@
     .gold-price-ticker__status {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        font-size: 12px;
-        font-weight: 700;
-        white-space: nowrap;
+        gap: 0;
+        flex: 0 0 auto;
+        line-height: 0;
     }
 
     .gold-price-ticker__pulse {
@@ -104,6 +118,7 @@
 
     .gold-price-ticker__items {
         flex: 1 1 auto;
+        min-width: 0;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -115,11 +130,11 @@
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        padding: 6px 10px;
+        padding: 5px 10px;
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.65);
         border: 1px solid rgba(157, 126, 46, 0.16);
-        font-size: 12px;
+        font-size: 11.5px;
         font-weight: 700;
         color: #624814;
         white-space: nowrap;
@@ -134,10 +149,13 @@
     }
 
     .gold-price-ticker__meta {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
         text-align: left;
-        font-size: 11px;
+        font-size: 10.5px;
         font-weight: 700;
-        line-height: 1.6;
+        line-height: 1.45;
         color: #7b6127;
         white-space: nowrap;
     }
@@ -150,13 +168,14 @@
         display: inline-flex;
         align-items: center;
         gap: 8px;
+        flex: 0 0 auto;
     }
 
     .gold-price-ticker__btn {
         border: 0;
         border-radius: 12px;
-        padding: 8px 12px;
-        font-size: 12px;
+        padding: 7px 11px;
+        font-size: 11.5px;
         font-weight: 700;
         line-height: 1;
         transition: transform .15s ease, opacity .15s ease, box-shadow .15s ease;
@@ -293,7 +312,74 @@
         display: none;
     }
 
+    .main-header-right {
+        display: flex;
+        align-items: center;
+        flex: 0 0 auto;
+    }
+
+    .main-header-right .navbar-nav-right {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-left: 0 !important;
+    }
+
     @media (min-width: 992px) {
+        body.app .main-header {
+            position: fixed !important;
+            top: var(--erp-main-header-gap);
+            left: var(--erp-layout-gutter);
+            right: calc(var(--erp-sidebar-current-width, var(--erp-sidebar-expanded, 300px)) + var(--erp-layout-gutter));
+            width: auto !important;
+            padding-right: 0 !important;
+            z-index: 1015 !important;
+        }
+
+        body.app .main-header__nav-row {
+            flex-wrap: nowrap;
+        }
+
+        body.app .gold-price-ticker {
+            gap: 8px;
+        }
+
+        body.app .gold-price-ticker__items {
+            justify-content: space-between;
+            flex-wrap: nowrap;
+            gap: 6px;
+        }
+
+        body.app .gold-price-ticker__item {
+            flex: 0 1 auto;
+            gap: 4px;
+            padding: 5px 8px;
+            font-size: 11px;
+        }
+
+        body.app .gold-price-ticker__meta {
+            flex-direction: row;
+            align-items: center;
+            flex: 0 0 auto;
+            gap: 6px;
+        }
+
+        body.app .gold-price-ticker__actions {
+            gap: 6px;
+        }
+
+        body.app .gold-price-ticker__btn {
+            padding: 7px 10px;
+            font-size: 11px;
+        }
+
+        body.app .app-sidebar__toggle {
+            display: none !important;
+            pointer-events: none !important;
+        }
+
         body.app:not(.sidenav-toggled) .app-sidebar__toggle .open-toggle,
         body.app.sidenav-toggled.sidenav-toggled-open .app-sidebar__toggle .open-toggle {
             display: none;
@@ -345,6 +431,12 @@
             min-width: 220px;
         }
 
+        .main-header__ticker-slot {
+            order: 3;
+            flex: 1 1 100%;
+            min-width: 100%;
+        }
+
         .gold-price-ticker {
             border-radius: 16px;
             padding: 10px 12px;
@@ -353,7 +445,6 @@
             justify-content: center;
         }
 
-        .gold-price-ticker__status,
         .gold-price-ticker__meta,
         .gold-price-ticker__actions {
             width: 100%;
@@ -408,6 +499,58 @@
                 <a class="close-toggle" href="#"><i class="header-icons fe fe-x"></i></a>
             </div>
         </div>
+        @can('employee.gold_prices.show')
+            <div class="main-header__ticker-slot">
+                <div
+                    id="gold_price_div"
+                    class="gold-price-ticker-shell"
+                    data-gold-live-endpoint="{{ route('gold.prices.live') }}"
+                    data-refresh-interval-ms="{{ \App\Services\Pricing\GoldPriceSyncService::AUTO_REFRESH_INTERVAL_MINUTES * 60 * 1000 }}"
+                >
+                    <div class="gold-price-ticker gold-price-ticker--loading" data-state="loading" data-gold-ticker-root>
+                        <div class="gold-price-ticker__status" aria-hidden="true">
+                            <span class="gold-price-ticker__pulse"></span>
+                        </div>
+                        <div class="gold-price-ticker__items">
+                            <span class="gold-price-ticker__item">
+                                <span class="gold-price-ticker__item-label">عيار 18</span>
+                                <strong class="gold-price-ticker__item-value" data-gold-ticker-price="18">--</strong>
+                            </span>
+                            <span class="gold-price-ticker__item">
+                                <span class="gold-price-ticker__item-label">عيار 21</span>
+                                <strong class="gold-price-ticker__item-value" data-gold-ticker-price="21">--</strong>
+                            </span>
+                            <span class="gold-price-ticker__item">
+                                <span class="gold-price-ticker__item-label">عيار 22</span>
+                                <strong class="gold-price-ticker__item-value" data-gold-ticker-price="22">--</strong>
+                            </span>
+                            <span class="gold-price-ticker__item">
+                                <span class="gold-price-ticker__item-label">عيار 24</span>
+                                <strong class="gold-price-ticker__item-value" data-gold-ticker-price="24">--</strong>
+                            </span>
+                            <span class="gold-price-ticker__item">
+                                <span class="gold-price-ticker__item-label">الأونصة</span>
+                                <strong class="gold-price-ticker__item-value" data-gold-ticker-price="ounce">--</strong>
+                            </span>
+                        </div>
+                        <div class="gold-price-ticker__meta">
+                            <div><strong data-gold-ticker-currency>--</strong></div>
+                            <div data-gold-ticker-updated>لا يوجد تحديث</div>
+                        </div>
+                        @can('employee.gold_prices.edit')
+                            <div class="gold-price-ticker__actions">
+                                <button type="button" class="gold-price-ticker__btn gold-price-ticker__btn--refresh" data-gold-refresh-button>
+                                    تحديث الأسعار
+                                </button>
+                                <button type="button" class="gold-price-ticker__btn gold-price-ticker__btn--manual" data-gold-manual-button>
+                                    تحديث يدوي
+                                </button>
+                            </div>
+                        @endcan
+                    </div>
+                </div>
+            </div>
+        @endcan
         <div class="main-header-right">
 
             <div class="nav nav-item  navbar-nav-right ml-auto">
@@ -478,62 +621,6 @@
             </div>
         </div>
     </div>
-
-    @can('employee.gold_prices.show')
-        <div class="gold-price-ticker-dock">
-            <div class="container-fluid">
-                <div
-                    id="gold_price_div"
-                    class="gold-price-ticker-shell"
-                    data-gold-live-endpoint="{{ route('gold.prices.live') }}"
-                    data-refresh-interval-ms="{{ \App\Services\Pricing\GoldPriceSyncService::AUTO_REFRESH_INTERVAL_MINUTES * 60 * 1000 }}"
-                >
-                    <div class="gold-price-ticker gold-price-ticker--loading" data-state="loading" data-gold-ticker-root>
-                        <div class="gold-price-ticker__status">
-                            <span class="gold-price-ticker__pulse"></span>
-                            <span data-gold-ticker-status>جار تحميل أسعار الذهب...</span>
-                        </div>
-                        <div class="gold-price-ticker__items">
-                            <span class="gold-price-ticker__item">
-                                <span class="gold-price-ticker__item-label">عيار 18</span>
-                                <strong class="gold-price-ticker__item-value" data-gold-ticker-price="18">--</strong>
-                            </span>
-                            <span class="gold-price-ticker__item">
-                                <span class="gold-price-ticker__item-label">عيار 21</span>
-                                <strong class="gold-price-ticker__item-value" data-gold-ticker-price="21">--</strong>
-                            </span>
-                            <span class="gold-price-ticker__item">
-                                <span class="gold-price-ticker__item-label">عيار 22</span>
-                                <strong class="gold-price-ticker__item-value" data-gold-ticker-price="22">--</strong>
-                            </span>
-                            <span class="gold-price-ticker__item">
-                                <span class="gold-price-ticker__item-label">عيار 24</span>
-                                <strong class="gold-price-ticker__item-value" data-gold-ticker-price="24">--</strong>
-                            </span>
-                            <span class="gold-price-ticker__item">
-                                <span class="gold-price-ticker__item-label">الأونصة</span>
-                                <strong class="gold-price-ticker__item-value" data-gold-ticker-price="ounce">--</strong>
-                            </span>
-                        </div>
-                        <div class="gold-price-ticker__meta">
-                            <div><strong data-gold-ticker-currency>--</strong></div>
-                            <div data-gold-ticker-updated>لا يوجد تحديث</div>
-                        </div>
-                        @can('employee.gold_prices.edit')
-                            <div class="gold-price-ticker__actions">
-                                <button type="button" class="gold-price-ticker__btn gold-price-ticker__btn--refresh" data-gold-refresh-button>
-                                    تحديث الأسعار
-                                </button>
-                                <button type="button" class="gold-price-ticker__btn gold-price-ticker__btn--manual" data-gold-manual-button>
-                                    تحديث يدوي
-                                </button>
-                            </div>
-                        @endcan
-                    </div>
-                </div>
-            </div>
-        </div>
-    @endcan
 </div>
 @can('employee.gold_prices.edit')
     <div class="modal fade gold-price-modal" id="goldPriceManualModal" tabindex="-1" role="dialog" aria-hidden="true">
@@ -638,8 +725,13 @@
     (function () {
         var header = document.getElementById('main-header');
         var spacer = document.querySelector('[data-main-header-spacer]');
+        var sidebar = document.querySelector('.app-sidebar');
+        var body = document.body;
+        var documentElement = document.documentElement;
         var resizeObserver = null;
+        var bodyClassObserver = null;
         var frameId = null;
+        var sidebarSyncTimeout = null;
 
         if (!header || !spacer) {
             return;
@@ -649,8 +741,13 @@
             frameId = null;
 
             var styles = window.getComputedStyle(header);
-            var headerHeight = Math.ceil(header.getBoundingClientRect().height);
-            var headerOffset = styles.position === 'fixed' ? headerHeight : 0;
+            var rootStyles = window.getComputedStyle(documentElement);
+            var headerRect = header.getBoundingClientRect();
+            var headerHeight = Math.ceil(headerRect.height);
+            var headerBottomGap = parseFloat(rootStyles.getPropertyValue('--erp-main-header-bottom-gap')) || 0;
+            var headerOffset = styles.position === 'fixed'
+                ? Math.ceil(headerRect.bottom + headerBottomGap)
+                : 0;
 
             document.documentElement.style.setProperty('--erp-main-header-height', headerHeight + 'px');
             document.documentElement.style.setProperty('--erp-main-header-offset', headerOffset + 'px');
@@ -665,15 +762,56 @@
             frameId = window.requestAnimationFrame(syncMainHeaderOffset);
         }
 
+        function scheduleSidebarLayoutSync() {
+            queueMainHeaderOffsetSync();
+
+            if (sidebarSyncTimeout !== null) {
+                window.clearTimeout(sidebarSyncTimeout);
+            }
+
+            sidebarSyncTimeout = window.setTimeout(queueMainHeaderOffsetSync, 320);
+        }
+
         if (window.ResizeObserver) {
             resizeObserver = new ResizeObserver(queueMainHeaderOffsetSync);
             resizeObserver.observe(header);
         }
 
+        if (window.MutationObserver && body) {
+            bodyClassObserver = new MutationObserver(function (mutations) {
+                for (var i = 0; i < mutations.length; i += 1) {
+                    if (mutations[i].attributeName === 'class') {
+                        scheduleSidebarLayoutSync();
+                        break;
+                    }
+                }
+            });
+
+            bodyClassObserver.observe(body, {
+                attributes: true,
+                attributeFilter: ['class']
+            });
+        }
+
+        if (sidebar) {
+            sidebar.addEventListener('transitionend', scheduleSidebarLayoutSync);
+        }
+
+        header.addEventListener('transitionend', function (event) {
+            if (!event || event.propertyName === 'padding-right' || event.propertyName === 'height') {
+                scheduleSidebarLayoutSync();
+            }
+        });
+
         window.addEventListener('load', queueMainHeaderOffsetSync);
         window.addEventListener('resize', queueMainHeaderOffsetSync);
         window.addEventListener('orientationchange', queueMainHeaderOffsetSync);
         window.addEventListener('gold-price:ticker-updated', queueMainHeaderOffsetSync);
+        document.addEventListener('click', function (event) {
+            if (event.target && event.target.closest('[data-toggle="sidebar"]')) {
+                scheduleSidebarLayoutSync();
+            }
+        });
 
         window.syncMainHeaderOffset = queueMainHeaderOffsetSync;
         queueMainHeaderOffsetSync();
@@ -734,13 +872,8 @@
             latestPayload = payload;
 
             var current = payload.current || {};
-            var statusNode = root.querySelector('[data-gold-ticker-status]');
             var updatedNode = root.querySelector('[data-gold-ticker-updated]');
             var currencyNode = root.querySelector('[data-gold-ticker-currency]');
-
-            if (statusNode) {
-                statusNode.textContent = payload.message || 'تم تحميل أسعار الذهب.';
-            }
 
             if (currencyNode) {
                 currencyNode.textContent = current.currency || 'بدون عملة';

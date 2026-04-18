@@ -39,11 +39,79 @@
             padding:5px 10px;
             cursor:pointer;
         }
+
+        .stock-settlement-page {
+            overflow-x: hidden;
+        }
+
+        .stock-settlement-shell {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        .stock-settlement-layout {
+            margin-right: -10px;
+            margin-left: -10px;
+        }
+
+        .stock-settlement-layout > [class*="col-"] {
+            padding-right: 10px;
+            padding-left: 10px;
+            margin-bottom: 20px;
+            min-width: 0;
+        }
+
+        .stock-settlement-main-card,
+        .stock-settlement-summary-card {
+            height: 100%;
+            margin-bottom: 0;
+        }
+
+        .stock-settlement-main-card .card-body,
+        .stock-settlement-summary-card .card-body {
+            overflow-x: hidden;
+        }
+
+        .stock-settlement-form-row {
+            margin-right: -8px;
+            margin-left: -8px;
+        }
+
+        .stock-settlement-form-row > [class*="col-"] {
+            padding-right: 8px;
+            padding-left: 8px;
+            margin-bottom: 12px;
+        }
+
+        .stock-settlement-table-wrap {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+
+        .stock-settlement-table-wrap table {
+            min-width: 560px;
+            margin-bottom: 0;
+        }
+
+        @media (min-width: 1400px) {
+            .stock-settlement-main-col {
+                flex: 0 0 72%;
+                max-width: 72%;
+            }
+
+            .stock-settlement-summary-col {
+                flex: 0 0 28%;
+                max-width: 28%;
+            }
+        }
     </style>
 
-    <div class="row row-sm">
-        <div class="col-xl-12"> 
-                <div class="card-body px-0 pt-0 pb-2">
+    <div class="row row-sm stock-settlement-page">
+        <div class="col-12"> 
+                <div class="stock-settlement-shell pt-0 pb-2">
                     <div class="tab-content" id="myTabContent">
                         <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
                             <form method="POST" action="{{ route('stock_settlements.store_by_default') }}"
@@ -52,8 +120,9 @@
                                 @method('POST')
                                 <input type="hidden" name="user_id" value="{{Auth::user()->id}}"/>
                                 <input type="hidden" name="uuid" id="uuid" value=""/>
-                                <div class="row">
-                                    <div class="card shadow mb-4 col-9">
+                                <div class="row stock-settlement-layout">
+                                    <div class="col-12 stock-settlement-main-col">
+                                    <div class="card shadow stock-settlement-main-card">
                                         <div class="card-header py-3">
                                             <div class="row">
                                                <div class="col-12"> 
@@ -64,8 +133,8 @@
                                             </div>  
                                         </div>
                                         <div class="card-body">
-                                        <div class="row">
-                                    <div class="col-3">
+                                        <div class="row stock-settlement-form-row">
+                                    <div class="col-12 col-md-6 col-xl-3">
                                         <div class="form-group">
                                             <label>{{ __('main.bill_no') }} <span style="color:red;">*</span> </label>
                                             <input type="text"  id="bill_number" name="bill_number"
@@ -73,14 +142,14 @@
                                             />
                                         </div>
                                     </div>
-                                    <div class="col-3">
+                                    <div class="col-12 col-md-6 col-xl-3">
                                         <div class="form-group">
                                             <label>{{ __('main.date') }} <span style="color:red;">*</span> </label>
                                             <input type="datetime-local"  id="date" name="bill_date"
                                                    class="form-control"/>     
                                         </div>
                                     </div>
-                                    <div class="col-3">
+                                    <div class="col-12 col-md-6 col-xl-3">
                                         <div class="form-group">
                                             <label class="d-block">
                                                  الفرع <span style="color:red;">*</span> 
@@ -101,7 +170,7 @@
                     
                                         </div>
                                     </div>
-                                    <div class="col-3">
+                                    <div class="col-12 col-md-6 col-xl-3">
                                     <div class="form-group">
                                             <label>{{ __('main.stock_settlements_account') }} </label>
                                             <select class="js-example-basic-single w-100" id="account_id" name="account_id">
@@ -116,7 +185,7 @@
                                             @enderror
                                         </div>
                                     </div>
-                                    <div class="col-3">
+                                    <div class="col-12 col-md-6 col-xl-3">
                                        <div class="form-group">
                                            <label style="float: right;">{{ __('main.gold_carat_type') }} <span
                                                    style="color:red; ">*</span>
@@ -130,7 +199,7 @@
                                        </div>
                                     </div>
                                 </div>
-                                                <div class="row">
+                                                <div class="row stock-settlement-form-row">
                                                     <div class="col-md-12">
                                                         <div class="card mb-4">
                                                            <div class="card-header pb-0">
@@ -140,7 +209,7 @@
                                                                 </h4>
                                                             </div>
                                                             <div class="card-body px-0 pt-0 pb-2">
-                                                                <div class="table-responsive hoverable-table">
+                                                                <div class="table-responsive hoverable-table stock-settlement-table-wrap">
                                                                     <table class="display w-100 table-bordered" id="sTable" 
                                                                            style="text-align: center;">
                                                                         <thead>
@@ -160,9 +229,10 @@
                                                         </div>
                                                     </div>
                                                 </div>
-                                        </div>
                                     </div>
-                                    <div class="card shadow mb-4 col-3">
+                                    </div>
+                                    <div class="col-12 stock-settlement-summary-col">
+                                    <div class="card shadow stock-settlement-summary-card">
                                         <div class="card-header py-3">
                                             <h5 class="alert alert-info text-center">{{__('main.purchase_invoice_total')}}</h6>
                                         </div>
@@ -212,6 +282,7 @@
                                             </div>
                                         </div>  
                                     </div> 
+                                    </div>
                                 </div> 
                             </form>
                         </div>  

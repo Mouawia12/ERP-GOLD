@@ -83,6 +83,81 @@ class ItemBarcodePrintFeatureTest extends TestCase
         $response->assertSee($unit->barcode);
     }
 
+    public function test_lost_barcode_page_renders_search_form_and_profiles(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.items.show',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('items.lost_barcodes', [], false));
+
+        $response->assertOk();
+        $response->assertSee('الباركود المفقود');
+        $response->assertSee('name="weight"', false);
+        $response->assertSee('lost_barcode_paper_profile', false);
+        $response->assertSee('lost_barcode_results_filter', false);
+        $response->assertSee('Label - 50 x 25');
+    }
+
+    public function test_lost_barcode_search_returns_matching_available_unit_by_weight(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.items.show',
+        ]);
+        $item = $this->createItemWithUnit(Item::CLASSIFICATION_GOLD, Item::SALE_MODE_SINGLE, $admin->branch);
+        $unit = $item->units()->firstOrFail();
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('items.lost_barcodes.search', [], false), [
+                'branch_id' => $item->branch_id,
+                'weight' => 5.25,
+            ], [
+                'Accept' => 'application/json',
+            ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('status', true);
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.unit_id', $unit->id);
+        $response->assertJsonPath('data.0.barcode', $unit->barcode);
+        $response->assertJsonPath('data.0.item_code', $item->code);
+        $response->assertJsonPath('data.0.print_url', route('items.units.print_barcode', $unit->id, false));
+    }
+
+    public function test_lost_barcode_search_returns_legacy_default_unit_when_it_has_barcode(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.items.show',
+        ]);
+        $item = $this->createItemWithUnit(Item::CLASSIFICATION_GOLD, Item::SALE_MODE_SINGLE, $admin->branch);
+        $item->units()->delete();
+
+        $defaultUnit = $item->defaultUnit()->firstOrFail();
+        $defaultUnit->update([
+            'barcode' => 'LEGACY-900001-0525',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('items.lost_barcodes.search', [], false), [
+                'branch_id' => $item->branch_id,
+                'weight' => 5.25,
+            ], [
+                'Accept' => 'application/json',
+            ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('status', true);
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.unit_id', $defaultUnit->id);
+        $response->assertJsonPath('data.0.barcode', 'LEGACY-900001-0525');
+        $response->assertJsonPath('data.0.item_code', $item->code);
+        $response->assertJsonPath('data.0.print_url', route('items.units.print_barcode', $defaultUnit->id, false));
+    }
+
     public function test_store_barcodes_requires_positive_weight_values(): void
     {
         $admin = $this->createAdminUser([
@@ -129,9 +204,9 @@ class ItemBarcodePrintFeatureTest extends TestCase
         );
     }
 
-    private function createItemWithUnit(string $classification, string $saleMode = Item::SALE_MODE_SINGLE): Item
+    private function createItemWithUnit(string $classification, string $saleMode = Item::SALE_MODE_SINGLE, ?Branch $branch = null): Item
     {
-        $branch = Branch::create([
+        $branch = $branch ?: Branch::create([
             'name' => ['ar' => 'فرع الباركود', 'en' => 'Barcode Branch'],
             'phone' => '444555666',
             'status' => true,
@@ -188,6 +263,17 @@ class ItemBarcodePrintFeatureTest extends TestCase
             'labor_cost_per_gram' => 5,
             'profit_margin_per_gram' => 3,
             'status' => true,
+        ]);
+
+        DB::table('branch_items')->insert([
+            'branch_id' => $branch->id,
+            'item_id' => $item->id,
+            'is_active' => true,
+            'is_visible' => true,
+            'sale_price_per_gram' => null,
+            'published_by_user_id' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         $item->defaultUnit()->create([

@@ -9,7 +9,8 @@
             --erp-sidebar-border: #e5edf7;
             --erp-sidebar-text: #5a6780;
             --erp-sidebar-text-strong: #2d4266;
-            --erp-sidebar-active-bg: linear-gradient(135deg, #eef5ff 0%, #ddeaff 100%);
+            --erp-sidebar-accent: #4f7cff;
+            --erp-sidebar-icon: #97a6bb;
         }
         ::-webkit-scrollbar {width: 7px !important;}
         ::-webkit-scrollbar-track {background: #eee !important;}
@@ -23,69 +24,147 @@
         }
         .main-content.app-content,
         .main-footer{
-            transition: margin-right .28s ease;
+            transition: margin-right .28s ease, width .28s ease, max-width .28s ease;
         }
         .main-sidemenu{
             margin-top:10px !important;
-            height:98% !important;
+            height:100% !important;
         }
         .app-sidebar__user{
-            padding:6px 10px 22px;
+            padding:14px 14px 22px;
             transition: padding .28s ease;
         }
+        .app-sidebar__chrome{
+            display:none;
+        }
+        .app-sidebar__toggle-btn{
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            width:40px;
+            height:40px;
+            border-radius:14px;
+            border:1px solid rgba(205, 218, 238, 0.92);
+            background:#fff;
+            color:#4668a9 !important;
+            box-shadow: 0 10px 26px rgba(31, 51, 88, 0.1);
+            text-decoration:none !important;
+            transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease, color .2s ease;
+        }
+        .app-sidebar__toggle-btn:hover{
+            transform: translateY(-1px);
+            color:#3158a8 !important;
+            border-color: rgba(129, 157, 213, 0.92);
+            box-shadow: 0 14px 28px rgba(31, 51, 88, 0.14);
+        }
+        .app-sidebar__toggle-icon{
+            font-size:20px;
+            line-height:1;
+        }
+        .app-sidebar__toggle-icon--open{
+            display:none;
+        }
+        .app-sidebar__brand-link{
+            display:block;
+            color:inherit;
+            text-decoration:none !important;
+        }
+        .app-sidebar__brand-shell{
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            min-height:78px;
+            padding:6px 4px 10px;
+            border:none;
+            background: transparent;
+            box-shadow:none;
+            overflow:hidden;
+            transition: min-height .28s ease, padding .28s ease;
+        }
         .side-menu{
-            padding: 0 10px 56px !important;
+            padding: 2px 12px 56px !important;
         }
         .side-menu .slide{
-            margin-bottom:6px;
+            margin-bottom:2px;
         }
         .side-menu__label{
             color:var(--erp-sidebar-text);
-            font-size:13px;
+            font-size:12.5px;
             font-weight:700;
             padding-top:0;
-            line-height:1.5;
+            line-height:1.35;
             white-space:normal;
             flex:1 1 auto;
-            transition: opacity .2s ease, width .2s ease;
+            transition: color .2s ease, opacity .2s ease, width .2s ease;
+        }
+        .side-menu__icon{
+            width:16px;
+            min-width:16px;
+            font-size:14px;
+            text-align:center;
+            color: var(--erp-sidebar-icon);
+            transition: color .2s ease;
         }
         .side-menu__item{
             display:flex !important;
             align-items:center;
-            gap:12px;
-            min-height:48px;
-            padding:12px 16px !important;
-            border-radius:14px;
+            gap:10px;
+            min-height:40px;
+            padding:8px 12px !important;
+            border-radius:10px;
+            background: transparent !important;
             color: var(--erp-sidebar-text-strong) !important;
-            transition: background-color .2s ease, color .2s ease, padding .2s ease;
+            transition: color .2s ease, padding .2s ease;
         }
         .side-menu__item:hover,
+        .side-menu__item.active,
         .side-menu .slide.active > .side-menu__item,
         .side-menu .slide.is-expanded > .side-menu__item{
-            background: var(--erp-sidebar-active-bg);
+            background: transparent !important;
+            box-shadow: none;
+        }
+        .side-menu__item:hover .side-menu__label,
+        .side-menu__item:hover .side-menu__icon,
+        .side-menu__item:hover .angle,
+        .side-menu__item.active .side-menu__label,
+        .side-menu__item.active .side-menu__icon,
+        .side-menu__item.active .angle,
+        .side-menu .slide.active > .side-menu__item .side-menu__label,
+        .side-menu .slide.active > .side-menu__item .side-menu__icon,
+        .side-menu .slide.active > .side-menu__item .angle,
+        .side-menu .slide.is-expanded > .side-menu__item .side-menu__label,
+        .side-menu .slide.is-expanded > .side-menu__item .side-menu__icon,
+        .side-menu .slide.is-expanded > .side-menu__item .angle{
+            color: var(--erp-sidebar-accent) !important;
         }
         .side-menu__item .angle{
             margin-right:auto;
-            padding-right:4px;
-            transition: opacity .2s ease;
+            padding-right:2px;
+            font-size:12px;
+            color: #b5c2d4;
+            transition: color .2s ease, opacity .2s ease;
         }
         .slide-menu{
-            padding:8px 8px 10px 0 !important;
+            padding:2px 4px 6px 0 !important;
         }
         .slide-menu .slide-item{
             display:block;
             white-space:normal;
-            line-height:1.45;
-            padding:10px 18px 10px 18px !important;
-            min-height:42px;
-            border-radius:12px;
-            margin-bottom:4px;
+            line-height:1.35;
+            padding:7px 18px 7px 30px !important;
+            min-height:32px;
+            border-radius:8px;
+            margin-bottom:1px;
+            font-size:12px;
+            font-weight:600;
+            background: transparent !important;
             color: var(--erp-sidebar-text) !important;
         }
         .slide-menu .slide-item:hover,
+        .slide-menu .slide-item.active,
         .slide-menu li.active > .slide-item{
-            background:#f5f9ff;
-            color: var(--erp-sidebar-text-strong) !important;
+            background: transparent !important;
+            color: var(--erp-sidebar-accent) !important;
         }
         .side-menu .slide.is-expanded > .slide-menu{
             display:block;
@@ -96,42 +175,65 @@
         }
         .main-profile-menu.show .dropdown-menu {top: calc(var(--erp-main-header-row-height, 64px) - 6px) !important;}
         .app-sidebar__brand-logo{
-            width: 140px !important;
+            width: min(100%, 210px) !important;
             height:auto !important;
+            max-height: 92px;
             max-width: 100%;
             object-fit: contain;
-            filter: drop-shadow(0 6px 18px rgba(229, 184, 11, 0.18));
-            transition: width .28s ease, transform .28s ease;
+            filter: none;
+            transition: width .28s ease, max-height .28s ease, transform .28s ease;
         }
         @media (min-width: 992px) {
+            body.app{
+                --erp-sidebar-current-width: var(--erp-sidebar-expanded);
+            }
+            body.app.sidebar-mini.sidenav-toggled{
+                --erp-sidebar-current-width: var(--erp-sidebar-collapsed);
+            }
+            body.app.sidebar-mini.sidenav-toggled.sidenav-toggled-open,
+            body.app:not(.sidenav-toggled){
+                --erp-sidebar-current-width: var(--erp-sidebar-expanded);
+            }
+            .app-sidebar{
+                top: var(--erp-main-header-offset, 0px);
+                height: calc(100vh - var(--erp-main-header-offset, 0px));
+                max-height: calc(100vh - var(--erp-main-header-offset, 0px));
+            }
+            .app-sidebar__chrome{
+                display:flex;
+                justify-content:flex-start;
+                margin-bottom:8px;
+            }
             .main-content.app-content,
             .main-footer{
-                margin-right: var(--erp-sidebar-expanded) !important;
+                width: calc(100% - var(--erp-sidebar-current-width, var(--erp-sidebar-expanded)));
+                max-width: calc(100% - var(--erp-sidebar-current-width, var(--erp-sidebar-expanded)));
+                margin-right: var(--erp-sidebar-current-width, var(--erp-sidebar-expanded)) !important;
             }
             .app.sidebar-mini.sidenav-toggled .app-sidebar{
                 width: var(--erp-sidebar-collapsed);
                 box-shadow: 0 16px 30px rgba(15, 34, 64, 0.06);
             }
-            .app.sidebar-mini.sidenav-toggled .main-content.app-content,
-            .app.sidebar-mini.sidenav-toggled .main-footer{
-                margin-right: var(--erp-sidebar-collapsed) !important;
-            }
             .app.sidebar-mini.sidenav-toggled.sidenav-toggled-open .app-sidebar{
                 width: var(--erp-sidebar-expanded);
                 box-shadow: 0 20px 40px rgba(15, 34, 64, 0.1);
             }
-            .app.sidebar-mini.sidenav-toggled.sidenav-toggled-open .main-content.app-content,
-            .app.sidebar-mini.sidenav-toggled.sidenav-toggled-open .main-footer{
-                margin-right: var(--erp-sidebar-expanded) !important;
-            }
             .app.sidebar-mini.sidenav-toggled:not(.sidenav-toggled-open) .app-sidebar__user{
-                padding-inline: 6px;
+                padding-inline: 8px;
+            }
+            .app.sidebar-mini.sidenav-toggled:not(.sidenav-toggled-open) .app-sidebar__chrome{
+                justify-content:center;
+                margin-bottom:6px;
+            }
+            .app.sidebar-mini.sidenav-toggled:not(.sidenav-toggled-open) .app-sidebar__brand-shell{
+                min-height:54px;
+                padding:8px 4px;
             }
             .app.sidebar-mini.sidenav-toggled:not(.sidenav-toggled-open) .app-sidebar__brand-logo{
-                width: 42px !important;
-                transform: translateY(4px);
+                width: 44px !important;
+                max-height: 44px;
+                transform: none;
             }
-            .app.sidebar-mini.sidenav-toggled:not(.sidenav-toggled-open) .app-sidebar__user h5,
             .app.sidebar-mini.sidenav-toggled:not(.sidenav-toggled-open) .side-menu__label,
             .app.sidebar-mini.sidenav-toggled:not(.sidenav-toggled-open) .slide-menu,
             .app.sidebar-mini.sidenav-toggled:not(.sidenav-toggled-open) .side-menu__item .angle{
@@ -145,8 +247,22 @@
             }
             .app.sidebar-mini.sidenav-toggled:not(.sidenav-toggled-open) .side-menu__item{
                 justify-content:center;
-                padding:12px 0 !important;
+                padding:10px 0 !important;
                 gap:0;
+            }
+            body.app:not(.sidenav-toggled) .app-sidebar__toggle-icon--close,
+            body.app.sidebar-mini.sidenav-toggled.sidenav-toggled-open .app-sidebar__toggle-icon--close{
+                display:inline-flex;
+            }
+            body.app:not(.sidenav-toggled) .app-sidebar__toggle-icon--open,
+            body.app.sidebar-mini.sidenav-toggled.sidenav-toggled-open .app-sidebar__toggle-icon--open{
+                display:none;
+            }
+            body.app.sidebar-mini.sidenav-toggled:not(.sidenav-toggled-open) .app-sidebar__toggle-icon--open{
+                display:inline-flex;
+            }
+            body.app.sidebar-mini.sidenav-toggled:not(.sidenav-toggled-open) .app-sidebar__toggle-icon--close{
+                display:none;
             }
         }
         @media (max-width: 991.98px) {
@@ -155,6 +271,8 @@
             }
             .main-content.app-content,
             .main-footer{
+                width: 100% !important;
+                max-width: 100% !important;
                 margin-right:0 !important;
             }
         }
@@ -172,18 +290,97 @@
         $currentSidebarUser = Auth::guard('admin-web')->user();
         $sidebarMode = $adminSidebarMode ?? ($currentSidebarUser?->isOwner() ? 'owner' : 'operational');
         $isOwnerSidebar = $sidebarMode === 'owner';
+        $currentRoute = request()->route();
+        $currentRouteName = $currentRoute?->getName();
+        $currentRouteParameters = $currentRoute?->parameters() ?? [];
+        $currentInvoiceSaleType = null;
+        $currentCustomerType = null;
+
+        if (in_array($currentRouteName, ['sales.show', 'sales_return.show'], true) && isset($currentRouteParameters['id'])) {
+            $currentInvoiceSaleType = \App\Models\Invoice::query()
+                ->whereKey((int) $currentRouteParameters['id'])
+                ->value('sale_type');
+        }
+
+        if (in_array($currentRouteName, ['customers.report', 'customers.report.cash'], true) && isset($currentRouteParameters['id'])) {
+            $currentCustomerType = \App\Models\Customer::query()
+                ->whereKey((int) $currentRouteParameters['id'])
+                ->value('type');
+        }
+
+        $currentSidebarSection = match (true) {
+            (
+                request()->routeIs('sales.index', 'sales.create', 'sales.store')
+                && request()->route('type') === 'simplified'
+            ) || (
+                request()->routeIs('sales_return.index', 'sales_return.create', 'sales_return.store')
+                && request()->route('type') === 'simplified'
+            ) || (
+                in_array($currentRouteName, ['sales.show', 'sales_return.show'], true)
+                && $currentInvoiceSaleType === 'simplified'
+            ) => 'simplified-sales',
+
+            (
+                request()->routeIs('sales.index', 'sales.create', 'sales.store')
+                && request()->route('type') === 'standard'
+            ) || (
+                request()->routeIs('sales_return.index', 'sales_return.create', 'sales_return.store')
+                && request()->route('type') === 'standard'
+            ) || (
+                in_array($currentRouteName, ['sales.show', 'sales_return.show'], true)
+                && $currentInvoiceSaleType === 'standard'
+            ) => 'standard-sales',
+
+            request()->routeIs('pos.collectible', 'pos.collectible.create', 'return.sales.Collectible') => 'collectible-sales',
+            request()->routeIs('purchases.*', 'purchase_return.*') => 'purchases',
+            request()->routeIs('items.*', 'initial_quantities.*')
+                || in_array($currentRouteName, ['categories', 'storeCategory', 'getCategory', 'deleteCategory'], true) => 'items',
+            request()->routeIs('manufacturing_orders.*', 'manufacturing_receipts.*', 'manufacturing_returns.*', 'manufacturing_loss_settlements.*') => 'manufacturing',
+            request()->routeIs('reports.gold_stock.*') => 'gold-stock',
+            request()->routeIs('prices', 'gold.stock.market.prices', 'gold.prices.live', 'updatePrices', 'updatePricesManual') => 'gold-prices',
+            request()->routeIs('admin.simplified_debit.*', 'admin.standard_debit.*') => 'invoice-debits',
+            (
+                request()->routeIs('customers', 'customers.cash')
+                && request()->route('type') === 'supplier'
+            ) => 'suppliers',
+            (
+                request()->routeIs('customers.reports.index', 'customers.reports.cash')
+                && request()->route('type') === 'supplier'
+            ) || (
+                in_array($currentRouteName, ['customers.report', 'customers.report.cash'], true)
+                && $currentCustomerType === 'supplier'
+            ) => 'supplier-reports',
+            (
+                request()->routeIs('customers', 'customers.cash')
+                && request()->route('type') === 'customer'
+            ) => 'customers',
+            (
+                request()->routeIs('customers.reports.index', 'customers.reports.cash')
+                && request()->route('type') === 'customer'
+            ) || (
+                in_array($currentRouteName, ['customers.report', 'customers.report.cash'], true)
+                && $currentCustomerType === 'customer'
+            ) => 'customer-reports',
+            request()->routeIs('money_exit_list', 'money_entry_list') => 'cash-books',
+            request()->routeIs('financial_vouchers', 'financial_vouchers.store', 'admin.shifts.*') => 'financial-vouchers',
+            default => null,
+        };
     @endphp
     
     <div class="main-sidemenu" style="overflow: auto!important;" id="right">
         <div class="app-sidebar__user clearfix">
             <div class="dropdown user-pro-body">
-                <a href="{{route('admin.home')}}">
-                    <div class="">
-                        <img alt="user-img" class="app-sidebar__brand-logo"
-                             src="{{ $brandLogoUrl }}">  
-                    </div> 
-                    <br>
-                    <h5 class="text-center">GOLD-MS</h5>
+                <div class="app-sidebar__chrome">
+                    <a href="#" class="app-sidebar__toggle-btn" data-toggle="sidebar" aria-label="تبديل القائمة الجانبية">
+                        <i class="app-sidebar__toggle-icon app-sidebar__toggle-icon--open fe fe-align-left"></i>
+                        <i class="app-sidebar__toggle-icon app-sidebar__toggle-icon--close fe fe-x"></i>
+                    </a>
+                </div>
+                <a href="{{ route('admin.home') }}" class="app-sidebar__brand-link">
+                    <div class="app-sidebar__brand-shell">
+                        <img alt="brand-logo" class="app-sidebar__brand-logo"
+                             src="{{ $brandLogoUrl }}">
+                    </div>
                 </a> 
             </div>
         </div> 
@@ -201,8 +398,8 @@
                 ])
             @else
             @can('employee.simplified_tax_invoices.show')                
-                <li class="slide">
-                    <a class="side-menu__item" data-toggle="slide" href="#">
+                <li class="slide {{ $currentSidebarSection === 'simplified-sales' ? 'is-expanded active' : '' }}">
+                    <a class="side-menu__item {{ $currentSidebarSection === 'simplified-sales' ? 'active' : '' }}" data-toggle="slide" href="#">
                         <i class="fa fa-newspaper side-menu__icon"></i>
                         <span class="side-menu__label">
                             {{__('المبيعات الضريبية المبسطة')}}
@@ -235,8 +432,8 @@
                 </li> 
             @endcan  
             @can('employee.tax_invoices.show')                
-                <li class="slide">
-                    <a class="side-menu__item" data-toggle="slide" href="#">
+                <li class="slide {{ $currentSidebarSection === 'standard-sales' ? 'is-expanded active' : '' }}">
+                    <a class="side-menu__item {{ $currentSidebarSection === 'standard-sales' ? 'active' : '' }}" data-toggle="slide" href="#">
                         <i class="fa fa-newspaper side-menu__icon"></i>
                         <span class="side-menu__label">
                        المبيعات الضريبية الشركات
@@ -268,8 +465,8 @@
                 </li> 
             @endcan    
             @can('عرض فاتورة ضريبية')                
-                <li class="slide">
-                    <a class="side-menu__item" data-toggle="slide" href="#">
+                <li class="slide {{ $currentSidebarSection === 'collectible-sales' ? 'is-expanded active' : '' }}">
+                    <a class="side-menu__item {{ $currentSidebarSection === 'collectible-sales' ? 'active' : '' }}" data-toggle="slide" href="#">
                         <i class="fa fa-newspaper side-menu__icon"></i>
                         <span class="side-menu__label">
                       مبيعات - المقتنيات الثمينة
@@ -303,8 +500,8 @@
            
            
             @can('employee.purchase_invoices.show')           
-                <li class="slide">
-                    <a class="side-menu__item" data-toggle="slide" href="#">
+                <li class="slide {{ $currentSidebarSection === 'purchases' ? 'is-expanded active' : '' }}">
+                    <a class="side-menu__item {{ $currentSidebarSection === 'purchases' ? 'active' : '' }}" data-toggle="slide" href="#">
                         <i class="fas fa-fw fa-folder-open side-menu__icon"></i>
                         <span class="side-menu__label">
                             {{__('main.purchases')}}
@@ -326,9 +523,9 @@
             @endcan    
             @can('employee.items.show')
                  <!-- Nav Item - Pages Collapse Menu -->
-                 <li class="slide">
+                 <li class="slide {{ $currentSidebarSection === 'items' ? 'is-expanded active' : '' }}">
 
-                    <a class="side-menu__item" data-toggle="slide" href="#">
+                    <a class="side-menu__item {{ $currentSidebarSection === 'items' ? 'active' : '' }}" data-toggle="slide" href="#">
                         <i class="fas fa fa-barcode side-menu__icon"></i>
                         <span class="side-menu__label">
                         {{__('main.items')}}
@@ -353,6 +550,11 @@
                             {{__('مجموعات الاصناف')}}
                             </a>
                         </li> 
+                        <li>
+                            <a class="slide-item" href="{{route('items.lost_barcodes')}}">
+                            {{__('الباركود المفقود')}}
+                            </a>
+                        </li>
                         @can('employee.initial_quantities.show')
                         <li>
                             <a class="slide-item" href="{{route('initial_quantities.index')}}">
@@ -364,8 +566,8 @@
                 </li> 
             @endcan  
             @canany(['employee.manufacturing_orders.show', 'employee.manufacturing_orders.add'])
-                <li class="slide">
-                    <a class="side-menu__item" data-toggle="slide" href="#">
+                <li class="slide {{ $currentSidebarSection === 'manufacturing' ? 'is-expanded active' : '' }}">
+                    <a class="side-menu__item {{ $currentSidebarSection === 'manufacturing' ? 'active' : '' }}" data-toggle="slide" href="#">
                         <i class="fas fa-tools side-menu__icon"></i>
                         <span class="side-menu__label">
                         {{ __('main.manufacturing_orders') }}
@@ -391,8 +593,8 @@
                 </li>
             @endcanany
             @can('employee.stock.show')
-                <li class="slide">
-                    <a class="side-menu__item" data-toggle="slide" href="#">
+                <li class="slide {{ $currentSidebarSection === 'gold-stock' ? 'is-expanded active' : '' }}">
+                    <a class="side-menu__item {{ $currentSidebarSection === 'gold-stock' ? 'active' : '' }}" data-toggle="slide" href="#">
                         <i class="fa fa-pie-chart side-menu__icon"></i>
                         <span class="side-menu__label">
                         {{__('رصيد الذهب')}}
@@ -408,8 +610,8 @@
                 </li> 
             @endcan  
             @can(['employee.gold_prices.show'])
-                <li class="slide">
-                    <a class="side-menu__item" data-toggle="slide" href="#">
+                <li class="slide {{ $currentSidebarSection === 'gold-prices' ? 'is-expanded active' : '' }}">
+                    <a class="side-menu__item {{ $currentSidebarSection === 'gold-prices' ? 'active' : '' }}" data-toggle="slide" href="#">
                         <i class="fa fa-gem side-menu__icon"></i>  
                         <span class="side-menu__label">
                         {{__('اسعار الذهب')}}
@@ -431,8 +633,8 @@
             @endcan   
             @can(['عرض اشعار مدين مبسطة','عرض اشعار مدين ضريبية'])  
        
-                <li class="slide">
-                    <a class="side-menu__item" data-toggle="slide" href="#">
+                <li class="slide {{ $currentSidebarSection === 'invoice-debits' ? 'is-expanded active' : '' }}">
+                    <a class="side-menu__item {{ $currentSidebarSection === 'invoice-debits' ? 'active' : '' }}" data-toggle="slide" href="#">
                         <i class="fa fa-credit-card side-menu__icon"></i>
                         <span class="side-menu__label">
                         {{__('اشعارات الفواتير')}}
@@ -455,8 +657,8 @@
           
             @endcan    
             @can('employee.suppliers.show') 
-                <li class="slide">
-                    <a class="side-menu__item" data-toggle="slide" href="#">
+                <li class="slide {{ $currentSidebarSection === 'suppliers' ? 'is-expanded active' : '' }}">
+                    <a class="side-menu__item {{ $currentSidebarSection === 'suppliers' ? 'active' : '' }}" data-toggle="slide" href="#">
                         <i class="fas fa-user-plus side-menu__icon"></i>
                         <span class="side-menu__label">
                         {{__('الموردين')}}
@@ -475,10 +677,32 @@
                         </li>
                     </ul>
                 </li>
-            @endcan  
+            @endcan
+            @can('employee.suppliers.show')
+                <li class="slide {{ $currentSidebarSection === 'supplier-reports' ? 'is-expanded active' : '' }}">
+                    <a class="side-menu__item {{ $currentSidebarSection === 'supplier-reports' ? 'active' : '' }}" data-toggle="slide" href="#">
+                        <i class="fa fa-line-chart side-menu__icon"></i>
+                        <span class="side-menu__label">
+                        {{ __('تقارير الموردين') }}
+                        </span><i class="angle fe fe-chevron-down"></i>
+                    </a>
+                    <ul class="slide-menu">
+                        <li>
+                            <a class="slide-item" href="{{ route('customers.reports.index', 'supplier') }}">
+                            {{ __('تقارير الموردين التفصيلية') }}
+                            </a>
+                        </li>
+                        <li>
+                            <a class="slide-item" href="{{ route('customers.reports.cash', 'supplier') }}">
+                            {{ __('تقارير الموردين النقدية') }}
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            @endcan
             @can('employee.customers.show')                  
-                <li class="slide">
-                    <a class="side-menu__item" data-toggle="slide" href="#">
+                <li class="slide {{ $currentSidebarSection === 'customers' ? 'is-expanded active' : '' }}">
+                    <a class="side-menu__item {{ $currentSidebarSection === 'customers' ? 'active' : '' }}" data-toggle="slide" href="#">
                         <i class="fas fa-user side-menu__icon"></i>
                         <span class="side-menu__label">
                             {{__('main.customers')}} 
@@ -497,11 +721,33 @@
                         </li>
                     </ul>
                 </li>  
+            @endcan
+            @can('employee.customers.show')                  
+                <li class="slide {{ $currentSidebarSection === 'customer-reports' ? 'is-expanded active' : '' }}">
+                    <a class="side-menu__item {{ $currentSidebarSection === 'customer-reports' ? 'active' : '' }}" data-toggle="slide" href="#">
+                        <i class="fa fa-area-chart side-menu__icon"></i>
+                        <span class="side-menu__label">
+                            {{ __('تقارير العملاء') }}
+                        </span><i class="angle fe fe-chevron-down"></i>
+                    </a> 
+                    <ul class="slide-menu">  
+                        <li>
+                            <a class="slide-item" href="{{ route('customers.reports.index', 'customer') }}">
+                            {{ __('تقارير العملاء التفصيلية') }}
+                            </a>
+                        </li>
+                        <li>
+                            <a class="slide-item" href="{{ route('customers.reports.cash', 'customer') }}">
+                            {{ __('تقارير العملاء النقدية') }}
+                            </a>
+                        </li>
+                    </ul>
+                </li>  
             @endcan  
 
             @can(['عرض دفتر خروج النقدية','عرض دفتر دخول النقدية'])        
-                <li class="slide">
-                    <a class="side-menu__item" data-toggle="slide" href="#">
+                <li class="slide {{ $currentSidebarSection === 'cash-books' ? 'is-expanded active' : '' }}">
+                    <a class="side-menu__item {{ $currentSidebarSection === 'cash-books' ? 'active' : '' }}" data-toggle="slide" href="#">
                         <i class="fas fa-money-bill side-menu__icon"></i>
                         <span class="side-menu__label">
                         {{__('النقدية')}}
@@ -521,8 +767,8 @@
                     </ul>
                 </li>  
             @endcan             
-            <li class="slide">
-                <a class="side-menu__item" data-toggle="slide" href="#">
+            <li class="slide {{ $currentSidebarSection === 'financial-vouchers' ? 'is-expanded active' : '' }}">
+                <a class="side-menu__item {{ $currentSidebarSection === 'financial-vouchers' ? 'active' : '' }}" data-toggle="slide" href="#">
                     <i class="fa fa-credit-card side-menu__icon"></i>
                     <span class="side-menu__label">
                     {{__('main.financial_vouchers')}}
@@ -779,5 +1025,68 @@
             @endif
         </ul>
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const normalizePath = (value) => {
+                if (!value) {
+                    return '/';
+                }
+
+                const normalized = value.replace(/\/+$/, '');
+                return normalized === '' ? '/' : normalized;
+            };
+
+            const currentPath = normalizePath(window.location.pathname);
+
+            document.querySelectorAll('.app-sidebar .slide').forEach((slide) => {
+                const childLinks = Array.from(slide.querySelectorAll('.slide-menu .slide-item[href]'));
+
+                if (childLinks.length === 0) {
+                    return;
+                }
+
+                let bestMatch = null;
+
+                childLinks.forEach((link) => {
+                    const href = link.getAttribute('href');
+
+                    if (!href || href === '#') {
+                        return;
+                    }
+
+                    let linkPath = '';
+
+                    try {
+                        linkPath = normalizePath(new URL(href, window.location.origin).pathname);
+                    } catch (error) {
+                        return;
+                    }
+
+                    const isExact = currentPath === linkPath;
+                    const isNested = linkPath !== '/' && currentPath.startsWith(linkPath + '/');
+
+                    if (!isExact && !isNested) {
+                        return;
+                    }
+
+                    const score = linkPath.length;
+
+                    if (!bestMatch || score > bestMatch.score) {
+                        bestMatch = { link, score };
+                    }
+                });
+
+                if (!bestMatch) {
+                    return;
+                }
+
+                const activeLink = bestMatch.link;
+                activeLink.classList.add('active');
+                activeLink.parentElement?.classList.add('active');
+                slide.classList.add('is-expanded', 'active');
+                slide.querySelector(':scope > .side-menu__item')?.classList.add('active');
+            });
+        });
+    </script>
 </aside>
 <!-- main-sidebar -->

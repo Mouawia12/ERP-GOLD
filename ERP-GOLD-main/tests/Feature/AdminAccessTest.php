@@ -766,6 +766,42 @@ class AdminAccessTest extends TestCase
         ]);
     }
 
+    public function test_authorized_admin_can_update_sales_shift_mode_setting(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.system_settings.show',
+            'employee.system_settings.edit',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->patch(route('admin.system-settings.sales-shift.update', [], false), [
+                'sales_shift_mode' => 'disabled',
+            ]);
+
+        $response->assertRedirect(route('admin.system-settings.sales-shift.edit', [], false));
+        $this->assertDatabaseHas('system_settings', [
+            'key' => 'sales_shift_mode',
+            'value' => 'disabled',
+        ]);
+    }
+
+    public function test_unauthorized_admin_cannot_update_sales_shift_mode_setting(): void
+    {
+        $admin = $this->createAdminUser();
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->patch(route('admin.system-settings.sales-shift.update', [], false), [
+                'sales_shift_mode' => 'disabled',
+            ]);
+
+        $response->assertForbidden();
+        $this->assertDatabaseMissing('system_settings', [
+            'key' => 'sales_shift_mode',
+        ]);
+    }
+
     public function test_authorized_admin_can_update_default_invoice_terms_setting(): void
     {
         $admin = $this->createAdminUser([
