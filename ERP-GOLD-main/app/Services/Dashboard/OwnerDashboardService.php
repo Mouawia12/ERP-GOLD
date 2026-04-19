@@ -20,32 +20,38 @@ class OwnerDashboardService
 {
     private const DASHBOARD_INVOICE_TYPES = ['sale', 'sale_return', 'purchase', 'purchase_return'];
 
-    public function buildForUser(User $user): array
+    /**
+     * @param  array<int>|null  $branchIds
+     */
+    public function buildForUser(User $user, ?array $branchIds = null, ?string $scopeLabelOverride = null, ?string $scopeModeLabelOverride = null): array
     {
-        $branchId = $user->isOwner() ? null : $user->branch_id;
-        $today = $this->businessDate($branchId);
-        $scopeBranch = $branchId ? Branch::query()->find($branchId) : null;
+        $scopedBranchIds = $this->resolveScopedBranchIds($user, $branchIds);
+        $singleBranchId = $scopedBranchIds !== null && count($scopedBranchIds) === 1
+            ? $scopedBranchIds[0]
+            : null;
+        $today = $this->businessDate($scopedBranchIds);
+        $scopeBranch = $singleBranchId ? Branch::query()->find($singleBranchId) : null;
 
         $overview = [
-            'today_sales_total' => $this->sumInvoices($today, $branchId, 'sale'),
-            'today_sales_return_total' => $this->sumInvoices($today, $branchId, 'sale_return'),
-            'today_purchases_total' => $this->sumInvoices($today, $branchId, 'purchase'),
-            'today_purchase_return_total' => $this->sumInvoices($today, $branchId, 'purchase_return'),
-            'today_sold_weight' => $this->sumWeightedGold($today, $branchId, 'sale', 'out_weight'),
-            'today_purchased_weight' => $this->sumWeightedGold($today, $branchId, 'purchase', 'in_weight'),
-            'today_invoice_count' => $this->invoiceBaseQuery($today, $branchId)
+            'today_sales_total' => $this->sumInvoices($today, $scopedBranchIds, 'sale'),
+            'today_sales_return_total' => $this->sumInvoices($today, $scopedBranchIds, 'sale_return'),
+            'today_purchases_total' => $this->sumInvoices($today, $scopedBranchIds, 'purchase'),
+            'today_purchase_return_total' => $this->sumInvoices($today, $scopedBranchIds, 'purchase_return'),
+            'today_sold_weight' => $this->sumWeightedGold($today, $scopedBranchIds, 'sale', 'out_weight'),
+            'today_purchased_weight' => $this->sumWeightedGold($today, $scopedBranchIds, 'purchase', 'in_weight'),
+            'today_invoice_count' => $this->invoiceBaseQuery($today, $scopedBranchIds)
                 ->whereIn('type', self::DASHBOARD_INVOICE_TYPES)
                 ->count(),
-            'today_active_branches_count' => $this->invoiceBaseQuery($today, $branchId)
+            'today_active_branches_count' => $this->invoiceBaseQuery($today, $scopedBranchIds)
                 ->whereNotNull('branch_id')
                 ->distinct('branch_id')
                 ->count('branch_id'),
             'active_subscribers_count' => Subscriber::query()
                 ->where('status', true)
                 ->when(
-                    ! $branchId,
+                    $scopedBranchIds === null,
                     fn ($query) => $query,
-                    fn ($query) => $query->whereHas('branches', fn ($branchQuery) => $branchQuery->where('id', $branchId))
+                    fn ($query) => $query->whereHas('branches', fn ($branchQuery) => $branchQuery->whereIn('id', $scopedBranchIds))
                 )
                 ->count(),
         ];
@@ -58,58 +64,94 @@ class OwnerDashboardService
         return [
             'today' => $today,
             'scopeBranch' => $scopeBranch,
-            'scopeLabel' => $scopeBranch?->branch_name ?? 'جميع الفروع',
+            'scopeLabel' => $scopeLabelOverride ?? $scopeBranch?->branch_name ?? 'جميع الفروع',
+            'scopeModeLabel' => $scopeModeLabelOverride ?? ($scopeBranch ? 'عرض الفرع النشط فقط' : 'عرض جميع الفروع'),
             'latestGoldPrice' => GoldPrice::latestSnapshot(),
             'overview' => $overview,
             'directoryCounts' => [
-                'subscribers' => $branchId
-                    ? Branch::query()->whereKey($branchId)->whereNotNull('subscriber_id')->distinct('subscriber_id')->count('subscriber_id')
-                    : Subscriber::query()->count(),
-                'branches' => $branchId ? 1 : Branch::query()->count(),
+                'subscribers' => $singleBranchId
+                    ? Branch::query()->whereKey($singleBranchId)->whereNotNull('subscriber_id')->distinct('subscriber_id')->count('subscriber_id')
+                    : ($scopedBranchIds !== null
+                        ? Branch::query()->whereIn('id', $scopedBranchIds)->whereNotNull('subscriber_id')->distinct('subscriber_id')->count('subscriber_id')
+                        : Subscriber::query()->count()),
+                'branches' => $singleBranchId ? 1 : ($scopedBranchIds !== null ? count($scopedBranchIds) : Branch::query()->count()),
                 'users' => User::query()
-                    ->when($branchId, fn (Builder $query) => $query->where('branch_id', $branchId))
-                    ->when(! $branchId, fn (Builder $query) => $query->whereNotNull('subscriber_id'))
+                    ->when($scopedBranchIds !== null, fn (Builder $query) => $query->whereIn('branch_id', $scopedBranchIds))
+                    ->when($scopedBranchIds === null, fn (Builder $query) => $query->whereNotNull('subscriber_id'))
                     ->count(),
-                'items' => $branchId
-                    ? BranchItem::query()->where('branch_id', $branchId)->where('is_active', true)->distinct('item_id')->count('item_id')
-                    : Item::query()->count(),
+                'items' => $singleBranchId
+                    ? BranchItem::query()->where('branch_id', $singleBranchId)->where('is_active', true)->distinct('item_id')->count('item_id')
+                    : ($scopedBranchIds !== null
+                        ? BranchItem::query()->whereIn('branch_id', $scopedBranchIds)->where('is_active', true)->distinct('item_id')->count('item_id')
+                        : Item::query()->count()),
                 'customers' => Customer::query()->where('type', 'customer')->count(),
                 'suppliers' => Customer::query()->where('type', 'supplier')->count(),
             ],
-            'purchaseBreakdown' => $this->purchaseBreakdown($today, $branchId),
-            'topUsers' => $this->topUsers($today, $branchId),
-            'topBranches' => $this->topBranches($today, $branchId),
+            'purchaseBreakdown' => $this->purchaseBreakdown($today, $scopedBranchIds),
+            'topUsers' => $this->topUsers($today, $scopedBranchIds),
+            'topBranches' => $this->topBranches($today, $scopedBranchIds),
         ];
     }
 
-    private function sumInvoices(Carbon $today, ?int $branchId, string $type): float
+    /**
+     * @param  array<int>|null  $branchIds
+     * @return array<int>|null
+     */
+    private function resolveScopedBranchIds(User $user, ?array $branchIds): ?array
     {
-        return round((float) $this->invoiceBaseQuery($today, $branchId)
+        if ($user->isOwner()) {
+            return null;
+        }
+
+        if ($branchIds === null) {
+            return filled($user->branch_id) ? [(int) $user->branch_id] : [];
+        }
+
+        return collect($branchIds)
+            ->map(fn ($branchId) => (int) $branchId)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int>|null  $branchIds
+     */
+    private function sumInvoices(Carbon $today, ?array $branchIds, string $type): float
+    {
+        return round((float) $this->invoiceBaseQuery($today, $branchIds)
             ->where('type', $type)
             ->sum('net_total'), 2);
     }
 
-    private function sumWeightedGold(Carbon $today, ?int $branchId, string $type, string $weightColumn): float
+    /**
+     * @param  array<int>|null  $branchIds
+     */
+    private function sumWeightedGold(Carbon $today, ?array $branchIds, string $type, string $weightColumn): float
     {
         $value = InvoiceDetail::query()
             ->join('invoices', 'invoice_details.invoice_id', '=', 'invoices.id')
             ->leftJoin('gold_carats', 'invoice_details.gold_carat_id', '=', 'gold_carats.id')
             ->where('invoices.type', $type)
             ->whereDate('invoices.date', $today->format('Y-m-d'))
-            ->when($branchId, fn (Builder $query) => $query->where('invoices.branch_id', $branchId))
+            ->when($branchIds !== null, fn (Builder $query) => $query->whereIn('invoices.branch_id', $branchIds))
             ->sum(DB::raw("invoice_details.{$weightColumn} * COALESCE(NULLIF(gold_carats.transform_factor, ''), 1)"));
 
         return round((float) $value, 3);
     }
 
-    private function purchaseBreakdown(Carbon $today, ?int $branchId): Collection
+    /**
+     * @param  array<int>|null  $branchIds
+     */
+    private function purchaseBreakdown(Carbon $today, ?array $branchIds): Collection
     {
         return InvoiceDetail::query()
             ->join('invoices', 'invoice_details.invoice_id', '=', 'invoices.id')
             ->leftJoin('gold_carats', 'invoice_details.gold_carat_id', '=', 'gold_carats.id')
             ->where('invoices.type', 'purchase')
             ->whereDate('invoices.date', $today->format('Y-m-d'))
-            ->when($branchId, fn (Builder $query) => $query->where('invoices.branch_id', $branchId))
+            ->when($branchIds !== null, fn (Builder $query) => $query->whereIn('invoices.branch_id', $branchIds))
             ->selectRaw('
                 invoice_details.gold_carat_id as gold_carat_id,
                 gold_carats.title as carat_title_raw,
@@ -129,14 +171,17 @@ class OwnerDashboardService
             });
     }
 
-    private function topUsers(Carbon $today, ?int $branchId): Collection
+    /**
+     * @param  array<int>|null  $branchIds
+     */
+    private function topUsers(Carbon $today, ?array $branchIds): Collection
     {
         return Invoice::query()
             ->join('users', 'invoices.user_id', '=', 'users.id')
             ->leftJoin('branches', 'invoices.branch_id', '=', 'branches.id')
             ->whereDate('invoices.date', $today->format('Y-m-d'))
             ->whereIn('invoices.type', self::DASHBOARD_INVOICE_TYPES)
-            ->when($branchId, fn (Builder $query) => $query->where('invoices.branch_id', $branchId))
+            ->when($branchIds !== null, fn (Builder $query) => $query->whereIn('invoices.branch_id', $branchIds))
             ->selectRaw('
                 users.id as user_id,
                 users.name as user_name,
@@ -165,13 +210,16 @@ class OwnerDashboardService
             });
     }
 
-    private function topBranches(Carbon $today, ?int $branchId): Collection
+    /**
+     * @param  array<int>|null  $branchIds
+     */
+    private function topBranches(Carbon $today, ?array $branchIds): Collection
     {
         return Invoice::query()
             ->join('branches', 'invoices.branch_id', '=', 'branches.id')
             ->whereDate('invoices.date', $today->format('Y-m-d'))
             ->whereIn('invoices.type', self::DASHBOARD_INVOICE_TYPES)
-            ->when($branchId, fn (Builder $query) => $query->where('invoices.branch_id', $branchId))
+            ->when($branchIds !== null, fn (Builder $query) => $query->whereIn('invoices.branch_id', $branchIds))
             ->selectRaw('
                 branches.id as branch_id,
                 branches.name as branch_name_raw,
@@ -198,18 +246,24 @@ class OwnerDashboardService
             });
     }
 
-    private function invoiceBaseQuery(Carbon $today, ?int $branchId): Builder
+    /**
+     * @param  array<int>|null  $branchIds
+     */
+    private function invoiceBaseQuery(Carbon $today, ?array $branchIds): Builder
     {
         return Invoice::query()
             ->whereDate('date', $today->format('Y-m-d'))
-            ->when($branchId, fn (Builder $query) => $query->where('branch_id', $branchId));
+            ->when($branchIds !== null, fn (Builder $query) => $query->whereIn('branch_id', $branchIds));
     }
 
-    private function businessDate(?int $branchId): Carbon
+    /**
+     * @param  array<int>|null  $branchIds
+     */
+    private function businessDate(?array $branchIds): Carbon
     {
         $latestDate = Invoice::query()
             ->whereIn('type', self::DASHBOARD_INVOICE_TYPES)
-            ->when($branchId, fn (Builder $query) => $query->where('branch_id', $branchId))
+            ->when($branchIds !== null, fn (Builder $query) => $query->whereIn('branch_id', $branchIds))
             ->max('date');
 
         if ($latestDate) {

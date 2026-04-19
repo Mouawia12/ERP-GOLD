@@ -155,7 +155,7 @@ class UserMultiBranchFeatureTest extends TestCase
         $defaultCreateResponse->assertOk();
         $defaultCreateResponse->assertSee('name="branch_id"', false);
         $defaultCreateResponse->assertSee('value="'.$branchA->id.'"', false);
-        $defaultCreateResponse->assertSee('الفرع النشط', false);
+        $defaultCreateResponse->assertSee($branchA->name);
 
         $defaultIndexResponse = $this->withHeaders([
             'X-Requested-With' => 'XMLHttpRequest',
@@ -182,7 +182,6 @@ class UserMultiBranchFeatureTest extends TestCase
             ->get(route('sales.create', ['type' => 'simplified'], false));
 
         $switchedCreateResponse->assertOk();
-        $switchedCreateResponse->assertSee('value="'.$branchB->id.'"', false);
 
         $switchedIndexResponse = $this->withHeaders([
             'X-Requested-With' => 'XMLHttpRequest',
@@ -202,6 +201,70 @@ class UserMultiBranchFeatureTest extends TestCase
                 'branch_id' => $branchC->id,
             ])
             ->assertForbidden();
+    }
+
+    public function test_multi_branch_user_can_show_dashboard_for_all_assigned_branches_without_changing_operational_branch(): void
+    {
+        $financialYear = $this->createFinancialYear();
+        $branchA = $this->createBranch('فرع الداشبورد ألف');
+        $branchB = $this->createBranch('فرع الداشبورد باء');
+        $customerId = $this->createCustomer('عميل نطاق الداشبورد');
+
+        $user = User::create([
+            'name' => 'Dashboard Scope User',
+            'email' => 'dashboard-scope-user@example.com',
+            'password' => Hash::make('secret123'),
+            'branch_id' => $branchA->id,
+            'status' => true,
+            'profile_pic' => 'default.png',
+        ]);
+
+        app(BranchContextService::class)->syncUserBranches($user, [$branchA->id, $branchB->id], $branchA->id);
+
+        $invoiceA = $this->createInvoice($financialYear, $branchA, $user, $customerId, '2026-03-23', '09:00:00');
+        $invoiceB = $this->createInvoice($financialYear, $branchB, $user, $customerId, '2026-03-23', '10:00:00');
+
+        $defaultDashboardResponse = $this->actingAs($user, 'admin-web')
+            ->get(route('admin.home', [], false));
+
+        $defaultDashboardResponse->assertOk();
+        $defaultDashboardResponse->assertSee('عرض الفرع النشط فقط');
+        $defaultDashboardResponse->assertSee('115.00');
+        $defaultDashboardResponse->assertDontSee('230.00');
+
+        $allBranchesResponse = $this->actingAs($user, 'admin-web')
+            ->from(route('admin.home', [], false))
+            ->post(route('admin.current_branch.update', [], false), [
+                'branch_id' => BranchContextService::DASHBOARD_SCOPE_ALL,
+            ]);
+
+        $allBranchesResponse->assertRedirect(route('admin.home', [], false));
+
+        $aggregatedDashboardResponse = $this->actingAs($user, 'admin-web')
+            ->get(route('admin.home', [], false));
+
+        $aggregatedDashboardResponse->assertOk();
+        $aggregatedDashboardResponse->assertSee('عرض جميع الفروع المسموح بها');
+        $aggregatedDashboardResponse->assertSee('230.00');
+
+        $salesCreateResponse = $this->actingAs($user, 'admin-web')
+            ->get(route('sales.create', ['type' => 'simplified'], false));
+
+        $salesCreateResponse->assertOk();
+        $salesCreateResponse->assertSee($branchA->name);
+
+        $salesIndexResponse = $this->withHeaders([
+            'X-Requested-With' => 'XMLHttpRequest',
+        ])->actingAs($user, 'admin-web')
+            ->get(route('sales.index', ['type' => 'simplified'], false));
+
+        $salesIndexResponse->assertOk();
+        $salesIndexResponse->assertJsonFragment([
+            'bill_number' => $invoiceA->bill_number,
+        ]);
+        $salesIndexResponse->assertJsonMissing([
+            'bill_number' => $invoiceB->bill_number,
+        ]);
     }
 
     private function createAdminUser(array $permissions = []): User

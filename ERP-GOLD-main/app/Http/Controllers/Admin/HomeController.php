@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\Branches\BranchContextService;
 use App\Services\Dashboard\OwnerDashboardService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class HomeController extends Controller
@@ -23,13 +25,20 @@ class HomeController extends Controller
      *
      * @return \Illuminate\Contracts\Support\Renderable|\Illuminate\Http\RedirectResponse
      */
-    public function index()
+    public function index(Request $request, BranchContextService $branchContextService, OwnerDashboardService $ownerDashboardService)
     {
         $user = Auth::user();
-        $dashboard = app(OwnerDashboardService::class)->buildForUser($user);
+        $dashboardScope = $branchContextService->currentDashboardScope($user, $request->session());
+        $dashboard = $ownerDashboardService->buildForUser(
+            $user,
+            $dashboardScope['branch_ids'],
+            $dashboardScope['scope_label'],
+            $dashboardScope['scope_mode_label'],
+        );
 
         return view('admin.home', array_merge([
             'user' => $user,
+            'dashboardBranchSelection' => $dashboardScope,
         ], $dashboard));
     }
 

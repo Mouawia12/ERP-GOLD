@@ -403,17 +403,25 @@
                             <i class="fa fa-code-branch"></i>
                             الفرع النشط
                         </span>
-                        <p class="dashboard-branch-switcher__hint">يمكنك تغيير الفرع المعروض في لوحة التشغيل من هنا.</p>
+                        <p class="dashboard-branch-switcher__hint">يمكنك عرض فرع واحد أو تجميع جميع الفروع المسموح بها داخل الداشبورد.</p>
                     </div>
 
                     <form action="{{ route('admin.current_branch.update') }}" method="POST" class="dashboard-branch-switcher__form">
                         @csrf
                         <div class="input-group">
                             <select class="form-control" name="branch_id" onchange="this.form.submit()">
+                                @if($isOwnerView || (($availableAdminBranches ?? collect())->count() > 1))
+                                    <option
+                                        value="{{ \App\Services\Branches\BranchContextService::DASHBOARD_SCOPE_ALL }}"
+                                        @selected(($dashboardBranchSelection['selected_value'] ?? null) === \App\Services\Branches\BranchContextService::DASHBOARD_SCOPE_ALL)
+                                    >
+                                        كل الفروع
+                                    </option>
+                                @endif
                                 @foreach(($availableAdminBranches ?? collect()) as $availableBranch)
                                     <option
                                         value="{{ $availableBranch->id }}"
-                                        @selected((int) ($currentAdminBranch?->id ?? Auth::user()->branch_id) === (int) $availableBranch->id)
+                                        @selected((int) ($dashboardBranchSelection['selected_value'] ?? ($currentAdminBranch?->id ?? Auth::user()->branch_id)) === (int) $availableBranch->id)
                                     >
                                         {{ $availableBranch->branch_name }}
                                     </option>
@@ -431,7 +439,7 @@
         <div class="owner-dashboard__hero">
             <span class="owner-dashboard__eyebrow">
                 <i class="fa fa-layer-group"></i>
-                {{ $isOwnerView ? 'عرض المالك على مستوى جميع المشتركين' : 'عرض الفرع النشط فقط' }}
+                {{ $isOwnerView ? 'عرض المالك على مستوى جميع المشتركين' : $scopeModeLabel }}
             </span>
             <div class="row align-items-end">
                 <div class="col-xl-7">

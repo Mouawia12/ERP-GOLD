@@ -10,6 +10,8 @@ use Illuminate\Support\Collection;
 class BranchContextService
 {
     public const SESSION_KEY = 'current_branch_id';
+    public const DASHBOARD_SESSION_KEY = 'dashboard_branch_scope';
+    public const DASHBOARD_SCOPE_ALL = '__all__';
 
     public function accessibleBranches(User $user): Collection
     {
@@ -140,7 +142,76 @@ class BranchContextService
         }
 
         $session->put(self::SESSION_KEY, $branchId);
+        $session->put(self::DASHBOARD_SESSION_KEY, $branchId);
         $this->applyToUser($user, $session);
+    }
+
+    public function switchDashboardToAll(User $user, Session $session): void
+    {
+        if ($user->isOwner()) {
+            $session->put(self::DASHBOARD_SESSION_KEY, self::DASHBOARD_SCOPE_ALL);
+
+            return;
+        }
+
+        $allowedBranchIds = $this->accessibleBranchIds($user);
+
+        abort_unless(
+            count($allowedBranchIds) > 1,
+            403,
+            'لا يمكنك عرض جميع الفروع لأن حسابك لا يملك أكثر من فرع نشط.'
+        );
+
+        $session->put(self::DASHBOARD_SESSION_KEY, self::DASHBOARD_SCOPE_ALL);
+    }
+
+    /**
+     * @return array{selected_value:int|string|null, branch_ids:array<int>|null, scope_label:string, scope_mode_label:string, uses_all_branches:bool}
+     */
+    public function currentDashboardScope(User $user, Session $session): array
+    {
+        if ($user->isOwner()) {
+            return [
+                'selected_value' => self::DASHBOARD_SCOPE_ALL,
+                'branch_ids' => null,
+                'scope_label' => 'جميع الفروع',
+                'scope_mode_label' => 'عرض جميع الفروع',
+                'uses_all_branches' => true,
+            ];
+        }
+
+        $allowedBranchIds = $this->accessibleBranchIds($user);
+        $storedScope = $session->get(self::DASHBOARD_SESSION_KEY);
+
+        if (
+            $storedScope === self::DASHBOARD_SCOPE_ALL
+            && count($allowedBranchIds) > 1
+        ) {
+            return [
+                'selected_value' => self::DASHBOARD_SCOPE_ALL,
+                'branch_ids' => $allowedBranchIds,
+                'scope_label' => 'جميع الفروع المسموح بها',
+                'scope_mode_label' => 'عرض جميع الفروع المسموح بها',
+                'uses_all_branches' => true,
+            ];
+        }
+
+        $currentBranchId = $this->currentBranchId($user, $session);
+        $selectedBranchId = is_numeric($storedScope) && in_array((int) $storedScope, $allowedBranchIds, true)
+            ? (int) $storedScope
+            : $currentBranchId;
+
+        $selectedBranch = filled($selectedBranchId)
+            ? Branch::query()->find($selectedBranchId)
+            : null;
+
+        return [
+            'selected_value' => $selectedBranchId,
+            'branch_ids' => filled($selectedBranchId) ? [(int) $selectedBranchId] : [],
+            'scope_label' => $selectedBranch?->branch_name ?? 'بدون فرع',
+            'scope_mode_label' => 'عرض الفرع النشط فقط',
+            'uses_all_branches' => false,
+        ];
     }
 
     /**
@@ -191,6 +262,7 @@ class BranchContextService
     public function clearSession(Session $session): void
     {
         $session->forget(self::SESSION_KEY);
+        $session->forget(self::DASHBOARD_SESSION_KEY);
     }
 
     private function persistedDefaultBranchId(User $user): ?int
