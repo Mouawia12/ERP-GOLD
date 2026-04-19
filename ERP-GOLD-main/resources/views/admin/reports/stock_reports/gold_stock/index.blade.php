@@ -12,15 +12,17 @@
         @media print{
     @page {
         size: A4 landscape;
-        margin: 0 !important;
+        margin: 10mm;
     }
-
     table {
-        page-break-inside: avoid;
+        page-break-inside: auto;
     }
     thead {
         display: table-header-group;
-    } 
+    }
+    tr {
+        page-break-inside: avoid;
+    }
 }
 .c{
 
@@ -192,28 +194,8 @@
 
 
     function printPage() {
-        var css = '@page { size: landscape; }',
-            head = document.head || document.getElementsByTagName('head')[0],
-            style = document.createElement('style');
-
-        style.type = 'text/css';
-        style.media = 'print';
-
-        if (style.styleSheet) {
-            style.styleSheet.cssText = css;
-        } else {
-            style.appendChild(document.createTextNode(css));
-        }
-
-        head.appendChild(style);
-        document.getElementById("main-header").style.display = 'none';
-        document.getElementById("main-footer").style.display = 'none'; 
-        document.getElementById("back-to-top").style.display = 'none';
         window.print();
-        document.getElementById("main-header").style.display = 'block';
-        document.getElementById("main-footer").style.display = 'block'; 
-        document.getElementById("back-to-top").style.display = 'block';
-    } 
+    }
 </script>
 @endsection 
 

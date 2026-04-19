@@ -19,14 +19,17 @@
 @media print{
     @page {
         size: A4 landscape;
-        margin: 0 !important;
+        margin: 10mm;
     }
 
     table {
-        page-break-inside: avoid;
+        page-break-inside: auto;
     }
     thead {
         display: table-header-group;
+    }
+    tr {
+        page-break-inside: avoid;
     }
 }
 .c{
@@ -57,10 +60,12 @@
                                 <h5 class="text-center"> {{$periodFrom}} - {{$periodTo}} </h5>
                                 
                             </div> 
-                            <div class="col-3 text-left"> 
-{{--                                <img src="{{  $company ?  $company -> logo ?   asset('uploads/CompanyInfo' . '/' . $company -> logo)   : URL::asset('assets/img/logo.png') : URL::asset('assets/img/logo.png')}}"   id="profile-img-tag" width="70px" height="70px" class="profile-img"/>--}}
-                            </div>    
-                        </div> 
+                            <div class="col-3 text-left">
+                                <button type="button" class="btn btn-primary no-print" id="btnPrint" onclick="window.print()">
+                                    <i class="fa fa-print"></i> طباعة
+                                </button>
+                            </div>
+                        </div>
     
                         <div class="card-body"> 
                             <hr>
@@ -167,7 +172,7 @@
 @section('js') 
 <script type="text/javascript">
     let id = 0;
-    document.title = "{{__('main.sales_report')}}";
+    document.title = "{{__('main.purchases_report')}}";
 
     $(document).ready(function () {
         $(document).on('click', '#btnPrint', function (event) {
@@ -177,33 +182,7 @@
     });
 
     function printPage(){
-        var css = '@page { size: landscape; }',
-            head = document.head || document.getElementsByTagName('head')[0],
-            style = document.createElement('style');
-
-        style.type = 'text/css';
-        style.media = 'print';
-
-        if (style.styleSheet){
-            style.styleSheet.cssText = css;
-        } else {
-            style.appendChild(document.createTextNode(css));
-        }
-
-        head.appendChild(style);
-        document.getElementById("main-header").style.display = 'none';
-        document.getElementById("main-footer").style.display = 'none';
-        document.getElementById("card-header").style.display = 'none';
-        document.getElementById("back-to-top").style.display = 'none';
-        document.getElementById("example1").style.display = 'none';
-        document.getElementById("d-table").style.display = 'none';
         window.print();
-        document.getElementById("main-header").style.display = 'block';
-        document.getElementById("main-footer").style.display = 'block';
-        document.getElementById("card-header").style.display = 'block';
-        document.getElementById("back-to-top").style.display = 'block';
-        document.getElementById("example1").style.display = 'block';
-        document.getElementById("d-table").style.display = 'block';
     }
 </script> 
         

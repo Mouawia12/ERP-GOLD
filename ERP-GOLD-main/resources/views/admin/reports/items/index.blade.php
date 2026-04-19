@@ -13,9 +13,23 @@
             text-align:center;
         }
         body{
-            direction: rtl; 
+            direction: rtl;
         }
-  
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 10mm;
+            }
+            table {
+                page-break-inside: auto;
+            }
+            thead {
+                display: table-header-group;
+            }
+            tr {
+                page-break-inside: avoid;
+            }
+        }
     </style>
     <div class="row row-sm">
         <div class="col-xl-12">
@@ -52,9 +66,12 @@
                                     <h6 class="text-center text-muted">{{ $activeFilters->implode(' | ') }}</h6>
                                 @endif
                             </div>
-                            <div class="col-3 text-left"> 
-                                <img src="{{ $brandLogoUrl }}"   id="profile-img-tag" width="70px" height="70px" class="profile-img"/>
-                            </div>   
+                            <div class="col-3 text-left">
+                                <img src="{{ $brandLogoUrl }}" id="profile-img-tag" width="70px" height="70px" class="profile-img"/>
+                                <button type="button" class="btn btn-primary no-print d-block mt-1" id="btnPrint" onclick="window.print()">
+                                    <i class="fa fa-print"></i> طباعة
+                                </button>
+                            </div>
                           </div>
                         </div>
                         <div class="card-body" style="direction: rtl;"> 

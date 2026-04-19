@@ -13,7 +13,7 @@
             text-align:center;
         }
         body{
-            direction: rtl; 
+            direction: rtl;
         }
         table#account tr td {
             padding: 10px !important;
@@ -25,25 +25,26 @@
         table#account th{
             padding: 10px !important;
         }
-         /* Style the caret/arrow */
-         .caret {
+        .caret {
             cursor: pointer;
-            user-select: none; /* Prevent text selection */
+            user-select: none;
         }
-
-        /* Create the caret/arrow with a unicode, and style it */
         .caret::before {
             content: "\25B6";
             color: black;
             display: inline-block;
             margin-right: 6px;
         }
-
-        /* Rotate the caret/arrow icon when clicked on (using JavaScript) */
         .caret-down::before {
             transform: rotate(90deg);
         }
-
+        @media print {
+            @page { size: A4 portrait; margin: 10mm; }
+            table { page-break-inside: auto; }
+            thead { display: table-header-group; }
+            tr { page-break-inside: avoid; }
+            .caret-down::before { transform: rotate(90deg); }
+        }
     </style>
     <div class="row row-sm"> 
         <div class="col-xl-12">
@@ -136,26 +137,8 @@
     }); 
 
     function printPage() {
-        var css = '@page { size: landscape; }',
-            head = document.head || document.getElementsByTagName('head')[0],
-            style = document.createElement('style');
-        style.type = 'text/css';
-        style.media = 'print';
-
-        if (style.styleSheet) {
-            style.styleSheet.cssText = css;
-        } else {
-            style.appendChild(document.createTextNode(css));
-        }
-        head.appendChild(style);
-        document.getElementById("main-header").style.display = 'none';
-        document.getElementById("main-footer").style.display = 'none';
-        //document.getElementById("card-header").style.display = 'none'; 
         window.print();
-        document.getElementById("main-header").style.display = 'block';
-        document.getElementById("main-footer").style.display = 'block';
-        //document.getElementById("card-header").style.display = 'block'; 
-    } 
+    }
  </script>
  
     

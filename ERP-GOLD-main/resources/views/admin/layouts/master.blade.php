@@ -19,8 +19,15 @@
                 height: 0 !important;
             }
 
+            .app-sidebar,
+            .app-sidebar__overlay {
+                display: none !important;
+            }
+
             .app-content, .content {
                 margin-right: 0 !important;
+                margin-left: 0 !important;
+                padding: 0 !important;
             }
 
             body {
@@ -28,19 +35,51 @@
                 -moz-print-color-adjust: exact;
                 print-color-adjust: exact;
                 -o-print-color-adjust: exact;
-                direction: rtl; 
+                direction: rtl;
             }
 
             .no-print {
-                display: none;
+                display: none !important;
             }
 
             .printy {
                 display: block !important;
             }
+
+            .text-nowrap {
+                white-space: normal !important;
+            }
+
             table.display.w-100.text-nowrap.table-bordered.dataTable.dtr-inline {
                 direction: rtl;
                 text-align:center;
+            }
+
+            /* Hide DataTables UI controls */
+            .dataTables_wrapper .dataTables_length,
+            .dataTables_wrapper .dataTables_filter,
+            .dataTables_wrapper .dataTables_info,
+            .dataTables_wrapper .dataTables_paginate,
+            .dataTables_wrapper .row:first-child,
+            .dataTables_wrapper .row:last-child,
+            .dt-buttons,
+            .dataTables_wrapper .dt-buttons {
+                display: none !important;
+            }
+
+            /* Show ALL DataTable rows (override pagination hiding) */
+            table.dataTable tbody tr {
+                display: table-row !important;
+                visibility: visible !important;
+            }
+
+            /* Ensure the table wrapper doesn't clip content */
+            .dataTables_wrapper,
+            .dataTables_scroll,
+            .dataTables_scrollBody {
+                overflow: visible !important;
+                height: auto !important;
+                max-height: none !important;
             }
         }
     </style>

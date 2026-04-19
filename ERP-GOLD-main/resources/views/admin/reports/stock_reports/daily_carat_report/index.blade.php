@@ -5,6 +5,25 @@
     .daily-carat-report-page {
         direction: rtl;
     }
+    @media print {
+        @page {
+            size: A4 landscape;
+            margin: 10mm;
+        }
+        table {
+            page-break-inside: auto;
+        }
+        thead {
+            display: table-header-group;
+        }
+        tr {
+            page-break-inside: avoid;
+        }
+        .summary-card {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+    }
     .daily-carat-report-page .summary-card {
         border: 1px solid #e8e8e8;
         border-radius: 12px;
@@ -23,6 +42,9 @@
 <div class="container-fluid daily-carat-report-page">
     <div class="card shadow mb-4">
         <div class="card-header py-3 text-center">
+            <button type="button" class="btn btn-primary no-print float-left" onclick="window.print()">
+                <i class="fa fa-print"></i> طباعة
+            </button>
             <h4 class="alert alert-primary text-center mb-3">{{ $reportTitle ?? 'التقرير اليومي للمبيعات والمشتريات حسب العيار' }}</h4>
             <div>
                 <strong>{{ $periodFrom }} - {{ $periodTo }}</strong>

@@ -14,7 +14,13 @@
             text-align:center;
         }
         body{
-            direction: rtl; 
+            direction: rtl;
+        }
+        @media print {
+            @page { size: A4 landscape; margin: 10mm; }
+            table { page-break-inside: auto; }
+            thead { display: table-header-group; }
+            tr { page-break-inside: avoid; }
         }
     </style>
  

@@ -444,5 +444,22 @@ $(document).ready( function () {
                 "autoWidth": false,
                 "responsive": true, 
             }); 
-        }); 
+        });
+
+        // Before printing: show ALL rows in DataTable (override pagination)
+        window.addEventListener('beforeprint', function () {
+            if (typeof $.fn.DataTable !== 'undefined' && $.fn.DataTable.isDataTable('#example1')) {
+                var dt = $('#example1').DataTable();
+                window._dtPrintPageLen = dt.page.len();
+                dt.page.len(-1).draw(false);
+            }
+        });
+
+        // After printing: restore original page length
+        window.addEventListener('afterprint', function () {
+            if (typeof $.fn.DataTable !== 'undefined' && $.fn.DataTable.isDataTable('#example1') && typeof window._dtPrintPageLen !== 'undefined') {
+                $('#example1').DataTable().page.len(window._dtPrintPageLen).draw(false);
+                window._dtPrintPageLen = undefined;
+            }
+        });
 </script>

@@ -26,6 +26,14 @@
         $printOrientation = $printSettings['orientation'] ?? ($compactStandalonePrint ? 'landscape' : 'portrait');
         $showInvoiceTerms = $invoiceTermsService->shouldShowInvoiceTermsForInvoice($invoice);
         $inlineInvoiceTerms = $invoiceTermsService->formatTermsForPrint($invoice->invoice_terms);
+
+        // Pagination: 3 items per first page if terms exist, 5 if no terms
+        $itemsPerFirstPage = $showInvoiceTerms ? 3 : 5;
+        $allDetails = $invoice->details->values();
+        $firstPageDetails = $allDetails->take($itemsPerFirstPage);
+        $remainingDetails = $allDetails->skip($itemsPerFirstPage);
+        $continuationChunks = $remainingDetails->chunk(8)->values();
+
         $previewNotice = $invoiceTermsService->currentDefaultDiffersFromInvoiceSnapshot($invoice)
             ? 'هذه الفاتورة تعرض نسخة الشروط المحفوظة وقت الإنشاء. أي تعديل جديد على الشروط يطبق على الفواتير الجديدة فقط.'
             : null;
@@ -193,7 +201,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($invoice->details->values() as $index => $detail)
+                    @foreach($firstPageDetails as $index => $detail)
                         @php
                             $weight = $invoice->type === 'purchase_return'
                                 ? $detail->out_weight
@@ -293,6 +301,58 @@
             </footer>
         @endif
     </div>
+
+    @foreach($continuationChunks as $chunkIndex => $chunk)
+    <div class="page" style="page-break-before: always;">
+        <div class="page-content">
+            <div style="font-size:8px; margin-bottom:3mm; padding-bottom:2mm; border-bottom:1px solid #999; display:flex; justify-content:space-between;">
+                <span>{{ $documentTitle }} — {{ $invoice->bill_number }}</span>
+                <span>صفحة {{ $chunkIndex + 2 }}</span>
+            </div>
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th style="width: 6%;">م</th>
+                        <th style="width: 36%;">الوصف</th>
+                        <th style="width: 22%;">المواصفات</th>
+                        <th style="width: 16%;">التسعير</th>
+                        <th style="width: 20%;">الإجمالي</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($chunk->values() as $chunkDetailIndex => $detail)
+                        @php
+                            $index = $itemsPerFirstPage + ($chunkIndex * 8) + $chunkDetailIndex;
+                            $weight = $invoice->type === 'purchase_return'
+                                ? $detail->out_weight
+                                : ($detail->in_weight ?: $detail->out_weight);
+                            $quantity = $detail->in_quantity ?: $detail->out_quantity ?: 1;
+                        @endphp
+                        <tr>
+                            <td>{{ $index + 1 }}</td>
+                            <td class="description-cell">
+                                <span class="description-main">{{ strip_tags((string) $detail->item->title) }}</span>
+                            </td>
+                            <td>
+                                <span class="description-main">{{ $detail->carat_display_label ?: '---' }}</span>
+                                <span class="sub-line">وزن: <span class="ltr">{{ $fmtWeight($weight) }}</span></span>
+                                <span class="sub-line">عدد: <span class="ltr">{{ $quantity }}</span></span>
+                            </td>
+                            <td>
+                                <span class="description-main ltr">{{ $fmtMoney($detail->line_total) }}</span>
+                                <span class="sub-line">VAT: <span class="ltr">{{ $fmtMoney($detail->line_tax) }}</span></span>
+                            </td>
+                            <td>
+                                <span class="description-main ltr">{{ $fmtMoney($detail->net_total) }}</span>
+                                <span class="sub-line">شامل الضريبة</span>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @endforeach
 
     @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice'))
 </body>

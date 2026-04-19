@@ -62,6 +62,14 @@
         $invoiceTerms = trim((string) ($invoice->invoice_terms ?? ''));
         $inlineInvoiceTerms = $invoiceTermsService->formatTermsForPrint($invoiceTerms);
         $showInvoiceTerms = $invoiceTermsService->shouldShowInvoiceTermsForInvoice($invoice);
+
+        // Pagination: 3 items per first page if terms exist, 5 if no terms
+        $itemsPerFirstPage = $showInvoiceTerms ? 3 : 5;
+        $allDetails = $invoice->details->values();
+        $firstPageDetails = $allDetails->take($itemsPerFirstPage);
+        $remainingDetails = $allDetails->skip($itemsPerFirstPage);
+        $continuationChunks = $remainingDetails->chunk(8)->values();
+
         $previewNotice = $invoiceTermsService->currentDefaultDiffersFromInvoiceSnapshot($invoice)
             ? 'هذه الفاتورة تعرض نسخة الشروط المحفوظة وقت الإنشاء. أي تعديل جديد على الشروط يطبق على الفواتير الجديدة فقط.'
             : null;
@@ -187,7 +195,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach($invoice->details->values() as $index => $detail)
+                        @foreach($firstPageDetails as $index => $detail)
                             @php
                                 $weight = $isSale ? $detail->out_weight : $detail->in_weight;
                                 $nonMetal = $detail->no_metal_type === 'fixed'
@@ -287,6 +295,71 @@
             </footer>
         @endif
     </div>
+
+    @foreach($continuationChunks as $chunkIndex => $chunk)
+    <div class="page" style="page-break-before: always;">
+        <div class="page-content">
+            <div class="invoice-shell">
+                <div style="font-size:7.5px; margin-bottom:2mm; padding-bottom:1.5mm; border-bottom:1px solid #d5d9df; display:flex; justify-content:space-between;">
+                    <span>{{ $documentTitle }} — {{ $invoice->bill_number }}</span>
+                    <span>صفحة {{ $chunkIndex + 2 }}</span>
+                </div>
+                <table class="reference-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 4.5%;"><span class="head-main">م</span></th>
+                            <th style="width: 23%;"><span class="head-main">وصف الصنف</span><span class="head-sub">(Item)</span></th>
+                            <th style="width: 7%;"><span class="head-main">العيار</span><span class="head-sub">(Karat)</span></th>
+                            <th style="width: 8.5%;"><span class="head-main">وزن الذهب</span><span class="head-sub">(Weight)</span></th>
+                            <th style="width: 5.5%;"><span class="head-main">العدد</span><span class="head-sub">(Count)</span></th>
+                            <th style="width: 8.5%;"><span class="head-main">ما خلا من المعدن</span><span class="head-sub">(Non Metal)</span></th>
+                            <th style="width: 9%;"><span class="head-main">سعر الجرام</span><span class="head-sub">(Gram Price)</span></th>
+                            <th style="width: 9.5%;"><span class="head-main">الإجمالي</span><span class="head-sub">(Total)</span></th>
+                            <th style="width: 7%;"><span class="head-main">الضريبة</span><span class="head-sub">(Vat)</span></th>
+                            <th style="width: 17.5%;"><span class="head-main">الإجمالي شامل الضريبة</span><span class="head-sub">(Total With Vat)</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($chunk->values() as $chunkDetailIndex => $detail)
+                            @php
+                                $index = $itemsPerFirstPage + ($chunkIndex * 8) + $chunkDetailIndex;
+                                $weight = $isSale ? $detail->out_weight : $detail->in_weight;
+                                $nonMetal = $detail->no_metal_type === 'fixed'
+                                    ? (float) $detail->no_metal
+                                    : ((float) $weight * ((float) $detail->no_metal / 100));
+                            @endphp
+                            <tr>
+                                <td>{{ $index + 1 }}</td>
+                                <td class="description-cell">
+                                    <span class="description-main">{{ strip_tags((string) $detail->item->title) }}</span>
+                                    @if(in_array($detail->item->inventory_classification, ['collectible', 'silver']))
+                                        @if($detail->item->stone_size_1 || $detail->item->stone_size_2)
+                                            <span class="description-sub">مقاس: {{ $detail->item->stone_size_1 }}{{ $detail->item->stone_size_2 ? '/' . $detail->item->stone_size_2 : '' }}</span>
+                                        @endif
+                                        @if($detail->item->stone_clarity || $detail->item->stone_color)
+                                            <span class="description-sub">{{ $detail->item->stone_clarity }} {{ $detail->item->stone_color }}</span>
+                                        @endif
+                                        @if($detail->item->brand)
+                                            <span class="description-sub">{{ $detail->item->brand }}</span>
+                                        @endif
+                                    @endif
+                                </td>
+                                <td>{{ $detail->carat_display_label ?: '---' }}</td>
+                                <td><span class="ltr">{{ $fmtWeight($weight) }}</span></td>
+                                <td><span class="ltr">{{ $detail->out_quantity ?: 0 }}</span></td>
+                                <td><span class="ltr">{{ $fmtWeight($nonMetal) }}</span></td>
+                                <td><span class="ltr">{{ $fmtMoney($detail->unit_price) }}</span></td>
+                                <td><span class="ltr">{{ $fmtMoney($detail->line_total) }}</span></td>
+                                <td><span class="ltr">{{ $fmtMoney($detail->line_tax) }}</span></td>
+                                <td><span class="ltr">{{ $fmtMoney($detail->round_net_total) }}</span></td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @endforeach
 
     @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice'))
 </body>

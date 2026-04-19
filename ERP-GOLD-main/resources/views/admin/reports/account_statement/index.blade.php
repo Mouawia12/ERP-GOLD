@@ -14,9 +14,14 @@
             text-align:center;
         }
         body{
-            direction: rtl; 
+            direction: rtl;
         }
-  
+        @media print {
+            @page { size: A4 landscape; margin: 10mm; }
+            table { page-break-inside: auto; }
+            thead { display: table-header-group; }
+            tr { page-break-inside: avoid; }
+        }
     </style>
 
     <div class="row row-sm"> 
@@ -148,27 +153,7 @@
     });
 
     function printPage() {
-        var css = '@page { size: landscape; }',
-            head = document.head || document.getElementsByTagName('head')[0],
-            style = document.createElement('style');
-
-        style.type = 'text/css';
-        style.media = 'print';
-
-        if (style.styleSheet) {
-            style.styleSheet.cssText = css;
-        } else {
-            style.appendChild(document.createTextNode(css));
-        }
-
-        head.appendChild(style);
-        document.getElementById("main-header").style.display = 'none';
-        document.getElementById("main-footer").style.display = 'none';
-        document.getElementById("card-header").style.display = 'none'; 
         window.print();
-        document.getElementById("main-header").style.display = 'block';
-        document.getElementById("main-footer").style.display = 'block';
-        document.getElementById("card-header").style.display = 'block'; 
     }
  
 </script> 

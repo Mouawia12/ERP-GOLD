@@ -34,7 +34,7 @@
         --page-bg: #fff;
         --screen-bg: #eef1f5;
         --screen-outline: #d8dce2;
-        --invoice-screen-font-size: 11px;
+        --invoice-screen-font-size: 13px;
         --invoice-print-font-size: 10px;
         --invoice-title-font-size: 14.4px;
         --invoice-title-sub-font-size: 7.1px;

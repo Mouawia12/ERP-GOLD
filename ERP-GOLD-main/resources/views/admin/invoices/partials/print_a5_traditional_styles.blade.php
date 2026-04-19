@@ -33,7 +33,7 @@
         --invoice-table-head: #e0e0e0;
         --screen-background: #f3f4f6;
         --screen-outline: #d4d4d8;
-        --invoice-screen-font-size: 11.5px;
+        --invoice-screen-font-size: 13px;
         --invoice-print-font-size: 10.35px;
         --invoice-title-font-size: 18.5px;
         --invoice-title-en-font-size: 11.8px;

@@ -8,15 +8,29 @@
     @endif
 <!-- row opened -->
 <style>
-        table.display.w-100.text-nowrap.table-bordered.dataTable.dtr-inline {
-            direction: rtl;
-            text-align:center;
+    table.display.w-100.text-nowrap.table-bordered.dataTable.dtr-inline {
+        direction: rtl;
+        text-align:center;
+    }
+    body{
+        direction: rtl;
+    }
+    @media print {
+        @page {
+            size: A4 landscape;
+            margin: 10mm;
         }
-        body{
-            direction: rtl; 
+        table {
+            page-break-inside: auto;
         }
-  
-    </style>
+        thead {
+            display: table-header-group;
+        }
+        tr {
+            page-break-inside: avoid;
+        }
+    }
+</style>
 <div class="row row-sm">
     <div class="col-xl-12">  
             <div class="card-body px-0 pt-0 pb-2"> 
@@ -33,9 +47,11 @@
                                 <h5 class="text-center"> [ الفرع: {{ $branchLabel ?? ($branch?->name ?: 'جميع الفروع') }} ] </h5>
                                 <h5 class="text-center">  {{ $periodFrom . ' - ' . $periodTo}} </h5>
                             </div>
-                            <div class="col-3 text-left"> 
-                               {{-- <img src="{{  $company ?  $company -> logo ?   asset('uploads/CompanyInfo' . '/' . $company -> logo)   : URL::asset('assets/img/logo.png') : URL::asset('assets/img/logo.png')}}"   id="profile-img-tag" width="70px" height="70px" class="profile-img"/>--}}
-                            </div>   
+                            <div class="col-3 text-left">
+                                <button type="button" class="btn btn-primary no-print" id="btnPrint" onclick="window.print()">
+                                    <i class="fa fa-print"></i> طباعة
+                                </button>
+                            </div>
                           </div>
                         </div>
                         <div class="card-body"> 
@@ -193,6 +209,6 @@
 </script>
 <script>
     $(document).ready(function () {
-        document.title = "{{__('main.sales_total_report')}}";
+        document.title = "{{__('main.sales_return_total_report')}}";
     });
 </script>
