@@ -98,6 +98,61 @@
         padding-bottom: 24px;
     }
 
+    .dashboard-branch-switcher {
+        margin-bottom: 18px;
+    }
+
+    .dashboard-branch-switcher__card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px 18px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid rgba(221, 230, 243, 0.95);
+        box-shadow: 0 14px 32px rgba(19, 28, 45, 0.06);
+    }
+
+    .dashboard-branch-switcher__content {
+        min-width: 0;
+    }
+
+    .dashboard-branch-switcher__label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #24415f;
+    }
+
+    .dashboard-branch-switcher__hint {
+        margin: 0;
+        font-size: 12px;
+        color: #7a8699;
+    }
+
+    .dashboard-branch-switcher__form {
+        flex: 0 0 320px;
+        max-width: 100%;
+        margin: 0;
+    }
+
+    .dashboard-branch-switcher__form .input-group-text,
+    .dashboard-branch-switcher__form .form-control {
+        height: 44px;
+        border-color: #d8e3f0;
+        background: #fff;
+    }
+
+    .dashboard-branch-switcher__form .input-group-text {
+        font-weight: 700;
+        color: #48627d;
+        background: #f6f9fd;
+    }
+
     .owner-dashboard__hero {
         background: linear-gradient(135deg, #1f3c56 0%, #a87912 100%);
         border-radius: 22px;
@@ -313,6 +368,18 @@
         text-align: center;
         background: #fafcfe;
     }
+
+    @media (max-width: 991.98px) {
+        .dashboard-branch-switcher__card {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .dashboard-branch-switcher__form {
+            flex-basis: auto;
+            width: 100%;
+        }
+    }
 </style>
 
 @section('page-header')
@@ -328,6 +395,39 @@
     </div>
 
     <div class="owner-dashboard">
+        @if(($availableAdminBranches ?? collect())->count() > 1)
+            <div class="dashboard-branch-switcher">
+                <div class="dashboard-branch-switcher__card">
+                    <div class="dashboard-branch-switcher__content">
+                        <span class="dashboard-branch-switcher__label">
+                            <i class="fa fa-code-branch"></i>
+                            الفرع النشط
+                        </span>
+                        <p class="dashboard-branch-switcher__hint">يمكنك تغيير الفرع المعروض في لوحة التشغيل من هنا.</p>
+                    </div>
+
+                    <form action="{{ route('admin.current_branch.update') }}" method="POST" class="dashboard-branch-switcher__form">
+                        @csrf
+                        <div class="input-group">
+                            <select class="form-control" name="branch_id" onchange="this.form.submit()">
+                                @foreach(($availableAdminBranches ?? collect()) as $availableBranch)
+                                    <option
+                                        value="{{ $availableBranch->id }}"
+                                        @selected((int) ($currentAdminBranch?->id ?? Auth::user()->branch_id) === (int) $availableBranch->id)
+                                    >
+                                        {{ $availableBranch->branch_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <div class="input-group-append">
+                                <span class="input-group-text">الفرع</span>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        @endif
+
         <div class="owner-dashboard__hero">
             <span class="owner-dashboard__eyebrow">
                 <i class="fa fa-layer-group"></i>
