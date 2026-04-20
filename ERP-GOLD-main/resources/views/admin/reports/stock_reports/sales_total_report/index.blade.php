@@ -85,10 +85,10 @@
                                             </td>
                                             <td class="text-center">{{ \Carbon\Carbon::parse($sale -> date) -> format('d-m-Y')  }}</td>
                                             <td class="text-center">{{$sale -> customer_name}}</td>
-                                            <td class="text-center">{{abs($sale -> total_quantity)}}</td> 
-                                            <td class="text-center">{{$sale -> round_net_total}}</td>
-                                            <td class="text-center">{{round($sale -> lines_total_after_discount, 2)}}</td> 
-                                            <td class="text-center">{{round($sale -> taxes_total, 2)}}</td>  
+                                            <td class="text-center">{{number_format(abs($sale->total_quantity), 3)}}</td>
+                                            <td class="text-center">{{number_format($sale->round_net_total, 2)}}</td>
+                                            <td class="text-center">{{number_format(round($sale->lines_total_after_discount, 2), 2)}}</td>
+                                            <td class="text-center">{{number_format(round($sale->taxes_total, 2), 2)}}</td>  
                                         </tr>
 
                                         <?php $sum_weight += abs($sale->total_quantity) ?>
@@ -103,10 +103,10 @@
                                         <tr class="text-white bg-primary">  
                                             <td colspan="3"></td> 
                                             <td class="text-center">الإجمالي</td> 
-                                            <td class="text-center">{{$sum_weight}}</td> 
-                                            <td class="text-center">{{round($sum_net - $sum_discount, 2)}}</td> 
-                                            <td class="text-center">{{round($sum_total, 2)}}</td>  
-                                            <td class="text-center">{{round($sum_tax, 2)}}</td>  
+                                            <td class="text-center">{{number_format($sum_weight, 3)}}</td>
+                                            <td class="text-center">{{number_format(round($sum_net - $sum_discount, 2), 2)}}</td>
+                                            <td class="text-center">{{number_format(round($sum_total, 2), 2)}}</td>
+                                            <td class="text-center">{{number_format(round($sum_tax, 2), 2)}}</td>  
                                         </tr>
                                     </tfoot> 
 
@@ -114,44 +114,6 @@
                                 </table>
 
                             </div>
-                            <div class="card">  
-                                <div class="row"> 
-                                    <div class="table-responsive hoverable-table" style="direction: rtl;"> 
-                                        <h2 class="text-center">الإجماليات حسب العيار</h2>
-                                        <table class="table table-bordered"  width="100%" cellspacing="0">
-                                            <thead>
-                                            <tr>
-                                                <th class="text-uppercase text-secondary text-md-center font-weight-bolder opacity-7">
-                                                    #
-                                                </th>
-                                                <th> {{__('main.carats')}} </th>
-                                                <th> {{__('main.quantity')}} </th>
-                                                <th>{{__('main.weight')}}</th>
-                                                <th> {{__('main.total_without_tax')}} </th>
-                                                <th> {{__('main.gram_tax')}} </th>
-                                                <th> {{__('main.made_Value')}} </th>
-                                                <th> {{__('main.net_money')}} </th>
-        
-                                            </tr>
-                                            </thead>
-                                            <tbody>
-                                                @foreach($sales_by_carat as $sale_by_carat)
-                                                <tr>
-                                                    <td class="text-center">{{$loop->iteration}}</td>
-                                                    <td class="text-center">{{$sale_by_carat->carat_title}}</td>
-                                                    <td class="text-center">{{$sale_by_carat->total_quantity}}</td>
-                                                    <td class="text-center">{{$sale_by_carat->total_weight}}</td>
-                                                    <td class="text-center">{{round($sale_by_carat->total_line_total, 2)}}</td>
-                                                    <td class="text-center">{{round($sale_by_carat->total_taxes_total, 2)}}</td>
-                                                    <td class="text-center">{{'0'}}</td>
-                                                    <td class="text-center">{{round($sale_by_carat->total_net_total, 2)}}</td>
-                                                </tr>
-                                                @endforeach        
-                                            </tbody> 
-                                        </table>
-                                    </div>   
-                                </div>  
-                            </div> 
                         </div>
                     </div>
 

@@ -51,8 +51,21 @@ class StockReportsController extends Controller
             })
             ->get();
 
+        $detailsByCarat = $details
+            ->groupBy(fn ($d) => $d->gold_carat_id ?? 'none')
+            ->map(fn ($group) => (object) [
+                'carat_title' => optional($group->first()->carat)->title ?? 'بدون عيار',
+                'total_quantity' => $group->count(),
+                'total_weight' => round($group->sum('out_weight'), 3),
+                'total_line_total' => round($group->sum('line_total'), 2),
+                'total_tax' => round($group->sum('line_tax'), 2),
+                'total_net' => round($group->sum('net_total'), 2),
+            ])
+            ->sortBy('carat_title')
+            ->values();
+
         $reportTitle = $this->classificationReportTitle($classification, 'تقرير المبيعات التفصيلي');
-        return view('admin.reports.stock_reports.sales_report.index', compact('periodFrom', 'periodTo', 'branch', 'branchLabel', 'details', 'reportTitle'));
+        return view('admin.reports.stock_reports.sales_report.index', compact('periodFrom', 'periodTo', 'branch', 'branchLabel', 'details', 'detailsByCarat', 'reportTitle'));
     }
 
     // ---- تقارير المقتنيات ----
@@ -436,8 +449,21 @@ class StockReportsController extends Controller
             })
             ->get();
 
+        $detailsByCarat = $details
+            ->groupBy(fn ($d) => $d->gold_carat_id ?? 'none')
+            ->map(fn ($group) => (object) [
+                'carat_title' => optional($group->first()->carat)->title ?? 'بدون عيار',
+                'total_quantity' => $group->count(),
+                'total_weight' => round($group->sum('out_weight'), 3),
+                'total_line_total' => round($group->sum('line_total'), 2),
+                'total_tax' => round($group->sum('line_tax'), 2),
+                'total_net' => round($group->sum('net_total'), 2),
+            ])
+            ->sortBy('carat_title')
+            ->values();
+
         $reportTitle = $this->classificationReportTitle($classification, 'تقرير المشتريات التفصيلي');
-        return view('admin.reports.stock_reports.purchases_report.index', compact('periodFrom', 'periodTo', 'branch', 'branchLabel', 'details', 'reportTitle'));
+        return view('admin.reports.stock_reports.purchases_report.index', compact('periodFrom', 'periodTo', 'branch', 'branchLabel', 'details', 'detailsByCarat', 'reportTitle'));
     }
 
     public function purchases_total_report_search()

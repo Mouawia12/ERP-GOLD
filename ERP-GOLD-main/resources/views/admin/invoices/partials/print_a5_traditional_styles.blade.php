@@ -92,6 +92,14 @@
         --screen-page-padding: 5mm;
     }
 
+    body.invoice-paper-ready.invoice-orientation-portrait {
+        --page-width: 148mm;
+    }
+
+    body.invoice-paper-ready.invoice-orientation-portrait .page {
+        padding-top: 40mm;
+    }
+
     table,
     th,
     td {

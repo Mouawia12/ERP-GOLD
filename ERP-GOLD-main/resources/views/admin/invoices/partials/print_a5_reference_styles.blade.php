@@ -107,9 +107,17 @@
     }
 
     body.invoice-paper-ready.invoice-orientation-portrait {
-        --shell-width: 124mm;
+        --shell-width: 144mm;
         --qr-size: 17mm;
         --meta-width: 41mm;
+        --page-width: 148mm;
+        --page-padding-top: 40mm;
+        --page-padding-inline: 0;
+        --page-padding-bottom: 0;
+    }
+
+    body.invoice-paper-ready.invoice-orientation-portrait .page {
+        justify-content: flex-start;
     }
 
     body.invoice-paper-ready.invoice-orientation-landscape {

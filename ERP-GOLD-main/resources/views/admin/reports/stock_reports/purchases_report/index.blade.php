@@ -104,11 +104,11 @@
                                             <td class="text-center">{{$detail -> invoice -> customer_name}}</td> 
                                             <td class="text-center">{{ $detail -> item->title }}</td>
                                             <td class="text-center">{{$detail -> carat->title}}</td>
-                                            <td class="text-center">{{$detail -> out_weight}}</td>
-                                            <td class="text-center">{{$detail -> unit_price}}</td> 
-                                            <td class="text-center">{{$detail -> net_total}}</td> 
-                                            <td class="text-center">{{ $detail -> line_total }}</td>
-                                            <td class="text-center">{{ $detail ->line_tax }}</td>
+                                            <td class="text-center">{{number_format($detail->out_weight, 3)}}</td>
+                                            <td class="text-center">{{number_format($detail->unit_price, 2)}}</td>
+                                            <td class="text-center">{{number_format($detail->net_total, 2)}}</td>
+                                            <td class="text-center">{{number_format($detail->line_total, 2)}}</td>
+                                            <td class="text-center">{{number_format($detail->line_tax, 2)}}</td>
                                         </tr>
                                         <?php $sum_weight += $detail->out_weight ?>
                                         <?php $sum_total += ($detail->line_total) ?>
@@ -121,11 +121,11 @@
                                         <tr class="text-white bg-primary">
                                             <td colspan="5"></td> 
                                             <td class="text-center">{{__('main.total')}}</td>
-                                            <td class="text-center">{{$sum_weight}}</td>
+                                            <td class="text-center">{{number_format($sum_weight, 3)}}</td>
                                             <td class="text-center"></td>
-                                            <td class="text-center">{{$sum_net}}</td> 
-                                            <td class="text-center">{{$sum_total}}</td>
-                                            <td class="text-center">{{$sum_tax}}</td>  
+                                            <td class="text-center">{{number_format($sum_net, 2)}}</td>
+                                            <td class="text-center">{{number_format($sum_total, 2)}}</td>
+                                            <td class="text-center">{{number_format($sum_tax, 2)}}</td>  
                                         </tr>
                                     </tfoot>  
                                 </table>
@@ -151,16 +151,28 @@
                                             </tr>
                                             </thead>
                                             <tbody>
-                                            </tbody> 
+                                                @foreach($detailsByCarat ?? [] as $row)
+                                                <tr>
+                                                    <td class="text-center">{{$loop->iteration}}</td>
+                                                    <td class="text-center">{{$row->carat_title}}</td>
+                                                    <td class="text-center">{{$row->total_quantity}}</td>
+                                                    <td class="text-center">{{number_format($row->total_weight, 3)}}</td>
+                                                    <td class="text-center">{{number_format($row->total_line_total, 2)}}</td>
+                                                    <td class="text-center">{{number_format($row->total_tax, 2)}}</td>
+                                                    <td class="text-center">-</td>
+                                                    <td class="text-center">{{number_format($row->total_net, 2)}}</td>
+                                                </tr>
+                                                @endforeach
+                                            </tbody>
                                         </table>
-                                    </div>   
-                                </div>  
-                            </div> 
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div> 
-                </div> 
+                    </div>
+                </div>
             </div>
-            <!-- /.container-fluid --> 
+            <!-- /.container-fluid -->
         </div>
         <!-- End of Main Content --> 
     </div>

@@ -85,10 +85,10 @@
                                             </td>
                                             <td class="text-center">{{ \Carbon\Carbon::parse($purchase -> date) -> format('d-m-Y')  }}</td>
                                             <td class="text-center">{{$purchase -> customer_name}}</td>
-                                            <td class="text-center">{{abs($purchase -> total_quantity)}}</td> 
-                                            <td class="text-center">{{$purchase -> net_total}}</td>
-                                            <td class="text-center">{{$purchase -> lines_total_after_discount}}</td> 
-                                            <td class="text-center">{{$purchase -> taxes_total}}</td>  
+                                            <td class="text-center">{{number_format(abs($purchase->total_quantity), 3)}}</td>
+                                            <td class="text-center">{{number_format($purchase->net_total, 2)}}</td>
+                                            <td class="text-center">{{number_format($purchase->lines_total_after_discount, 2)}}</td>
+                                            <td class="text-center">{{number_format($purchase->taxes_total, 2)}}</td>  
                                         </tr>
 
                                         <?php $sum_weight += abs($purchase->total_quantity) ?>
@@ -103,10 +103,10 @@
                                         <tr class="text-white bg-primary">  
                                             <td colspan="3"></td> 
                                             <td class="text-center">الإجمالي</td> 
-                                            <td class="text-center">{{$sum_weight}}</td> 
-                                            <td class="text-center">{{$sum_net - $sum_discount}}</td> 
-                                            <td class="text-center">{{$sum_total}}</td>  
-                                            <td class="text-center">{{$sum_tax}}</td>  
+                                            <td class="text-center">{{number_format($sum_weight, 3)}}</td>
+                                            <td class="text-center">{{number_format(round($sum_net - $sum_discount, 2), 2)}}</td>
+                                            <td class="text-center">{{number_format(round($sum_total, 2), 2)}}</td>
+                                            <td class="text-center">{{number_format(round($sum_tax, 2), 2)}}</td>  
                                         </tr>
                                     </tfoot> 
 
