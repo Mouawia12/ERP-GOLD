@@ -5,6 +5,9 @@ use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
 use Monolog\Processor\PsrLogMessageProcessor;
 
+$logStackChannels = array_values(array_filter(array_map('trim', explode(',', env('LOG_STACK', 'daily,errorlog')))));
+$logFilePermission = intval((string) env('LOG_FILE_PERMISSION', '0664'), 8);
+
 return [
 
     /*
@@ -54,14 +57,15 @@ return [
     'channels' => [
         'stack' => [
             'driver' => 'stack',
-            'channels' => ['single'],
-            'ignore_exceptions' => false,
+            'channels' => $logStackChannels ?: ['daily', 'errorlog'],
+            'ignore_exceptions' => true,
         ],
 
         'single' => [
             'driver' => 'single',
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
+            'permission' => $logFilePermission,
             'replace_placeholders' => true,
         ],
 
@@ -70,6 +74,7 @@ return [
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => 14,
+            'permission' => $logFilePermission,
             'replace_placeholders' => true,
         ],
 
