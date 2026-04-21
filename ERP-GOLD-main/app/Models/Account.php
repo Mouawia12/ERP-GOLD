@@ -71,6 +71,14 @@ class Account extends Model
 
     protected function childrensIds(): Attribute
     {
+        $accountId = $this->attributes[$this->getKeyName()] ?? null;
+
+        if (blank($accountId)) {
+            return Attribute::make(
+                get: fn() => [],
+            )->shouldCache();
+        }
+
         $childAccounts = collect(DB::connection($this->connection)->select('
              WITH RECURSIVE AccountTree AS (
                  SELECT 
@@ -97,7 +105,12 @@ class Account extends Model
                      id
                  FROM 
                      AccountTree;
-            ', [$this->id]))->pluck('id')->toArray();
+            ', [$accountId]))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->toArray();
 
         $ids = $childAccounts;
 

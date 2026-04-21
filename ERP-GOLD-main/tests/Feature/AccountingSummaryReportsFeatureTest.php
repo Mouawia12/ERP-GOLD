@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Account;
 use App\Models\Branch;
 use App\Models\Permission;
 use App\Models\Role;
@@ -347,6 +348,23 @@ class AccountingSummaryReportsFeatureTest extends TestCase
         $selectedBranchResponse->assertSee('650.00');
         $selectedBranchResponse->assertDontSee('1,050.00');
         $selectedBranchResponse->assertDontSee('999.00');
+    }
+
+    public function test_account_childrens_ids_does_not_fail_when_account_key_is_not_loaded(): void
+    {
+        $this->createAccount([
+            'name' => ['ar' => 'حساب بدون مفتاح محمل', 'en' => 'Partially Loaded Account'],
+            'code' => '1199',
+            'account_type' => 'assets',
+            'transfer_side' => 'budget',
+        ]);
+
+        $account = Account::query()
+            ->withoutGlobalScopes()
+            ->select('name', 'code')
+            ->firstOrFail();
+
+        $this->assertSame([], $account->childrensIds);
     }
 
     /**
