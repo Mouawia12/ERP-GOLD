@@ -121,10 +121,54 @@ class CustomerStoreFlowFeatureTest extends TestCase
         $response->assertJsonPath('message', 'تعذر حفظ البيانات. يرجى مراجعة الحقول المطلوبة.');
         $response->assertJsonPath('field_errors.name.0', 'اسم العميل مطلوب');
         $response->assertJsonPath('field_errors.email.0', 'يجب إدخال البريد الإلكتروني بصيغة بريد إلكتروني صحيحة.');
-        $response->assertJsonPath('field_errors.region.0', 'المنطقة مطلوبة في حالة وجود قيمه ل الرقم الضريبي');
+        $response->assertJsonMissingPath('field_errors.region');
+        $response->assertJsonMissingPath('field_errors.city');
+        $response->assertJsonMissingPath('field_errors.district');
+        $response->assertJsonMissingPath('field_errors.street_name');
+        $response->assertJsonMissingPath('field_errors.building_number');
+        $response->assertJsonMissingPath('field_errors.plot_identification');
+        $response->assertJsonMissingPath('field_errors.postal_code');
         $response->assertJsonMissing([
             'validation.required',
         ]);
+    }
+
+    public function test_supplier_store_only_requires_name_when_tax_number_is_present(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.suppliers.show',
+            'employee.suppliers.add',
+        ]);
+
+        [, $suppliersAccountId] = $this->prepareCustomerAccounting($admin->branch);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('customers.store', ['type' => 'supplier'], false), [
+                'name' => 'مورد بدون عنوان',
+                'vat_no' => '300000000000003',
+                'type' => 'supplier',
+            ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'status' => true,
+        ]);
+
+        $supplier = Customer::query()->where('name', 'مورد بدون عنوان')->firstOrFail();
+
+        $this->assertSame('supplier', $supplier->type);
+        $this->assertSame('300000000000003', $supplier->tax_number);
+        $this->assertNull($supplier->city);
+        $this->assertNull($supplier->district);
+        $this->assertNull($supplier->street_name);
+        $this->assertNull($supplier->building_number);
+        $this->assertNull($supplier->plot_identification);
+        $this->assertNull($supplier->postal_code);
+
+        $supplierAccount = Account::withoutGlobalScopes()->findOrFail($supplier->account_id);
+
+        $this->assertSame($suppliersAccountId, (int) $supplierAccount->parent_account_id);
     }
 
     public function test_customer_store_requires_accounting_setup_before_creation(): void

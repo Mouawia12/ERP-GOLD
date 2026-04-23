@@ -45,6 +45,7 @@
                         @php
                             $isReportDirectory = !empty($reportDirectory);
                             $isCashListing = !empty($cashDirectory) || !empty($cashOnly);
+                            $isCashCreationDirectory = !$isReportDirectory && $isCashListing;
                             $directoryRouteName = $isReportDirectory
                                 ? ($isCashListing ? 'customers.reports.cash' : 'customers.reports.index')
                                 : ($isCashListing ? 'customers.cash' : 'customers');
@@ -92,7 +93,7 @@
                             >
                                 {{ $isReportDirectory
                                     ? ($type == 'customer' ? 'كل تقارير العملاء' : 'كل تقارير الموردين')
-                                    : ('كل ' . ($type == 'customer' ? __('main.customers') : __('main.suppliers'))) }}
+                                    : ($type == 'customer' ? __('main.customers') : __('main.suppliers')) }}
                             </a>
                             <a
                                 href="{{ $isReportDirectory ? $cashReportsRoute : $cashPartiesRoute }}"
@@ -232,6 +233,9 @@
                 <form id="createForm"   method="POST" action="{{ route('customers.store' , $type) }}"
                         enctype="multipart/form-data" >
                     @csrf
+                    @if($isCashCreationDirectory)
+                        <input type="hidden" name="force_cash_party" value="1">
+                    @endif
 
                     <div class="row">
                         <div class="col-12">
@@ -267,10 +271,14 @@
                         <div class="col-6">
                             <div class="form-group text-right pt-4">
                                 <div class="custom-control custom-switch">
-                                    <input type="checkbox" class="custom-control-input" id="is_cash_party" name="is_cash_party" value="1">
+                                    <input type="checkbox" class="custom-control-input" id="is_cash_party" name="is_cash_party" value="1" @checked($isCashCreationDirectory) @disabled($isCashCreationDirectory)>
                                     <label class="custom-control-label" for="is_cash_party">تصنيف كطرف نقدي</label>
                                 </div>
-                                <small class="text-muted d-block mt-2">سيظهر ضمن قائمة العملاء/الموردين النقديين ويمكن تصفيته بسرعة.</small>
+                                <small class="text-muted d-block mt-2">
+                                    {{ $isCashCreationDirectory
+                                        ? 'هذه الصفحة تحفظ الطرف كنقدي تلقائيًا ليظهر في جدوله الصحيح.'
+                                        : 'سيظهر ضمن قائمة العملاء/الموردين النقديين ويمكن تصفيته بسرعة.' }}
+                                </small>
                             </div>
                         </div>
                         <div class="col-6 " >
@@ -426,6 +434,7 @@
         const editTitle = @json($type == 'customer' ? 'تعديل بيانات العميل' : 'تعديل بيانات المورد');
         const genericSaveError = @json($type == 'customer' ? 'تعذر حفظ العميل. حاول مرة أخرى.' : 'تعذر حفظ المورد. حاول مرة أخرى.');
         const genericLoadError = @json($type == 'customer' ? 'تعذر تحميل بيانات العميل.' : 'تعذر تحميل بيانات المورد.');
+        const isCashCreationDirectory = @json($isCashCreationDirectory);
 
         $('.js-example-basic-single').select2({
             placeholder: "اختر مما يلى",
@@ -490,7 +499,9 @@
             $createForm.find('#type').val(@json($type));
             $createForm.find('#opening_balance').val(0);
             $createForm.find('#account_id').val('').trigger('change');
-            $createForm.find('#is_cash_party').prop('checked', false);
+            $createForm.find('#is_cash_party')
+                .prop('checked', isCashCreationDirectory)
+                .prop('disabled', isCashCreationDirectory);
             $('.modelTitle').text(createTitle);
         }
 
@@ -500,7 +511,9 @@
             $('.modelTitle').text(editTitle);
             $(".modal-body #name").val(response.name || '');
             $(".modal-body #phone").val(response.phone || '');
-            $(".modal-body #is_cash_party").prop('checked', response.is_cash_party == 1 || response.is_cash_party === true);
+            $(".modal-body #is_cash_party")
+                .prop('checked', isCashCreationDirectory || response.is_cash_party == 1 || response.is_cash_party === true)
+                .prop('disabled', isCashCreationDirectory);
             $(".modal-body #identity_number").val(response.identity_number || '');
             $(".modal-body #email").val(response.email || '');
             $(".modal-body #id").val(response.id || '');

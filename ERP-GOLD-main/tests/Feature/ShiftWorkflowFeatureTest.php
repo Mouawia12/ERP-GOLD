@@ -10,6 +10,7 @@ use App\Models\FinancialYear;
 use App\Models\Permission;
 use App\Models\Shift;
 use App\Models\Subscriber;
+use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -194,6 +195,37 @@ class ShiftWorkflowFeatureTest extends TestCase
             'يجب فتح شفت نشط على هذا الفرع قبل تسجيل العملية.',
         ]);
         $this->assertDatabaseCount('financial_vouchers', 0);
+    }
+
+    public function test_financial_voucher_creation_allows_saving_without_shift_when_sales_shift_mode_is_disabled(): void
+    {
+        $branch = $this->createBranch('فرع سند بدون شفت');
+        $user = $this->createUser($branch, 'voucher-shift-disabled@example.com');
+        $this->createFinancialYear();
+        $cashAccount = $this->createAccount('صندوق بدون شفت', '1002');
+        $supplierAccount = $this->createAccount('مورد بدون شفت', '2002');
+
+        SystemSetting::putValue('sales_shift_mode', 'disabled');
+
+        $response = $this->actingAs($user, 'admin-web')
+            ->postJson(route('financial_vouchers.store', ['type' => 'payment'], false), [
+                'date' => '2026-03-22',
+                'branch_id' => $branch->id,
+                'from_account_id' => $cashAccount->id,
+                'to_account_id' => $supplierAccount->id,
+                'total_amount' => 150,
+                'description' => 'سند صرف بدون شفت',
+            ]);
+
+        $response->assertOk()->assertJson([
+            'status' => true,
+        ]);
+
+        $voucher = FinancialVoucher::query()->where('type', 'payment')->firstOrFail();
+
+        $this->assertNull($voucher->shift_id);
+        $this->assertSame('سند صرف بدون شفت', $voucher->description);
+        $this->assertDatabaseCount('shifts', 0);
     }
 
     public function test_non_cash_financial_voucher_uses_real_bank_account_and_does_not_change_expected_shift_cash(): void

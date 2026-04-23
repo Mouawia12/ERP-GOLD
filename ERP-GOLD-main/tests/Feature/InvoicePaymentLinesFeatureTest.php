@@ -528,6 +528,48 @@ class InvoicePaymentLinesFeatureTest extends TestCase
         $printResponse->assertSee('4010101010');
     }
 
+    public function test_purchase_store_allows_saving_without_shift_when_sales_shift_mode_is_disabled(): void
+    {
+        $branch = $this->createBranch('فرع مشتريات بدون شفت');
+        $user = $this->createUser($branch, 'purchase-without-shift@example.com');
+        $this->createFinancialYear();
+        $this->createWarehouse($branch);
+        [$customerId, $supplierId] = $this->createTradingParties();
+        [$itemUnitId, $caratId] = $this->createInventoryFixture($branch);
+        $this->createBranchAccountSettings($branch, $customerId, $supplierId);
+
+        SystemSetting::putValue('sales_shift_mode', 'disabled');
+
+        $response = $this->actingAs($user, 'admin-web')
+            ->postJson(route('purchases.store', [], false), [
+                'bill_date' => '2026-03-22 17:30:00',
+                'branch_id' => $branch->id,
+                'carat_type' => 'crafted',
+                'purchase_type' => 'normal',
+                'supplier_id' => $supplierId,
+                'bill_client_name' => 'مورد بدون شفت',
+                'cash' => 115,
+                'payment_lines' => [],
+                'unit_id' => [$itemUnitId],
+                'carats_id' => [$caratId],
+                'weight' => [1],
+                'item_total_cost' => [100],
+                'item_total_labor_cost' => [0],
+                'discount' => [0],
+            ]);
+
+        $response->assertOk()->assertJson([
+            'status' => true,
+        ]);
+
+        $invoice = Invoice::query()->where('type', 'purchase')->firstOrFail();
+
+        $this->assertNull($invoice->shift_id);
+        $this->assertSame('مورد بدون شفت', $invoice->bill_client_name);
+        $this->assertSame(115.0, (float) $invoice->cash_paid_total);
+        $this->assertDatabaseCount('shifts', 0);
+    }
+
     public function test_sales_return_store_supports_refund_payment_lines_and_reduces_shift_expected_cash_by_cash_refund(): void
     {
         $branch = $this->createBranch('فرع مرتجع البيع');
@@ -935,6 +977,69 @@ class InvoicePaymentLinesFeatureTest extends TestCase
         $printResponse->assertSee('بنك مردود الشراء');
         $printResponse->assertSee('PUR-RET-REF-1');
         $printResponse->assertSee('6010101010');
+    }
+
+    public function test_purchase_return_store_allows_saving_without_shift_when_sales_shift_mode_is_disabled(): void
+    {
+        $branch = $this->createBranch('فرع مردود شراء بدون شفت');
+        $user = $this->createUser($branch, 'purchase-return-without-shift@example.com');
+        $this->createFinancialYear();
+        $this->createWarehouse($branch);
+        [$customerId, $supplierId] = $this->createTradingParties();
+        [$itemUnitId, $caratId] = $this->createInventoryFixture($branch);
+        $this->createBranchAccountSettings($branch, $customerId, $supplierId);
+
+        SystemSetting::putValue('sales_shift_mode', 'disabled');
+
+        $purchaseResponse = $this->actingAs($user, 'admin-web')
+            ->postJson(route('purchases.store', [], false), [
+                'bill_date' => '2026-03-22 18:45:00',
+                'branch_id' => $branch->id,
+                'carat_type' => 'crafted',
+                'purchase_type' => 'normal',
+                'supplier_id' => $supplierId,
+                'bill_client_name' => 'مورد مردود بدون شفت',
+                'cash' => 115,
+                'payment_lines' => [],
+                'unit_id' => [$itemUnitId],
+                'carats_id' => [$caratId],
+                'weight' => [1],
+                'item_total_cost' => [100],
+                'item_total_labor_cost' => [0],
+                'discount' => [0],
+            ]);
+
+        $purchaseResponse->assertOk()->assertJson([
+            'status' => true,
+        ]);
+
+        $purchaseInvoice = Invoice::query()
+            ->with('details')
+            ->where('type', 'purchase')
+            ->firstOrFail();
+
+        $this->assertNull($purchaseInvoice->shift_id);
+
+        $purchaseDetailId = $purchaseInvoice->details->firstOrFail()->id;
+
+        $returnResponse = $this->actingAs($user, 'admin-web')
+            ->post(route('purchase_return.store', ['id' => $purchaseInvoice->id], false), [
+                'checkDetail' => [$purchaseDetailId],
+                'cash' => 115,
+                'payment_lines' => [],
+            ]);
+
+        $returnResponse
+            ->assertRedirect(route('purchase_return.index', [], false))
+            ->assertSessionHasNoErrors();
+
+        $returnInvoice = Invoice::query()
+            ->where('type', 'purchase_return')
+            ->firstOrFail();
+
+        $this->assertNull($returnInvoice->shift_id);
+        $this->assertSame('مورد مردود بدون شفت', $returnInvoice->bill_client_name);
+        $this->assertDatabaseCount('shifts', 0);
     }
 
     public function test_purchase_return_create_page_loads_successfully_with_bank_accounts_payload(): void

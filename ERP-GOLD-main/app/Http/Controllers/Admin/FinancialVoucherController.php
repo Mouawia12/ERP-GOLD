@@ -8,8 +8,10 @@ use App\Models\BankAccount;
 use App\Models\Branch;
 use App\Models\FinancialVoucher;
 use App\Models\FinancialYear;
+use App\Models\Shift;
 use App\Services\Branches\BranchAccessService;
 use App\Services\JournalEntriesService;
+use App\Services\Shifts\SalesShiftModeService;
 use App\Services\Shifts\ShiftService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +22,7 @@ class FinancialVoucherController extends Controller
 {
     public function __construct(
         private readonly BranchAccessService $branchAccessService,
+        private readonly SalesShiftModeService $salesShiftModeService,
         private readonly ShiftService $shiftService,
     )
     {
@@ -87,7 +90,7 @@ class FinancialVoucherController extends Controller
         $this->branchAccessService->enforceBranchAccess($request->user('admin-web'), (int) $request->branch_id);
 
         try {
-            $activeShift = $this->shiftService->requireActiveShift($request->user('admin-web'), (int) $request->branch_id);
+            $activeShift = $this->resolveVoucherShift($request, (int) $request->branch_id);
             $paymentMethod = $request->input('payment_method', 'cash');
             $bankAccount = null;
 
@@ -142,7 +145,7 @@ class FinancialVoucherController extends Controller
                 'reference_no' => $request->filled('reference_no') ? trim((string) $request->reference_no) : null,
                 'total_amount' => $request->total_amount,
                 'description' => $request->description,
-                'shift_id' => $activeShift->id,
+                'shift_id' => $activeShift?->id,
             ]);
             JournalEntriesService::invoiceGenerateJournalEntries($voucher, $this->financial_voucher_prepare_journal_entry_details($voucher));
             DB::commit();
@@ -163,6 +166,15 @@ class FinancialVoucherController extends Controller
                 'message' => $e->getMessage(),
             ]);
         }
+    }
+
+    private function resolveVoucherShift(Request $request, int $branchId): ?Shift
+    {
+        if (! $this->salesShiftModeService->requiresShift()) {
+            return null;
+        }
+
+        return $this->shiftService->requireActiveShift($request->user('admin-web'), $branchId);
     }
 
     private function financial_voucher_prepare_journal_entry_details($voucher)

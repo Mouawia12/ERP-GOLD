@@ -35,15 +35,16 @@
                         $branchSalePriceOverrides = isset($item)
                             ? $item->publishedBranches->mapWithKeys(fn ($branch) => [$branch->id => $branch->pivot->sale_price_per_gram])->all()
                             : [];
+                        $def = $itemDefaults ?? [];
                         $selectedSaleMode = isset($item)
                             ? $item->sale_mode
-                            : old('sale_mode');
+                            : old('sale_mode', $def['sale_mode'] ?? '');
                         $selectedSaleMode = in_array($selectedSaleMode, array_keys($saleModes ?? []), true)
                             ? $selectedSaleMode
                             : '';
                         $selectedClassification = isset($item)
                             ? $item->inventory_classification
-                            : old('inventory_classification', \App\Models\Item::CLASSIFICATION_GOLD);
+                            : old('inventory_classification', ($def['inventory_classification'] ?? '') ?: \App\Models\Item::CLASSIFICATION_GOLD);
                         $caratFieldLabel = match ($selectedClassification) {
                             \App\Models\Item::CLASSIFICATION_SILVER => 'عيار الفضة',
                             \App\Models\Item::CLASSIFICATION_COLLECTIBLE => 'عيار المقتنيات',
@@ -182,7 +183,13 @@
                                 <select class="form-control" id="item_type" name="item_type">
                                     <option value="">select...</option>
                                     @foreach($caratTypes as $caratType)
-                                        <option {{isset($item) ? $item->gold_carat_type_id == $caratType->id ? 'selected' : '' : ''}} value="{{$caratType->id}}">{{$caratType->title}}</option>
+                                        <option value="{{$caratType->id}}"
+                                            @if(isset($item))
+                                                {{ $item->gold_carat_type_id == $caratType->id ? 'selected' : '' }}
+                                            @else
+                                                {{ old('item_type', $def['gold_carat_type_id'] ?? '') == $caratType->id ? 'selected' : '' }}
+                                            @endif
+                                        >{{$caratType->title}}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -221,10 +228,14 @@
                                 <select class="form-control" id="carats_id" name="carats_id">
                                     <option value=""> select...</option>
                                     @foreach($carats as $carat)
-                                        <option {{isset($item) ? $item->gold_carat_id == $carat->id ? 'selected' : '' : ''}}
-                                            value="{{$carat -> id}}"
+                                        <option value="{{$carat->id}}"
                                             data-carat-label="{{ $carat->label }}"
-                                        >{{$carat -> title}}</option>
+                                            @if(isset($item))
+                                                {{ $item->gold_carat_id == $carat->id ? 'selected' : '' }}
+                                            @else
+                                                {{ old('carats_id', $def['gold_carat_id'] ?? '') == $carat->id ? 'selected' : '' }}
+                                            @endif
+                                        >{{$carat->title}}</option>
                                     @endforeach
                                 </select>
                                 <small
@@ -256,15 +267,16 @@
                                 <label>{{ __('main.no_metal') }}  </label>
                                 <input type="number" step="any" id="no_metal" name="no_metal"
                                        class="form-control"
-                                       placeholder="0" value="{{isset($item) ? $item->no_metal : ''}}"/>
+                                       placeholder="0" value="{{isset($item) ? $item->no_metal : old('no_metal', $def['no_metal'] ?? '')}}"/>
                             </div>
                         </div>
                         <div class="col-md-2">
                             <div class="form-group">
                                 <label>{{ __('main.no_metal_type') }} </label>
+                                @php $defaultNoMetalType = isset($item) ? $item->no_metal_type : old('no_metal_type', $def['no_metal_type'] ?? 'fixed'); @endphp
                                 <select class="form-control" id="no_metal_type" name="no_metal_type">
-                                    <option {{isset($item) ? $item->no_metal_type == 'fixed' ? 'selected' : '' : ''}} value="fixed">{{__('main.no_metal_type1')}}</option>
-                                    <option {{isset($item) ? $item->no_metal_type == 'percent' ? 'selected' : '' : ''}} value="percent">{{__('main.no_metal_type2')}}</option>
+                                    <option value="fixed" {{ $defaultNoMetalType === 'fixed' ? 'selected' : '' }}>{{__('main.no_metal_type1')}}</option>
+                                    <option value="percent" {{ $defaultNoMetalType === 'percent' ? 'selected' : '' }}>{{__('main.no_metal_type2')}}</option>
                                 </select>
                             </div>
                         </div> 
@@ -284,7 +296,7 @@
                                         style="color:red; ">*</span> </label>
                                 <input type="number" step="any" id="made_Value" name="labor_cost_per_gram"
                                        class="form-control"
-                                       placeholder="0" value="{{isset($item) ? $item->labor_cost_per_gram : ''}}" />
+                                       placeholder="0" value="{{isset($item) ? $item->labor_cost_per_gram : old('labor_cost_per_gram', $def['labor_cost_per_gram'] ?? '')}}" />
                             </div>
                         </div>  
                         <div class="col-md-2">
@@ -301,7 +313,7 @@
                                 <label>{{ __('main.profit_margin_per_gram') }} / جرام   </label>
                                 <input type="number" step="any" id="profit_margin_per_gram" name="profit_margin_per_gram"
                                        class="form-control"
-                                       placeholder="0" value="{{isset($item) ? $item->profit_margin_per_gram : ''}}" />
+                                       placeholder="0" value="{{isset($item) ? $item->profit_margin_per_gram : old('profit_margin_per_gram', $def['profit_margin_per_gram'] ?? '')}}" />
                             </div>
                         </div>
                     </div>

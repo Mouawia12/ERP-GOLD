@@ -5,5 +5,5 @@
 @if(($printSettings['format'] ?? 'a4') === 'a5')
     @include('admin.purchases_and_purchases_return.print_a5')
 @else
-    @include('admin.purchases_and_purchases_return.print_legacy')
+    @include('admin.purchases_and_purchases_return.print_a4')
 @endif

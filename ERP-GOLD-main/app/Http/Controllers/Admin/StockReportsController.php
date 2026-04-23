@@ -43,7 +43,7 @@ class StockReportsController extends Controller
         $branchLabel = $branchSelection['branch_label'];
         $classification = $request->input('classification');
 
-        $details = InvoiceDetail::with(['invoice.customer', 'item', 'carat'])
+        $details = InvoiceDetail::with(['invoice.customer', 'invoice.paymentLines', 'item', 'carat'])
             ->when($classification, fn ($q) => $q->whereHas('item', fn ($iq) => $iq->where('inventory_classification', $classification)))
             ->whereHas('invoice', function ($query) use ($request, $periodFrom, $periodTo, $branchSelection) {
                 $query->where('type', 'sale');
@@ -321,7 +321,7 @@ class StockReportsController extends Controller
         $branchLabel = $branchSelection['branch_label'];
         $classification = $request->input('classification');
 
-        $sales = Invoice::with('customer')
+        $sales = Invoice::with(['customer', 'paymentLines'])
             ->where('type', 'sale');
         $this->applyInvoiceFilters($sales, $request, $branchSelection, $periodFrom, $periodTo);
         if ($classification) {

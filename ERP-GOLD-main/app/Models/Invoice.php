@@ -185,6 +185,16 @@ class Invoice extends Model
         return $linesTotalAfterDiscount + $taxesTotal;
     }
 
+    public function getReturnedTotalAttribute(): float
+    {
+        return round((float) $this->returnInvoices()->sum('net_total'), 2);
+    }
+
+    public function getNetAfterReturnsAttribute(): float
+    {
+        return round($this->round_net_total - $this->returned_total, 2);
+    }
+
     public function getCustomerNameAttribute()
     {
         return $this->bill_client_name ?? $this->customer?->name;

@@ -3,13 +3,19 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\GoldCarat;
+use App\Models\GoldCaratType;
+use App\Models\Item;
 use App\Services\Auth\LoginModeService;
 use App\Services\Branding\BrandLogoService;
 use App\Services\Invoices\InvoicePrintSettingsService;
 use App\Services\Invoices\InvoiceTermsService;
+use App\Services\Items\DefaultItemSettingsService;
+use App\Services\Purchases\DefaultPurchaseSupplierService;
 use App\Services\Shifts\SalesShiftModeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class SystemSettingController extends Controller
@@ -19,10 +25,12 @@ class SystemSettingController extends Controller
         private readonly BrandLogoService $brandLogoService,
         private readonly InvoicePrintSettingsService $invoicePrintSettingsService,
         private readonly InvoiceTermsService $invoiceTermsService,
+        private readonly DefaultPurchaseSupplierService $defaultPurchaseSupplierService,
         private readonly SalesShiftModeService $salesShiftModeService,
+        private readonly DefaultItemSettingsService $defaultItemSettingsService,
     ) {
-        $this->middleware('permission:employee.system_settings.show', ['only' => ['editLoginMode', 'editSalesShiftMode', 'editInvoiceTerms', 'editInvoicePrint', 'editBranding']]);
-        $this->middleware('permission:employee.system_settings.edit', ['only' => ['updateLoginMode', 'updateSalesShiftMode', 'updateInvoiceTerms', 'updateInvoicePrint', 'updateBranding']]);
+        $this->middleware('permission:employee.system_settings.show', ['only' => ['editLoginMode', 'editSalesShiftMode', 'editDefaultPurchaseSupplier', 'editInvoiceTerms', 'editInvoicePrint', 'editBranding', 'editDefaultItemSettings']]);
+        $this->middleware('permission:employee.system_settings.edit', ['only' => ['updateLoginMode', 'updateSalesShiftMode', 'updateDefaultPurchaseSupplier', 'updateInvoiceTerms', 'updateInvoicePrint', 'updateBranding', 'updateDefaultItemSettings']]);
     }
 
     public function editLoginMode(): View
@@ -64,6 +72,42 @@ class SystemSettingController extends Controller
         return redirect()
             ->route('admin.system-settings.sales-shift.edit')
             ->with('success', 'تم تحديث إعداد اعتماد البيع بالشفت بنجاح.');
+    }
+
+    public function editDefaultPurchaseSupplier(Request $request): View
+    {
+        $user = $request->user('admin-web');
+
+        return view('admin.settings.default_purchase_supplier', [
+            'suppliers' => $this->defaultPurchaseSupplierService->supplierOptions($user),
+            'defaultSupplierId' => $this->defaultPurchaseSupplierService->currentSupplierId($user),
+        ]);
+    }
+
+    public function updateDefaultPurchaseSupplier(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'default_supplier_id' => 'nullable|integer',
+        ]);
+
+        $supplierId = filled($validated['default_supplier_id'] ?? null)
+            ? (int) $validated['default_supplier_id']
+            : null;
+
+        if (
+            $supplierId !== null
+            && ! $this->defaultPurchaseSupplierService->supplierIsVisibleToUser($request->user('admin-web'), $supplierId)
+        ) {
+            throw ValidationException::withMessages([
+                'default_supplier_id' => 'المورد المحدد غير موجود أو غير متاح لهذا المستخدم.',
+            ]);
+        }
+
+        $this->defaultPurchaseSupplierService->setSupplierId($supplierId);
+
+        return redirect()
+            ->route('admin.system-settings.default-purchase-supplier.edit')
+            ->with('success', 'تم تحديث المورد الافتراضي للمشتريات بنجاح.');
     }
 
     public function editInvoiceTerms(): View
@@ -146,6 +190,40 @@ class SystemSettingController extends Controller
         return view('admin.settings.branding', [
             'brandLogoUrl' => $this->brandLogoService->logoUrl(),
         ]);
+    }
+
+    public function editDefaultItemSettings(): View
+    {
+        return view('admin.settings.default_item_settings', [
+            'settings'                 => $this->defaultItemSettingsService->currentSettings(),
+            'inventoryClassifications' => Item::inventoryClassificationOptions(),
+            'saleModes'                => Item::saleModeOptions(),
+            'carats'                   => GoldCarat::all(),
+            'caratTypes'               => GoldCaratType::all(),
+        ]);
+    }
+
+    public function updateDefaultItemSettings(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'inventory_classification' => 'nullable|string',
+            'sale_mode'                => 'nullable|string',
+            'gold_carat_type_id'       => 'nullable|integer',
+            'gold_carat_id'            => 'nullable|integer',
+            'no_metal_type'            => 'nullable|in:fixed,percent',
+            'no_metal'                 => 'nullable|numeric|min:0',
+            'labor_cost_per_gram'      => 'nullable|numeric|min:0',
+            'profit_margin_per_gram'   => 'nullable|numeric|min:0',
+        ]);
+
+        $this->defaultItemSettingsService->setSettings(array_map(
+            fn ($v) => $v ?? '',
+            $validated,
+        ));
+
+        return redirect()
+            ->route('admin.system-settings.default-item-settings.edit')
+            ->with('success', 'تم تحديث الإعدادات الافتراضية للأصناف بنجاح.');
     }
 
     public function updateBranding(Request $request): RedirectResponse

@@ -440,7 +440,13 @@
                                     <div class="col-lg-3 col-md-6">
                                         <div class="form-group">
                                             <label>{{ __('main.supplier') }} <span style="color:red;">*</span> </label>
-                                            <select id="supplier_id" name="supplier_id" class="js-example-basic-single w-100" required="">
+                                            <select
+                                                id="supplier_id"
+                                                name="supplier_id"
+                                                class="js-example-basic-single w-100"
+                                                required=""
+                                                data-default-supplier-id="{{ $defaultPurchaseSupplierId ?? '' }}"
+                                            >
                                                    <option value="">حدد الاختيار</option>
                                                 @foreach($customers as $customer)
                                                     <option
@@ -449,6 +455,8 @@
                                                         data-phone="{{ $customer->phone }}"
                                                         data-identity-number="{{ $customer->identity_number }}"
                                                         data-cash-party="{{ $customer->is_cash_party ? 1 : 0 }}"
+                                                        data-default-supplier="{{ (int) ($defaultPurchaseSupplierId ?? 0) === (int) $customer->id ? 1 : 0 }}"
+                                                        @selected((int) ($defaultPurchaseSupplierId ?? 0) === (int) $customer->id)
                                                     >
                                                         {{$customer -> name}}
                                                     </option>
@@ -512,18 +520,6 @@
                                             >
                                         </div>
                                     </div>
-                                    <div class="col-12">
-                                        <div class="form-group">
-                                            <label>{{ __('main.notes') }}</label>
-                                            <textarea
-                                                name="notes"
-                                                id="notes"
-                                                rows="2"
-                                                class="form-control"
-                                                placeholder="{{ __('main.notes') }}"
-                                            >{{ old('notes') }}</textarea>
-                                        </div>
-                                    </div>
                                 </div>
                                 </div>
                                             <div class="invoice-section-card invoice-search-card">
@@ -580,6 +576,16 @@
                                                                     </table>
                                                                 </div>
                                                             </div> 
+                                                        </div>
+                                                        <div class="invoice-section-card invoice-notes-card mt-3">
+                                                            <div class="invoice-section-title">{{ __('main.notes') }}</div>
+                                                            <textarea
+                                                                name="notes"
+                                                                id="notes"
+                                                                rows="2"
+                                                                class="form-control"
+                                                                placeholder="{{ __('main.notes') }}"
+                                                            >{{ old('notes') }}</textarea>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -890,10 +896,11 @@
         });
 
         $(document).on('click', '.deleteBtn', function (event) {
-            var row = $(this).parent().parent().index();
             var row1 = $(this).closest('tr');
-            var unit_id = row1.attr('data-item-id');
-            sItems = sItems.filter(item => item.unit_id !== unit_id);
+            var unitId = String(row1.attr('data-item-id') || '');
+            sItems = sItems.filter(function (item) {
+                return String(item.unit_id) !== unitId;
+            });
             loadItems();
             var audio = $("#mysoundclip2")[0];
             audio.play();

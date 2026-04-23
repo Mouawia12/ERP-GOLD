@@ -11,6 +11,7 @@ use App\Models\ItemCategory;
 use App\Models\ItemUnit;
 use App\Services\Branches\BranchContextService;
 use App\Services\Items\BarcodePrintProfileService;
+use App\Services\Items\DefaultItemSettingsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -119,8 +120,9 @@ class ItemController extends Controller
         $canManageBranchPublications = $branches->count() > 1;
         $collectibleDefaultCaratId = $this->resolveCollectibleDefaultCaratId($carats);
         $silverDefaultCaratId = $this->resolveSilverDefaultCaratId($carats);
+        $itemDefaults = app(DefaultItemSettingsService::class)->currentSettings();
 
-        return view('admin.items.form', compact('categories', 'carats', 'caratTypes', 'branches', 'inventoryClassifications', 'saleModes', 'canManageBranchPublications', 'collectibleDefaultCaratId', 'silverDefaultCaratId'));
+        return view('admin.items.form', compact('categories', 'carats', 'caratTypes', 'branches', 'inventoryClassifications', 'saleModes', 'canManageBranchPublications', 'collectibleDefaultCaratId', 'silverDefaultCaratId', 'itemDefaults'));
     }
 
     public function barcodes_table($itemId, $returnType = 'json', ?string $paperProfileKey = null)

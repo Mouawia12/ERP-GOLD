@@ -56,6 +56,7 @@ class CustomerController extends Controller
         $currentUser = $request->user('admin-web');
 
         $cashOnly = $cashDirectory || $request->boolean('cash_only');
+        $regularDirectoryOnly = ! $reportDirectory && ! $cashOnly;
         $identityNumber = $this->normalizeOptionalFilter($request->input('identity_number'));
 
         $customers = Customer::query()
@@ -63,6 +64,12 @@ class CustomerController extends Controller
             ->where('type', $type)
             ->when($cashOnly, function ($query) {
                 return $query->where('is_cash_party', true);
+            })
+            ->when($regularDirectoryOnly, function ($query) {
+                return $query->where(function ($query) {
+                    $query->where('is_cash_party', false)
+                        ->orWhereNull('is_cash_party');
+                });
             })
             ->when($identityNumber, function ($query, $value) {
                 return $query->where('identity_number', 'like', '%' . $value . '%');
@@ -125,27 +132,21 @@ class CustomerController extends Controller
             'name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:50',
             'is_cash_party' => 'nullable|boolean',
+            'force_cash_party' => 'nullable|boolean',
             'identity_number' => 'nullable|string|max:100',
             'email' => 'nullable|email|max:255',
             'vat_no' => 'nullable|string|max:255',
-            'region' => 'required_with:vat_no|string|max:255',
-            'city' => 'required_with:vat_no|string|max:255',
-            'district' => 'required_with:vat_no|string|max:255',
-            'street_name' => 'required_with:vat_no|string|max:255',
-            'building_number' => 'required_with:vat_no|string|max:255',
-            'plot_identification' => 'required_with:vat_no|string|max:255',
-            'postal_code' => 'required_with:vat_no|string|max:255',
+            'region' => 'nullable|string|max:255',
+            'city' => 'nullable|string|max:255',
+            'district' => 'nullable|string|max:255',
+            'street_name' => 'nullable|string|max:255',
+            'building_number' => 'nullable|string|max:255',
+            'plot_identification' => 'nullable|string|max:255',
+            'postal_code' => 'nullable|string|max:255',
             'type' => 'required|in:' . implode(',', self::ALLOWED_TYPES),
         ],
             [
                 'name.required' => __('validations.customer_name_required', ['type' => $request->type == 'customer' ? __('main.customer') : __('main.supplier')]),
-                'region.required_with' => __('validations.region_required_with', ['vat_no' => __('main.vat_no')]),
-                'city.required_with' => __('validations.city_required_with', ['vat_no' => __('main.vat_no')]),
-                'district.required_with' => __('validations.district_required_with', ['vat_no' => __('main.vat_no')]),
-                'street_name.required_with' => __('validations.street_name_required_with', ['vat_no' => __('main.vat_no')]),
-                'building_number.required_with' => __('validations.building_number_required_with', ['vat_no' => __('main.vat_no')]),
-                'plot_identification.required_with' => __('validations.plot_identification_required_with', ['vat_no' => __('main.vat_no')]),
-                'postal_code.required_with' => __('validations.postal_code_required_with', ['vat_no' => __('main.vat_no')]),
             ]);
         if ($validator->fails()) {
             return response()->json([
@@ -170,10 +171,11 @@ class CustomerController extends Controller
         }
 
         try {
+            $isCashParty = $request->boolean('is_cash_party') || $request->boolean('force_cash_party');
             $payload = [
                 'name' => $request->name,
                 'phone' => $request->phone,
-                'is_cash_party' => $request->boolean('is_cash_party'),
+                'is_cash_party' => $isCashParty,
                 'identity_number' => $request->identity_number,
                 'email' => $request->email,
                 'tax_number' => $request->vat_no,
@@ -221,6 +223,7 @@ class CustomerController extends Controller
             'name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:50',
             'is_cash_party' => 'nullable|boolean',
+            'force_cash_party' => 'nullable|boolean',
             'identity_number' => 'nullable|string|max:100',
         ], [
             'name.required' => __('validations.customer_name_required', [
@@ -238,7 +241,7 @@ class CustomerController extends Controller
 
         $name = trim((string) $request->input('name'));
         $phone = trim((string) $request->input('phone'));
-        $isCashParty = $request->boolean('is_cash_party');
+        $isCashParty = $request->boolean('is_cash_party') || $request->boolean('force_cash_party');
         $identityNumber = trim((string) $request->input('identity_number'));
 
         $customer = Customer::query()

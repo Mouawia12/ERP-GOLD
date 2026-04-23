@@ -297,6 +297,10 @@ Route::group(
                         ->name('admin.system-settings.sales-shift.edit');
                     Route::patch('system-settings/sales-shift', [SystemSettingController::class, 'updateSalesShiftMode'])
                         ->name('admin.system-settings.sales-shift.update');
+                    Route::get('system-settings/default-purchase-supplier', [SystemSettingController::class, 'editDefaultPurchaseSupplier'])
+                        ->name('admin.system-settings.default-purchase-supplier.edit');
+                    Route::patch('system-settings/default-purchase-supplier', [SystemSettingController::class, 'updateDefaultPurchaseSupplier'])
+                        ->name('admin.system-settings.default-purchase-supplier.update');
                     Route::get('system-settings/invoice-terms', [SystemSettingController::class, 'editInvoiceTerms'])
                         ->name('admin.system-settings.invoice-terms.edit');
                     Route::patch('system-settings/invoice-terms', [SystemSettingController::class, 'updateInvoiceTerms'])
@@ -309,6 +313,10 @@ Route::group(
                         ->name('admin.system-settings.branding.edit');
                     Route::patch('system-settings/branding', [SystemSettingController::class, 'updateBranding'])
                         ->name('admin.system-settings.branding.update');
+                    Route::get('system-settings/default-item-settings', [SystemSettingController::class, 'editDefaultItemSettings'])
+                        ->name('admin.system-settings.default-item-settings.edit');
+                    Route::patch('system-settings/default-item-settings', [SystemSettingController::class, 'updateDefaultItemSettings'])
+                        ->name('admin.system-settings.default-item-settings.update');
                     Route::get('system-settings/bank-accounts', [BankAccountController::class, 'index'])
                         ->name('admin.system-settings.bank-accounts.index');
                     Route::get('system-settings/bank-accounts/create', [BankAccountController::class, 'create'])

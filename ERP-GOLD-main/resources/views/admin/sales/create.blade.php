@@ -482,19 +482,6 @@
                                                       @endcan
                                                     </div>
                                                 </div>
-                                                <div class="col-md-12">
-                                                    <div class="form-group">
-                                                        <label>{{ __('main.notes') }}</label>
-                                                        <textarea
-                                                            name="notes"
-                                                            id="notes"
-                                                            rows="2"
-                                                            placeholder="{{ __('main.notes') }}"
-                                                            class="form-control"
-                                                            style="width: 100%"
-                                                        >{{ old('notes') }}</textarea>
-                                                    </div>
-                                                </div>
                                             </div>
                                             </div>
                                             <div class="invoice-section-card invoice-search-card">
@@ -563,6 +550,17 @@
                                                                     </table>
                                                                 </div>
                                                             </div> 
+                                                        </div>
+                                                        <div class="invoice-section-card invoice-notes-card mt-3">
+                                                            <div class="invoice-section-title">{{ __('main.notes') }}</div>
+                                                            <textarea
+                                                                name="notes"
+                                                                id="notes"
+                                                                rows="2"
+                                                                placeholder="{{ __('main.notes') }}"
+                                                                class="form-control"
+                                                                style="width: 100%"
+                                                            >{{ old('notes') }}</textarea>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -737,6 +735,24 @@
         $('#add_item').focus();
         applyCashPartyFilter();
         syncSelectedPartySnapshot();
+
+        var replaceValueOnEditSelector = [
+            '#sTable input:not([readonly]):not([type="hidden"])',
+            '#paymentsModal #cash',
+            '#paymentsModal .payment-line-amount'
+        ].join(', ');
+
+        $(document).on('focusin', replaceValueOnEditSelector, function () {
+            $(this).data('replace-value-on-focus', true);
+            selectInputValueOnNextTick(this);
+        });
+
+        $(document).on('mouseup', replaceValueOnEditSelector, function (event) {
+            if ($(this).data('replace-value-on-focus')) {
+                event.preventDefault();
+                $(this).removeData('replace-value-on-focus');
+            }
+        });
 
         $(document).on('change', '#customer_id', function () {
             syncSelectedPartySnapshot();
@@ -1111,6 +1127,16 @@
         );
     }
 
+    function selectInputValueOnNextTick(input) {
+        if (!input || input.readOnly || input.disabled) {
+            return;
+        }
+
+        window.setTimeout(function () {
+            input.select();
+        }, 0);
+    }
+
     function searchProduct(code) {
         let branch_id = document.getElementById('branch_id').value; 
         let carat_type = document.getElementById('sales_carat_type') ? document.getElementById('sales_carat_type').value : 'crafted';
@@ -1453,7 +1479,7 @@
         $('#add_item').focus();
     }
 
-    $(document).on('change','.iQuantity',function () {
+    $(document).on('change','.iQuantity, .iNewQuantity',function () {
         var row = $(this).closest('tr');
         if(!is_numeric($(this).val()) || parseFloat($(this).val()) < 0){
             $(this).val(0);
@@ -1466,7 +1492,7 @@
         calcTotals();
     });
 
-    $(document).on('keyup','.iQuantity',function () {
+    $(document).on('keyup','.iQuantity, .iNewQuantity',function () {
         var row = $(this).closest('tr');
         if(!is_numeric($(this).val()) || parseFloat($(this).val()) < 0){
             $(this).val(0);
@@ -1477,6 +1503,19 @@
         var cell_quantity =  row[0].cells[4].firstChild;
         cell_quantity.setAttribute('data-original', quantity);
         calcTotals();
+    });
+
+    $(document).on('change keyup','.iNewNoMetal',function () {
+        var row = $(this).closest('tr');
+        if(!is_numeric($(this).val()) || parseFloat($(this).val()) < 0){
+            $(this).val(0);
+            alert('wrong value');
+            return;
+        }
+
+        var noMetal = parseFloat($(this).val()) || 0 ;
+        var cell_no_metal =  row[0].cells[5].firstChild;
+        cell_no_metal.setAttribute('data-original', noMetal);
     });
 
     $(document).on('change','.iNewWeight',function () {

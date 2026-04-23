@@ -6,10 +6,8 @@
         $printSettings = app(\App\Services\Invoices\InvoicePrintSettingsService::class)->currentSettings();
         $branch = $invoice->branch;
         $subscriber = $branch->subscriber;
-        $isSale = $invoice->type === 'sale';
-        $documentTitle = $invoice->sale_type === 'standard'
-            ? ($isSale ? __('main.sales_standard') : __('main.sales_standard_return'))
-            : ($isSale ? __('main.sales_simplified') : __('main.sales_simplified_return'));
+        $isPurchase = $invoice->type === 'purchase';
+        $documentTitle = $isPurchase ? __('main.purchase_invoice') : __('main.purchase_return_invoice');
         $companyNameAr = $subscriber?->name ?: (method_exists($branch, 'getTranslation') ? $branch->getTranslation('name', 'ar') : $branch->name);
         $companyNameEn = method_exists($branch, 'getTranslation')
             ? ($branch->getTranslation('name', 'en') ?: $companyNameAr)
@@ -28,7 +26,6 @@
         $previewNotice = $invoiceTermsService->currentDefaultDiffersFromInvoiceSnapshot($invoice)
             ? 'هذه الفاتورة تعرض نسخة الشروط المحفوظة وقت الإنشاء. أي تعديل جديد على الشروط يطبق على الفواتير الجديدة فقط.'
             : null;
-        $saleOrderNumber = $invoice->serial ?: '---';
         $paymentTypeLabel = [
             'cash' => 'نقدي',
             'credit_card' => 'شبكة / بطاقة',
@@ -38,28 +35,24 @@
             ['label' => 'نقدي', 'value' => $invoice->cash_paid_total],
             ['label' => 'شبكة', 'value' => $invoice->credit_card_paid_total],
         ];
-
         if ((float) $invoice->bank_transfer_paid_total > 0) {
             $paymentBreakdown[] = ['label' => 'تحويل', 'value' => $invoice->bank_transfer_paid_total];
         }
 
         $caratSummary = [];
         foreach ($invoice->details as $detail) {
-            $weightValue = $isSale ? $detail->out_weight : $detail->in_weight;
+            $weightValue = $isPurchase
+                ? ($detail->in_weight ?: $detail->out_weight)
+                : $detail->out_weight;
             if (preg_match('/(24|22|21|18)/', (string) $detail->carat_display_label, $matches)) {
                 $caratKey = $matches[1];
                 $caratSummary[$caratKey] = ($caratSummary[$caratKey] ?? 0) + (float) $weightValue;
             }
         }
-
         $caratSummary = collect(['24', '22', '21', '18'])
             ->filter(fn ($carat) => array_key_exists($carat, $caratSummary))
             ->map(fn ($carat) => ['label' => 'عيار '.$carat, 'value' => $caratSummary[$carat]])
             ->values();
-
-        $returnedTotal = $isSale ? $invoice->returned_total : 0;
-        $hasReturns = $isSale && $returnedTotal > 0;
-        $netAfterReturns = $isSale ? $invoice->net_after_returns : 0;
 
         $invoiceSummaryRows = [
             ['label' => 'صافي الفاتورة قبل الخصم', 'value' => $invoice->lines_total],
@@ -69,16 +62,11 @@
             ['label' => 'الصافي شامل الضريبة', 'value' => $invoice->round_net_total ?: $invoice->net_total],
         ];
 
-        if ($hasReturns) {
-            $invoiceSummaryRows[] = ['label' => 'إجمالي المرتجعات', 'value' => $returnedTotal, 'is_return' => true];
-            $invoiceSummaryRows[] = ['label' => 'الصافي بعد المرتجع', 'value' => $netAfterReturns, 'is_net_after_return' => true];
-        }
-
         $detailRows = $invoice->details->values();
         $inlineInvoiceTerms = $invoiceTermsService->formatTermsForPrint($invoice->invoice_terms);
         $branchAddressAr = $branch->short_address ?: $branch->full_address ?: '---';
         $branchAddressEn = $branchNameEn . ' - ' . ($branch->city ?: $branch->region ?: $branchAddressAr);
-        $backUrl = route($isSale ? 'sales.index' : 'sales_return.index', $invoice->sale_type);
+        $backUrl = route($isPurchase ? 'purchases.index' : 'purchase_return.index');
         $whatsappUrl = ! empty($invoice->client_phone)
             ? route('send.invoice.whatsapp', $invoice->id)
             : null;
@@ -103,8 +91,7 @@
             print-color-adjust: exact;
         }
 
-        html,
-        body {
+        html, body {
             margin: 0;
             padding: 0;
             color: #111;
@@ -164,11 +151,7 @@
             --screen-outline: #cbd5e1;
         }
 
-        table,
-        th,
-        td {
-            font-size: inherit;
-        }
+        table, th, td { font-size: inherit; }
 
         .page {
             width: 194mm;
@@ -182,21 +165,11 @@
             overflow: hidden;
         }
 
-        .page-content {
-            flex: 1;
-            min-width: 0;
-        }
+        .page-content { flex: 1; min-width: 0; }
 
-        .ltr {
-            direction: ltr;
-            unicode-bidi: embed;
-            display: inline-block;
-        }
+        .ltr { direction: ltr; unicode-bidi: embed; display: inline-block; }
 
-        .invoice-rule,
-        .page-footer {
-            border-top: 1px solid var(--invoice-accent);
-        }
+        .invoice-rule, .page-footer { border-top: 1px solid var(--invoice-accent); }
 
         .invoice-header {
             display: grid;
@@ -205,28 +178,11 @@
             align-items: start;
         }
 
-        .company-block {
-            min-height: 88px;
-            font-size: var(--company-font-size);
-        }
-
-        .company-block.company-en {
-            direction: ltr;
-            text-align: left;
-        }
-
-        .company-block.company-ar {
-            text-align: right;
-        }
-
-        .company-line {
-            margin: 0 0 5px;
-            overflow-wrap: anywhere;
-        }
-
-        .company-name {
-            font-weight: 700;
-        }
+        .company-block { min-height: 88px; font-size: var(--company-font-size); }
+        .company-block.company-en { direction: ltr; text-align: left; }
+        .company-block.company-ar { text-align: right; }
+        .company-line { margin: 0 0 5px; overflow-wrap: anywhere; }
+        .company-name { font-weight: 700; }
 
         .header-center {
             display: flex;
@@ -256,25 +212,9 @@
             transform-origin: center center;
         }
 
-        .invoice-title {
-            margin: 0;
-            font-size: var(--invoice-title-font-size);
-            font-weight: 700;
-            white-space: normal;
-            overflow-wrap: anywhere;
-        }
-
-        .invoice-title-en {
-            margin: 2px 0 0;
-            font-size: var(--invoice-title-en-font-size);
-            font-weight: 700;
-            white-space: normal;
-            overflow-wrap: anywhere;
-        }
-
-        .invoice-rule {
-            margin: 8px 0 12px;
-        }
+        .invoice-title { margin: 0; font-size: var(--invoice-title-font-size); font-weight: 700; }
+        .invoice-title-en { margin: 2px 0 0; font-size: var(--invoice-title-en-font-size); font-weight: 700; }
+        .invoice-rule { margin: 8px 0 12px; }
 
         .invoice-head-meta {
             display: grid;
@@ -285,36 +225,24 @@
             margin-bottom: 14px;
         }
 
-        .invoice-head-meta > * {
-            min-width: 0;
-        }
+        .invoice-head-meta > * { min-width: 0; }
 
-        .items-table,
-        .totals-table,
-        .payment-table,
-        .carat-table {
+        .items-table, .totals-table, .payment-table, .carat-table {
             width: 100%;
             border-collapse: collapse;
             table-layout: fixed;
         }
 
-        .items-table td,
-        .items-table th,
-        .totals-table td,
-        .totals-table th,
-        .payment-table td,
-        .payment-table th,
-        .carat-table td,
-        .carat-table th {
+        .items-table td, .items-table th,
+        .totals-table td, .totals-table th,
+        .payment-table td, .payment-table th,
+        .carat-table td, .carat-table th {
             border: 1px solid #999;
             padding: var(--table-cell-padding);
             vertical-align: middle;
         }
 
-        .items-table th,
-        .totals-table th,
-        .payment-table th,
-        .carat-table th {
+        .items-table th, .totals-table th, .payment-table th, .carat-table th {
             background: var(--table-header-bg);
             font-weight: 700;
         }
@@ -336,17 +264,8 @@
             font-weight: 700;
         }
 
-        .invoice-meta-label {
-            white-space: nowrap;
-            flex: 0 0 auto;
-        }
-
-        .invoice-meta-value {
-            flex: 1 1 auto;
-            min-width: 0;
-            word-break: break-word;
-            overflow-wrap: anywhere;
-        }
+        .invoice-meta-label { white-space: nowrap; flex: 0 0 auto; }
+        .invoice-meta-value { flex: 1 1 auto; min-width: 0; word-break: break-word; overflow-wrap: anywhere; }
 
         .qr-box {
             width: 100%;
@@ -364,49 +283,23 @@
         .qr-box.is-placeholder {
             min-height: var(--qr-size);
             border: 1px dashed #999;
-            align-items: center;
-            justify-content: center;
         }
 
-        .qr-box img {
-            width: min(100%, var(--qr-size));
-            height: auto;
-            aspect-ratio: 1 / 1;
-            object-fit: contain;
-        }
+        .qr-box img { width: min(100%, var(--qr-size)); height: auto; aspect-ratio: 1 / 1; object-fit: contain; }
+        .qr-placeholder { font-size: 11px; color: #666; }
 
-        .qr-placeholder {
-            font-size: 11px;
-            color: #666;
-        }
+        .items-table { margin-bottom: 12px; }
 
-        .items-table {
-            margin-bottom: 12px;
-        }
-
-        .items-table th,
-        .items-table td {
+        .items-table th, .items-table td {
             text-align: center;
             page-break-inside: avoid;
             overflow-wrap: anywhere;
             word-break: break-word;
         }
 
-        .items-table tbody tr {
-            page-break-inside: avoid;
-        }
-
-        .items-table .description-cell {
-            text-align: right;
-            overflow-wrap: anywhere;
-        }
-
-        .items-table .description-cell .sub-line {
-            display: block;
-            margin-top: 2px;
-            font-size: 11px;
-            overflow-wrap: anywhere;
-        }
+        .items-table tbody tr { page-break-inside: avoid; }
+        .items-table .description-cell { text-align: right; overflow-wrap: anywhere; }
+        .items-table .description-cell .sub-line { display: block; margin-top: 2px; font-size: 11px; }
 
         .summary-grid {
             display: grid;
@@ -415,60 +308,18 @@
             margin-bottom: 10px;
         }
 
-        .summary-stack {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
+        .summary-stack { display: flex; flex-direction: column; gap: 8px; }
 
-        .totals-table td:first-child,
-        .payment-table td:first-child,
-        .carat-table td:first-child {
-            font-weight: 700;
-        }
+        .totals-table td:first-child, .payment-table td:first-child, .carat-table td:first-child { font-weight: 700; }
+        .totals-table td:last-child, .payment-table td:last-child, .carat-table td:last-child { text-align: left; }
+        .totals-table td, .payment-table td, .carat-table td,
+        .totals-table th, .payment-table th, .carat-table th { overflow-wrap: anywhere; word-break: break-word; }
 
-        .totals-table td:last-child,
-        .payment-table td:last-child,
-        .carat-table td:last-child {
-            text-align: left;
-        }
+        .seller-line { margin: 0 0 10px; font-weight: 700; overflow-wrap: anywhere; }
 
-        .totals-table td,
-        .payment-table td,
-        .carat-table td,
-        .totals-table th,
-        .payment-table th,
-        .carat-table th {
-            overflow-wrap: anywhere;
-            word-break: break-word;
-        }
-
-        .seller-line {
-            margin: 0 0 10px;
-            font-weight: 700;
-            overflow-wrap: anywhere;
-        }
-
-        .terms-box {
-            margin: 0 0 10px;
-            padding: 8px 10px;
-            border: 1px solid #999;
-            font-size: 10px;
-            line-height: 1.45;
-        }
-
-        .terms-box-title {
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
-
-        .terms-box-content {
-            white-space: normal;
-            max-height: none;
-            overflow: visible;
-            overflow-wrap: anywhere;
-            line-height: 1.6;
-        }
+        .terms-box { margin: 0 0 10px; padding: 8px 10px; border: 1px solid #999; font-size: 10px; line-height: 1.45; }
+        .terms-box-title { font-weight: 700; margin-bottom: 4px; }
+        .terms-box-content { white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
 
         .page-footer {
             margin-top: auto;
@@ -478,60 +329,27 @@
             gap: 12px;
             font-size: 11px;
             overflow-wrap: anywhere;
+            border-top: 1px solid var(--invoice-accent);
         }
 
-        .page-footer .footer-left {
-            direction: ltr;
-            text-align: left;
-        }
-
-        .no-print {
-            display: none !important;
-        }
+        .page-footer .footer-left { direction: ltr; text-align: left; }
+        .no-print { display: none !important; }
 
         @media screen {
-            body {
-                padding: 8px 0 18px;
-                background: var(--screen-background);
-            }
-
-            .page {
-                width: min(194mm, calc(100vw - 24px));
-                box-shadow: 0 0 0 1px var(--screen-outline);
-            }
+            body { padding: 8px 0 18px; background: var(--screen-background); }
+            .page { width: min(194mm, calc(100vw - 24px)); box-shadow: 0 0 0 1px var(--screen-outline); }
         }
 
-        body.invoice-template-compact .items-table td,
-        body.invoice-template-compact .items-table th,
-        body.invoice-template-compact .totals-table td,
-        body.invoice-template-compact .totals-table th,
-        body.invoice-template-compact .payment-table td,
-        body.invoice-template-compact .payment-table th,
-        body.invoice-template-compact .carat-table td,
-        body.invoice-template-compact .carat-table th {
+        body.invoice-template-compact .items-table td, body.invoice-template-compact .items-table th,
+        body.invoice-template-compact .totals-table td, body.invoice-template-compact .totals-table th,
+        body.invoice-template-compact .payment-table td, body.invoice-template-compact .payment-table th,
+        body.invoice-template-compact .carat-table td, body.invoice-template-compact .carat-table th {
             padding: 4px;
         }
 
-        body.invoice-template-modern .invoice-title,
-        body.invoice-template-modern .invoice-title-en,
-        body.invoice-template-modern .company-name {
-            color: #0f172a;
-        }
-
         @media print {
-            html,
-            body {
-                background: #fff;
-                font-size: var(--invoice-print-font-size);
-            }
-
-            .page {
-                width: auto;
-                max-width: none;
-                min-height: auto;
-                padding: 2mm 2.5mm 3mm;
-                box-shadow: none;
-            }
+            html, body { background: #fff; font-size: var(--invoice-print-font-size); }
+            .page { width: auto; max-width: none; min-height: auto; padding: 2mm 2.5mm 3mm; box-shadow: none; }
         }
     </style>
 </head>
@@ -561,7 +379,7 @@
                             <img src="{{ $brandLogoUrl }}" alt="Logo" class="brand-logo">
                         </div>
                         <h1 class="invoice-title">{{ $documentTitle }}</h1>
-                        <p class="invoice-title-en">{{ $invoice->sale_type === 'standard' ? 'Tax Invoice' : 'Simplified Tax Invoice' }}</p>
+                        <p class="invoice-title-en">{{ $isPurchase ? 'Purchase Invoice' : 'Purchase Return Invoice' }}</p>
                     </section>
 
                     <section class="company-block company-en">
@@ -589,17 +407,19 @@
 
                 <div class="invoice-meta-list">
                     <div class="invoice-meta-row">
-                        <span class="invoice-meta-label">الرقم:</span>
+                        <span class="invoice-meta-label">رقم الفاتورة:</span>
                         <span class="invoice-meta-value ltr">{{ $invoice->bill_number }}</span>
                     </div>
                     <div class="invoice-meta-row">
                         <span class="invoice-meta-label">نوع السداد:</span>
                         <span class="invoice-meta-value">{{ $paymentTypeLabel }}</span>
                     </div>
-                    <div class="invoice-meta-row">
-                        <span class="invoice-meta-label">أمر البيع:</span>
-                        <span class="invoice-meta-value ltr">{{ $saleOrderNumber }}</span>
-                    </div>
+                    @if($invoice->supplier_bill_number)
+                        <div class="invoice-meta-row">
+                            <span class="invoice-meta-label">مرجع المورد:</span>
+                            <span class="invoice-meta-value ltr">{{ $invoice->supplier_bill_number }}</span>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="invoice-meta-list">
@@ -612,18 +432,18 @@
                         <span class="invoice-meta-value ltr">{{ $formattedTime }}</span>
                     </div>
                     <div class="invoice-meta-row">
-                        <span class="invoice-meta-label">العميل:</span>
+                        <span class="invoice-meta-label">المورد:</span>
                         <span class="invoice-meta-value">{{ $invoice->customerName ?: '---' }}</span>
                     </div>
                     @if($invoice->customerPhone)
                         <div class="invoice-meta-row">
-                            <span class="invoice-meta-label">الجوال:</span>
+                            <span class="invoice-meta-label">جوال المورد:</span>
                             <span class="invoice-meta-value ltr">{{ $invoice->customerPhone }}</span>
                         </div>
                     @endif
                     @if($invoice->customerIdentityNumber)
                         <div class="invoice-meta-row">
-                            <span class="invoice-meta-label">الهوية:</span>
+                            <span class="invoice-meta-label">هوية المورد:</span>
                             <span class="invoice-meta-value ltr">{{ $invoice->customerIdentityNumber }}</span>
                         </div>
                     @endif
@@ -649,7 +469,10 @@
                 <tbody>
                     @foreach($detailRows as $index => $detail)
                         @php
-                            $weight = $isSale ? $detail->out_weight : $detail->in_weight;
+                            $weight = $isPurchase
+                                ? ($detail->in_weight ?: $detail->out_weight)
+                                : $detail->out_weight;
+                            $quantity = $detail->in_quantity ?: $detail->out_quantity ?: 1;
                             $nonMetal = $detail->no_metal_type === 'fixed'
                                 ? (float) $detail->no_metal
                                 : ((float) $weight * ((float) $detail->no_metal / 100));
@@ -659,25 +482,12 @@
                         @endphp
                         <tr>
                             <td>{{ $index + 1 }}</td>
-                            <td class="description-cell">
-                                {{ strip_tags((string) $detail->item->title) }}
-                                @if(in_array($detail->item->inventory_classification, ['collectible', 'silver']))
-                                    @if($detail->item->stone_size_1 || $detail->item->stone_size_2)
-                                        <span class="sub-line">مقاس الحجر: {{ $detail->item->stone_size_1 }}{{ $detail->item->stone_size_2 ? ' / ' . $detail->item->stone_size_2 : '' }}</span>
-                                    @endif
-                                    @if($detail->item->stone_clarity || $detail->item->stone_color)
-                                        <span class="sub-line">{{ $detail->item->stone_clarity }}{{ ($detail->item->stone_clarity && $detail->item->stone_color) ? ' - ' : '' }}{{ $detail->item->stone_color }}</span>
-                                    @endif
-                                    @if($detail->item->brand)
-                                        <span class="sub-line">{{ $detail->item->brand }}{{ $detail->item->model_number ? ' / ' . $detail->item->model_number : '' }}</span>
-                                    @endif
-                                @endif
-                            </td>
+                            <td class="description-cell">{{ strip_tags((string) $detail->item->title) }}</td>
                             <td>{{ $detail->carat_display_label }}</td>
                             <td><span class="ltr">{{ $fmtWeight($weight) }}</span></td>
                             <td><span class="ltr">{{ $fmtWeight($nonMetal) }}</span></td>
                             <td><span class="ltr">{{ $fmtMoney($detail->unit_price) }}</span></td>
-                            <td><span class="ltr">{{ $detail->out_quantity ?: 0 }}</span></td>
+                            <td><span class="ltr">{{ $quantity }}</span></td>
                             <td><span class="ltr">{{ $fmtMoney($detail->line_total) }}</span></td>
                             <td><span class="ltr">{{ $fmtMoney($detail->line_tax) }}</span></td>
                             <td><span class="ltr">{{ $fmtMoney($taxRate) }}%</span></td>
@@ -692,7 +502,7 @@
                     <table class="payment-table">
                         <thead>
                             <tr>
-                                <th colspan="2">طرق الدفع</th>
+                                <th colspan="2">طرق السداد</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -733,13 +543,8 @@
                         </thead>
                         <tbody>
                             @foreach($invoiceSummaryRows as $summaryRow)
-                                @php
-                                    $isReturn = $summaryRow['is_return'] ?? false;
-                                    $isNetAfterReturn = $summaryRow['is_net_after_return'] ?? false;
-                                    $rowStyle = $isReturn ? 'color:#c0392b;font-weight:bold;' : ($isNetAfterReturn ? 'color:#27ae60;font-weight:bold;border-top:2px solid #27ae60;' : '');
-                                @endphp
-                                <tr style="{{ $rowStyle }}">
-                                    <td>{{ $summaryRow['label'] }}{{ $isReturn ? ' (-)' : '' }}</td>
+                                <tr>
+                                    <td>{{ $summaryRow['label'] }}</td>
                                     <td><span class="ltr">{{ $fmtMoney($summaryRow['value']) }}</span> {{ $currencyLabel }}</td>
                                 </tr>
                             @endforeach
@@ -750,12 +555,12 @@
 
             @if($showInvoiceTerms)
                 <section class="terms-box">
-                    <div class="terms-box-title">شروط الفاتورة</div>
+                    <div class="terms-box-title">ملاحظات</div>
                     <div class="terms-box-content">{{ $inlineInvoiceTerms }}</div>
                 </section>
             @endif
 
-            <p class="seller-line">البائع: {{ $invoice->user->name ?: '---' }}</p>
+            <p class="seller-line">الموظف: {{ $invoice->user->name ?: '---' }}</p>
         </div>
 
         @if($showFooter)

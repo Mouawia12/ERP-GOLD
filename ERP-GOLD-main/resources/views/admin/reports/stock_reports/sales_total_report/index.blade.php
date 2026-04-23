@@ -61,13 +61,15 @@
                                     <thead>
                                         <tr>
                                             <th>#</th>
-                                            <th>{{__('main.bill_no')}}</th> 
+                                            <th>{{__('main.bill_no')}}</th>
                                             <th>{{__('main.date')}}</th>
-                                            <th>{{__('main.client')}}</th> 
+                                            <th>{{__('main.client')}}</th>
                                             <th>{{__('main.total_weight')}}</th>
-                                            <th> {{__('main.net_money')}} </th> 
                                             <th> {{__('main.total_without_tax')}} </th>
-                                            <th> {{__('main.tax')}} </th>  
+                                            <th> {{__('main.tax')}} </th>
+                                            <th> كاش </th>
+                                            <th> شبكة </th>
+                                            <th> {{__('main.net_money')}} </th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -77,7 +79,13 @@
                                     <?php $sum_made = 0 ?>
                                     <?php $sum_net = 0 ?>
                                     <?php $sum_discount = 0 ?>
+                                    <?php $sum_cash = 0 ?>
+                                    <?php $sum_network = 0 ?>
                                     @foreach($sales??[] as $sale)
+                                        <?php
+                                            $cash = $sale->cash_paid_total;
+                                            $network = $sale->credit_card_paid_total + $sale->bank_transfer_paid_total;
+                                        ?>
                                         <tr>
                                             <td class="text-center">{{$loop -> index + 1}}</td>
                                             <td class="text-center">
@@ -86,27 +94,31 @@
                                             <td class="text-center">{{ \Carbon\Carbon::parse($sale -> date) -> format('d-m-Y')  }}</td>
                                             <td class="text-center">{{$sale -> customer_name}}</td>
                                             <td class="text-center">{{number_format(abs($sale->total_quantity), 3)}}</td>
-                                            <td class="text-center">{{number_format($sale->round_net_total, 2)}}</td>
                                             <td class="text-center">{{number_format(round($sale->lines_total_after_discount, 2), 2)}}</td>
-                                            <td class="text-center">{{number_format(round($sale->taxes_total, 2), 2)}}</td>  
+                                            <td class="text-center">{{number_format(round($sale->taxes_total, 2), 2)}}</td>
+                                            <td class="text-center">{{$cash > 0 ? number_format($cash, 2) : '-'}}</td>
+                                            <td class="text-center">{{$network > 0 ? number_format($network, 2) : '-'}}</td>
+                                            <td class="text-center">{{number_format($sale->round_net_total, 2)}}</td>
                                         </tr>
 
                                         <?php $sum_weight += abs($sale->total_quantity) ?>
-                                        <?php
-                                        $sum_total += ($sale->lines_total_after_discount)
-                                        ?>
+                                        <?php $sum_total += ($sale->lines_total_after_discount) ?>
                                         <?php $sum_tax += $sale->taxes_total ?>
                                         <?php $sum_net += $sale->net_total ?>
                                         <?php $sum_discount += $sale->discount ?>
-                                    @endforeach 
-                                    <tfoot>  
-                                        <tr class="text-white bg-primary">  
-                                            <td colspan="3"></td> 
-                                            <td class="text-center">الإجمالي</td> 
+                                        <?php $sum_cash += $cash ?>
+                                        <?php $sum_network += $network ?>
+                                    @endforeach
+                                    <tfoot>
+                                        <tr class="text-white bg-primary">
+                                            <td colspan="3"></td>
+                                            <td class="text-center">الإجمالي</td>
                                             <td class="text-center">{{number_format($sum_weight, 3)}}</td>
-                                            <td class="text-center">{{number_format(round($sum_net - $sum_discount, 2), 2)}}</td>
                                             <td class="text-center">{{number_format(round($sum_total, 2), 2)}}</td>
-                                            <td class="text-center">{{number_format(round($sum_tax, 2), 2)}}</td>  
+                                            <td class="text-center">{{number_format(round($sum_tax, 2), 2)}}</td>
+                                            <td class="text-center">{{number_format($sum_cash, 2)}}</td>
+                                            <td class="text-center">{{number_format($sum_network, 2)}}</td>
+                                            <td class="text-center">{{number_format(round($sum_net - $sum_discount, 2), 2)}}</td>
                                         </tr>
                                     </tfoot> 
 

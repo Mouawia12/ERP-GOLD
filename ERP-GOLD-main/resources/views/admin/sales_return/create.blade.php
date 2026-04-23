@@ -17,7 +17,7 @@
                         </h4>
                     </div>
                     <div class="clearfix"></div>
-                </div> 
+                </div>
                 <div class="card-body px-0 pt-0 pb-2">
                     <div class="tab-content" id="myTabContent">
                         <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
@@ -25,9 +25,9 @@
                                   enctype="multipart/form-data" id="pos_sales_form">
                                 @csrf
                                 <div class="row">
-                                    <div class="card shadow mb-4 col-9"> 
+                                    <div class="card shadow mb-4 col-9">
                                         <div class="card-body">
-                                            <div class="row"> 
+                                            <div class="row">
                                                 <div class="col-4">
                                                     <div class="form-group">
                                                         <label style="float: right;">{{ __('main.bill_date') }} <span
@@ -60,25 +60,15 @@
                                                         <input type="text" name="bill_client_name" id="bill_client_name"
                                                                class="form-control"
                                                                value="{{$invoice -> customer->name}}" readonly>
-
-
                                                     </div>
                                                 </div>
                                             </div>
                                             <div class="row">
                                                 <div class="col-md-12">
-
-
                                                     <div class="card mb-4">
                                                         <div class="card-header pb-0">
                                                             <h4 class="table-label text-center">{{__('main.items')}} </h4>
-
-                                                            <div class="row">
-
-                                                            </div>
-
                                                         </div>
-
                                                         <div class="card-body px-0 pt-0 pb-2">
                                                             <div class="table-responsive p-0">
                                                                 <table id="sTable" class="table items table-striped table-bordered table-condensed table-hover">
@@ -117,27 +107,23 @@
                                                                     </tbody>
                                                                     <tfoot></tfoot>
                                                                 </table>
-
                                                             </div>
                                                         </div>
-
                                                     </div>
                                                 </div>
                                             </div>
-
-
                                         </div>
                                     </div>
+
+                                    {{-- Panel الجانبي للملخص --}}
                                     <div class="card shadow mb-4 col-3">
                                         <div class="card-header py-3">
                                             <h6 class="m-0 font-weight-bold text-primary">{{__('main.sales_invoice_total')}}</h6>
                                         </div>
-                                        <div class="card-body ">
-                                            <div class="row document_type1"
-                                                 style="align-items: center; margin-bottom: 10px;">
+                                        <div class="card-body">
+                                            <div class="row" style="align-items: center; margin-bottom: 10px;">
                                                 <div class="col-6">
-                                                    <label
-                                                        style="text-align: right;float: right;"> {{__('main.items_count')}} </label>
+                                                    <label style="text-align: right;float: right;"> {{__('main.items_count')}} </label>
                                                 </div>
                                                 <div class="col-6">
                                                     <input type="text" readonly class="form-control" id="items_count"
@@ -149,14 +135,12 @@
                                                     <label style="text-align: right;float: right;">العناصر المحددة</label>
                                                 </div>
                                                 <div class="col-6">
-                                                    <input type="text" readonly class="form-control" id="selected_items_count"
-                                                           value="0">
+                                                    <input type="text" readonly class="form-control" id="selected_items_count" value="0">
                                                 </div>
                                             </div>
                                             <div class="row" style="align-items: center; margin-bottom: 10px;">
                                                 <div class="col-6">
-                                                    <label
-                                                        style="text-align: right;float: right;"> {{__('main.total_weight21')}} </label>
+                                                    <label style="text-align: right;float: right;"> {{__('main.total_weight21')}} </label>
                                                 </div>
                                                 <div class="col-6">
                                                     <input type="text" readonly class="form-control"
@@ -164,12 +148,9 @@
                                                            value="{{$invoice -> stock_carat_weight ?? 0}}">
                                                 </div>
                                             </div>
-
-
                                             <div class="row" style="align-items: center; margin-bottom: 10px;">
                                                 <div class="col-6">
-                                                    <label
-                                                        style="text-align: right;float: right;"> {{__('main.additional_tax')  }} </label>
+                                                    <label style="text-align: right;float: right;"> {{__('main.additional_tax')  }} </label>
                                                 </div>
                                                 <div class="col-6">
                                                     <input type="text" readonly class="form-control" id="tax" name="tax"
@@ -178,23 +159,17 @@
                                             </div>
                                             <div class="row" style="align-items: baseline; margin-bottom: 10px;">
                                                 <div class="col-6">
-
-                                                    <label
-                                                        style="text-align: right;float: right;"> {{__('main.discount')}} </label>
-
-
+                                                    <label style="text-align: right;float: right;"> {{__('main.discount')}} </label>
                                                 </div>
                                                 <div class="col-6">
                                                     <input type="text" readonly class="form-control" id="discount"
                                                            name="discount" placeholder="0"
                                                            value="{{$invoice -> discount_total ?? 0}}">
                                                 </div>
-
                                             </div>
                                             <div class="row" style="align-items: center; margin-bottom: 10px;">
                                                 <div class="col-6">
-                                                    <label style="text-align: right;float: right;"
-                                                    > {{__('main.net')}} </label>
+                                                    <label style="text-align: right;float: right;"> {{__('main.net')}} </label>
                                                 </div>
                                                 <div class="col-6">
                                                     <input type="text" readonly class="form-control" id="net_sales"
@@ -206,108 +181,111 @@
                                                     <label style="text-align: right;float: right;">صافي المرتجع المحدد</label>
                                                 </div>
                                                 <div class="col-6">
-                                                    <input type="text" readonly class="form-control" id="selected_return_net_total"
-                                                           value="0.00">
+                                                    <input type="text" readonly class="form-control" id="selected_return_net_total" value="0.00">
                                                 </div>
                                             </div>
                                             <hr class="sidebar-divider d-none d-md-block">
-
-                                            <div class="alert alert-info py-2 px-3" style="font-size: 13px;">
-                                                أدخل طريقة رد المبلغ بحيث يساوي إجماليها صافي المرتجع المحدد فقط.
-                                            </div>
-
-                                            <div class="row" style="align-items: center; margin-bottom: 10px;">
-                                                <div class="col-6">
-                                                    <label style="text-align: right;float: right;">رد نقدي</label>
-                                                </div>
-                                                <div class="col-6">
-                                                    <input type="number" min="0" step="any" class="form-control" id="cash"
-                                                           name="cash" value="0">
-                                                </div>
-                                            </div>
-                                            <div class="row" style="align-items: center; margin-bottom: 10px;">
-                                                <div class="col-6">
-                                                    <label style="text-align: right;float: right;">المتبقي</label>
-                                                </div>
-                                                <div class="col-6">
-                                                    <input type="text" readonly class="form-control" id="payment_remaining"
-                                                           value="0.00">
-                                                </div>
-                                            </div>
-
-                                            @if ($bankAccounts->isEmpty())
-                                                <div class="alert alert-warning py-2 px-3">
-                                                    لا توجد حسابات بنكية نشطة على هذا الفرع. يمكن رد المرتجع نقديًا فقط حاليًا.
-                                                </div>
-                                            @endif
-
-                                            <div class="d-flex justify-content-between align-items-center mb-2 mt-3">
-                                                <h6 class="mb-0">أسطر الرد غير النقدي</h6>
-                                                <button type="button" class="btn btn-outline-primary btn-sm" id="add_refund_line_btn" {{ $bankAccounts->isEmpty() ? 'disabled' : '' }}>
-                                                    إضافة
-                                                </button>
-                                            </div>
-
-                                            <div class="table-responsive mb-2">
-                                                <table class="table table-bordered text-center mb-0" id="refund_payment_lines_table">
-                                                    <thead class="thead-light">
-                                                        <tr>
-                                                            <th>الطريقة</th>
-                                                            <th>الحساب البنكي</th>
-                                                            <th>المرجع</th>
-                                                            <th>المبلغ</th>
-                                                            <th>حذف</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody></tbody>
-                                                </table>
-                                            </div>
-                                            <div class="text-muted mb-3">
-                                                إجمالي غير نقدي: <strong id="refund_payment_lines_total">0.00</strong>
-                                            </div>
-
                                             <div class="row">
-                                                <div class="col-md-6 text-center" style="display: block; margin: auto;">
-                                                    <input type="button" class="btn btn-primary" id="return_btn"
-                                                           tabindex="-1"
-                                                           style="width: 150px;
-                                                   margin: 30px auto;" value="{{__('main.return_bill')}}"></input>
-
+                                                <div class="col-md-12 text-center">
+                                                    <button type="button" class="btn btn-primary btn-block" id="open_payment_modal_btn" style="margin: 10px auto;">
+                                                        <i class="fa fa-money"></i> إتمام المرتجع
+                                                    </button>
                                                 </div>
                                             </div>
-
                                         </div>
-
-
                                     </div>
 
                                 </div>
-
-
                             </form>
                         </div>
-
-
                     </div>
                 </div>
-
-
             </div>
-            <!-- /.container-fluid -->
             <input id="local" value="{{Config::get('app.locale')}}" hidden>
         </div>
-        <!-- End of Main Content -->
-
-        <!-- Footer -->
-    
-
     </div>
-    <!-- End of Content Wrapper -->
 
+    {{-- Modal الدفع --}}
+    <div class="modal fade" id="refundPaymentModal" tabindex="-1" role="dialog" aria-labelledby="refundPaymentModalLabel" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+        <div class="modal-dialog modal-md" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="refundPaymentModalLabel">
+                        <i class="fa fa-money"></i> طريقة رد المبلغ
+                    </h5>
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info py-2 px-3 mb-3">
+                        صافي المرتجع: <strong id="modal_return_total">0.00</strong> ريال — أدخل طريقة الرد بحيث يساوي الإجمالي صافي المرتجع.
+                    </div>
 
-</div>
-<!-- End of Page Wrapper -->
-  
+                    {{-- كاش --}}
+                    <div class="form-group row align-items-center">
+                        <label class="col-4 col-form-label text-right font-weight-bold">رد نقدي (كاش)</label>
+                        <div class="col-8">
+                            <input type="number" min="0" step="any" class="form-control" id="modal_cash" name="cash" value="0">
+                        </div>
+                    </div>
+
+                    {{-- متبقي --}}
+                    <div class="form-group row align-items-center">
+                        <label class="col-4 col-form-label text-right">المتبقي</label>
+                        <div class="col-8">
+                            <input type="text" readonly class="form-control bg-light" id="modal_payment_remaining" value="0.00">
+                        </div>
+                    </div>
+
+                    @if ($bankAccounts->isEmpty())
+                        <div class="alert alert-warning py-2 px-3">
+                            لا توجد حسابات بنكية نشطة على هذا الفرع. يمكن رد المرتجع نقديًا فقط.
+                        </div>
+                    @endif
+
+                    {{-- شبكة وتحويل --}}
+                    <div class="d-flex justify-content-between align-items-center mb-2 mt-3">
+                        <h6 class="mb-0 font-weight-bold">رد شبكة / تحويل بنكي</h6>
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="add_refund_line_btn" {{ $bankAccounts->isEmpty() ? 'disabled' : '' }}>
+                            <i class="fa fa-plus"></i> إضافة سطر
+                        </button>
+                    </div>
+
+                    <div class="table-responsive mb-2">
+                        <table class="table table-bordered text-center mb-0" id="refund_payment_lines_table">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>الطريقة</th>
+                                    <th>الحساب البنكي</th>
+                                    <th>المرجع</th>
+                                    <th>المبلغ</th>
+                                    <th>حذف</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="text-muted mb-2">
+                        إجمالي غير نقدي: <strong id="refund_payment_lines_total">0.00</strong> ريال
+                    </div>
+
+                    {{-- شريط التقدم --}}
+                    <div class="progress mt-2" style="height: 8px;">
+                        <div class="progress-bar bg-success" role="progressbar" id="refund_progress_bar" style="width: 0%"></div>
+                    </div>
+                    <div class="text-center mt-1" id="refund_progress_label" style="font-size:12px;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">إلغاء</button>
+                    <button type="button" class="btn btn-success" id="confirm_return_btn">
+                        <i class="fa fa-check"></i> تأكيد المرتجع
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 @php
     $salesReturnBankAccountsPayload = $bankAccounts->map(function ($bankAccount) {
         return [
@@ -325,8 +303,7 @@
     $(document).ready(function () {
         window.currentSalesReturnBankAccounts = {{ Illuminate\Support\Js::from($salesReturnBankAccountsPayload) }};
 
-        var cashWasEditedManually = false;
-
+        // ---- اختيار الأصناف ----
         $('#checkAll').change(function () {
             $("input:checkbox.checkDetail").prop('checked', this.checked);
             syncSelectedRefundTotals();
@@ -336,11 +313,26 @@
             syncSelectedRefundTotals();
         });
 
-        $(document).on('input', '#cash', function () {
-            cashWasEditedManually = true;
-            refreshRefundPaymentSummary();
+        // ---- فتح Modal ----
+        $(document).on('click', '#open_payment_modal_btn', function () {
+            var selectedTotal = selectedRefundNetTotal();
+            if (selectedTotal <= 0) {
+                alert('يجب اختيار صنف واحد على الأقل قبل إتمام المرتجع');
+                return;
+            }
+            // ضبط القيم في الـ modal
+            $('#modal_return_total').text(formatRefundValue(selectedTotal));
+            $('#modal_cash').val(formatRefundValue(selectedTotal));
+            refreshModalSummary();
+            $('#refundPaymentModal').modal('show');
         });
 
+        // ---- تغيير الكاش في الـ modal ----
+        $(document).on('input', '#modal_cash', function () {
+            refreshModalSummary();
+        });
+
+        // ---- إضافة سطر شبكة/تحويل ----
         $(document).on('click', '#add_refund_line_btn', function () {
             appendRefundPaymentLineRow();
         });
@@ -350,34 +342,41 @@
         });
 
         $(document).on('input', '.refund-line-amount, .refund-line-reference', function () {
-            refreshRefundPaymentSummary();
+            refreshModalSummary();
         });
 
         $(document).on('click', '.remove-refund-line-btn', function () {
             $(this).closest('tr').remove();
             refreshRefundPaymentInputNames();
-            refreshRefundPaymentSummary();
+            refreshModalSummary();
         });
 
-        $(document).on('click', '#return_btn', function () {
+        // ---- تأكيد المرتجع ----
+        $(document).on('click', '#confirm_return_btn', function () {
             var selectedRefundTotal = selectedRefundNetTotal();
             var paymentTotal = totalRefundPayments();
 
-            if (selectedRefundTotal <= 0) {
-                alert('يجب اختيار صنف واحد على الأقل قبل حفظ المرتجع');
+            if (Math.abs(paymentTotal - selectedRefundTotal) > 0.01) {
+                alert('إجمالي رد المبلغ (' + formatRefundValue(paymentTotal) + ') يجب أن يساوي صافي المرتجع (' + formatRefundValue(selectedRefundTotal) + ')');
                 return;
             }
 
-            if (Math.abs(paymentTotal - selectedRefundTotal) > 0.01) {
-                alert('إجمالي رد المبلغ يجب أن يساوي صافي المرتجع المحدد بالكامل');
-                return;
+            // نقل قيمة الكاش من الـ modal إلى حقل مخفي في الـ form
+            var cashInput = document.getElementById('modal_cash');
+            var existingCash = document.getElementById('hidden_cash');
+            if (!existingCash) {
+                existingCash = document.createElement('input');
+                existingCash.type = 'hidden';
+                existingCash.id = 'hidden_cash';
+                existingCash.name = 'cash';
+                document.getElementById('pos_sales_form').appendChild(existingCash);
             }
+            existingCash.value = cashInput.value;
 
             document.getElementById('pos_sales_form').submit();
         });
 
         syncSelectedRefundTotals();
-        refreshRefundPaymentSummary();
     });
 
     function selectedRefundNetTotal() {
@@ -385,7 +384,6 @@
         $('.checkDetail:checked').each(function () {
             total += parseFloat($(this).data('net-total') || 0);
         });
-
         return roundRefundValue(total);
     }
 
@@ -395,16 +393,14 @@
 
     function refundLinesTotal() {
         var total = 0;
-
         $('.refund-line-amount').each(function () {
             total += parseFloat($(this).val() || 0);
         });
-
         return roundRefundValue(total);
     }
 
     function totalRefundPayments() {
-        return roundRefundValue(parseFloat($('#cash').val() || 0) + refundLinesTotal());
+        return roundRefundValue(parseFloat($('#modal_cash').val() || 0) + refundLinesTotal());
     }
 
     function roundRefundValue(value) {
@@ -418,32 +414,44 @@
     function syncSelectedRefundTotals() {
         var selectedTotal = selectedRefundNetTotal();
         var selectedItems = selectedRefundItemsCount();
-
         $('#selected_items_count').val(selectedItems);
         $('#selected_return_net_total').val(formatRefundValue(selectedTotal));
+    }
 
-        if (!cashWasEditedManually && $('#refund_payment_lines_table tbody tr').length === 0) {
-            $('#cash').val(formatRefundValue(selectedTotal));
+    function refreshModalSummary() {
+        var selectedRefundTotal = selectedRefundNetTotal();
+        var nonCashTotal = refundLinesTotal();
+        var totalPayments = totalRefundPayments();
+        var remaining = roundRefundValue(selectedRefundTotal - totalPayments);
+
+        $('#refund_payment_lines_total').text(formatRefundValue(nonCashTotal));
+        $('#modal_payment_remaining').val(formatRefundValue(remaining));
+
+        // شريط التقدم
+        var pct = selectedRefundTotal > 0 ? Math.min(100, (totalPayments / selectedRefundTotal) * 100) : 0;
+        $('#refund_progress_bar').css('width', pct + '%');
+        if (Math.abs(remaining) <= 0.01) {
+            $('#refund_progress_bar').removeClass('bg-warning bg-danger').addClass('bg-success');
+            $('#refund_progress_label').text('✓ المبالغ متطابقة').css('color', 'green');
+        } else if (remaining < 0) {
+            $('#refund_progress_bar').removeClass('bg-success bg-warning').addClass('bg-danger');
+            $('#refund_progress_label').text('تجاوز المبلغ بـ ' + formatRefundValue(Math.abs(remaining)) + ' ريال').css('color', 'red');
+        } else {
+            $('#refund_progress_bar').removeClass('bg-success bg-danger').addClass('bg-warning');
+            $('#refund_progress_label').text('متبقي ' + formatRefundValue(remaining) + ' ريال').css('color', '#856404');
         }
-
-        refreshRefundPaymentSummary();
     }
 
     function buildRefundBankAccountOptions(methodType, selectedBankAccountId) {
         var options = '<option value="">اختر الحساب البنكي</option>';
         var filteredAccounts = (window.currentSalesReturnBankAccounts || []).filter(function (bankAccount) {
-            if (methodType === 'credit_card') {
-                return bankAccount.supports_credit_card;
-            }
-
+            if (methodType === 'credit_card') return bankAccount.supports_credit_card;
             return bankAccount.supports_bank_transfer;
         });
-
         filteredAccounts.forEach(function (bankAccount) {
             var isSelected = String(selectedBankAccountId || '') === String(bankAccount.id) ? 'selected' : '';
             options += '<option value="' + bankAccount.id + '" ' + isSelected + '>' + bankAccount.name + '</option>';
         });
-
         return options;
     }
 
@@ -451,9 +459,7 @@
         var methodType = row.find('.refund-method-type').val() || 'credit_card';
         var bankAccountSelect = row.find('.refund-bank-account');
         var currentValue = bankAccountSelect.val();
-
         bankAccountSelect.html(buildRefundBankAccountOptions(methodType, currentValue));
-
         if (!bankAccountSelect.val()) {
             bankAccountSelect.prop('selectedIndex', bankAccountSelect.find('option').length > 1 ? 1 : 0);
         }
@@ -483,18 +489,6 @@
         $('#refund_payment_lines_table tbody').append(row);
         syncRefundBankAccountOptions(row);
         refreshRefundPaymentInputNames();
-        refreshRefundPaymentSummary();
+        refreshModalSummary();
     }
-
-    function refreshRefundPaymentSummary() {
-        var selectedRefundTotal = selectedRefundNetTotal();
-        var nonCashTotal = refundLinesTotal();
-        var totalPayments = totalRefundPayments();
-        var remaining = roundRefundValue(selectedRefundTotal - totalPayments);
-
-        $('#refund_payment_lines_total').text(formatRefundValue(nonCashTotal));
-        $('#payment_remaining').val(formatRefundValue(remaining));
-    }
-
 </script>
- 

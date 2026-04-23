@@ -119,6 +119,12 @@ class AdminSidebarBuilder
                         'active_patterns' => ['admin.system-settings.sales-shift.*'],
                     ],
                     [
+                        'label' => 'المورد الافتراضي للمشتريات',
+                        'route' => 'admin.system-settings.default-purchase-supplier.edit',
+                        'permission' => 'employee.system_settings.show',
+                        'active_patterns' => ['admin.system-settings.default-purchase-supplier.*'],
+                    ],
+                    [
                         'label' => 'شروط الفاتورة',
                         'route' => 'admin.system-settings.invoice-terms.edit',
                         'permission' => 'employee.system_settings.show',
@@ -135,6 +141,12 @@ class AdminSidebarBuilder
                         'route' => 'admin.system-settings.branding.edit',
                         'permission' => 'employee.system_settings.show',
                         'active_patterns' => ['admin.system-settings.branding.*'],
+                    ],
+                    [
+                        'label' => 'الإعدادات الافتراضية للأصناف',
+                        'route' => 'admin.system-settings.default-item-settings.edit',
+                        'permission' => 'employee.system_settings.show',
+                        'active_patterns' => ['admin.system-settings.default-item-settings.*'],
                     ],
                     [
                         'label' => 'الحسابات البنكية',

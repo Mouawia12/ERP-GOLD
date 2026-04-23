@@ -192,6 +192,65 @@ class CashPartyFeatureTest extends TestCase
         $response->assertDontSee('مورد عادي');
     }
 
+    public function test_cash_supplier_created_from_cash_directory_is_saved_in_cash_directory_only(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.suppliers.show',
+            'employee.suppliers.add',
+        ]);
+        $this->prepareCustomerAccounting($admin->branch);
+
+        $storeResponse = $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('customers.store', ['type' => 'supplier'], false), [
+                'name' => 'مورد نقدي من صفحة النقديين',
+                'phone' => '0565666666',
+                'type' => 'supplier',
+                'force_cash_party' => '1',
+            ]);
+
+        $storeResponse->assertOk();
+        $storeResponse->assertJson([
+            'status' => true,
+        ]);
+
+        $this->assertDatabaseHas('customers', [
+            'name' => 'مورد نقدي من صفحة النقديين',
+            'type' => 'supplier',
+            'is_cash_party' => true,
+        ]);
+
+        $cashDirectory = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('customers.cash', ['type' => 'supplier'], false));
+
+        $regularDirectory = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('customers', ['type' => 'supplier'], false));
+
+        $cashDirectory->assertOk();
+        $cashDirectory->assertSee('<td class="text-center">مورد نقدي من صفحة النقديين</td>', false);
+
+        $regularDirectory->assertOk();
+        $regularDirectory->assertDontSee('<td class="text-center">مورد نقدي من صفحة النقديين</td>', false);
+    }
+
+    public function test_cash_directory_create_form_forces_cash_party_classification(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.suppliers.show',
+            'employee.suppliers.add',
+        ]);
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('customers.cash', ['type' => 'supplier'], false));
+
+        $response->assertOk();
+        $response->assertSee('name="force_cash_party"', false);
+        $response->assertSee('هذه الصفحة تحفظ الطرف كنقدي تلقائيًا ليظهر في جدوله الصحيح.');
+    }
+
     public function test_sales_create_page_exposes_cash_party_filter_and_marks_customer_options(): void
     {
         $admin = $this->createAdminUser([

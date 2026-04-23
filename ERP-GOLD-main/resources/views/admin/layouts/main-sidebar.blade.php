@@ -499,7 +499,7 @@
             @endcan    
            
            
-            @can('employee.purchase_invoices.show')           
+            @canany(['employee.purchase_invoices.show', 'employee.purchase_invoices.add'])
                 <li class="slide {{ $currentSidebarSection === 'purchases' ? 'is-expanded active' : '' }}">
                     <a class="side-menu__item {{ $currentSidebarSection === 'purchases' ? 'active' : '' }}" data-toggle="slide" href="#">
                         <i class="fas fa-fw fa-folder-open side-menu__icon"></i>
@@ -508,6 +508,14 @@
                         </span><i class="angle fe fe-chevron-down"></i>
                     </a> 
                     <ul class="slide-menu">  
+                        @can('employee.purchase_invoices.add')
+                            <li>
+                                <a class="slide-item" href="{{ route('purchases.create') }}">
+                                 إضافة مشتريات
+                                </a>
+                            </li>
+                        @endcan
+                        @can('employee.purchase_invoices.show')
                         <li>
                             <a class="slide-item" href="{{route('purchases.index')}}">
                              {{__('main.purchases')}}
@@ -518,9 +526,10 @@
                              {{__('main.purchases_return')}}
                             </a>
                         </li>  
+                        @endcan
                     </ul>
                 </li> 
-            @endcan    
+            @endcanany
             @can('employee.items.show')
                  <!-- Nav Item - Pages Collapse Menu -->
                  <li class="slide {{ $currentSidebarSection === 'items' ? 'is-expanded active' : '' }}">

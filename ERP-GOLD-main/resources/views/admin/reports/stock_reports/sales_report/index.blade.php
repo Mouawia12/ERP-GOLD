@@ -76,39 +76,53 @@
                                         <tr>
                                             <th>#</th>
                                             <th>{{__('main.bill_no')}}</th>
-                                            <th>{{__('main.date')}}</th> 
+                                            <th>{{__('main.date')}}</th>
                                             <th>{{__('main.client')}}</th>
                                             <th>{{__('main.item')}}</th>
                                             <th> {{__('main.carats')}} </th>
                                             <th> {{__('main.weight')}} </th>
                                             <th>{{__('main.price_gram')}}</th>
-                                            <th> {{__('main.net_money')}} </th> 
                                             <th> {{__('main.total_without_tax')}} </th>
-                                            <th> {{__('main.tax')}} </th> 
+                                            <th> {{__('main.tax')}} </th>
+                                            <th> كاش </th>
+                                            <th> شبكة </th>
+                                            <th> {{__('main.net_money')}} </th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                     <?php $sum_weight = 0 ?>
                                     <?php $sum_total = 0 ?>
                                     <?php $sum_tax = 0 ?>
-                                    <?php $sum_made = 0 ?>
                                     <?php $sum_net = 0 ?>
-                                    <?php $sum_discount = 0 ?>
+                                    <?php $sum_cash = 0 ?>
+                                    <?php $sum_network = 0 ?>
+                                    <?php $seen_invoices = [] ?>
                                     @foreach($details??[] as $detail)
+                                        <?php
+                                            $inv_cash = $detail->invoice->cash_paid_total;
+                                            $inv_network = $detail->invoice->credit_card_paid_total + $detail->invoice->bank_transfer_paid_total;
+                                            if (!in_array($detail->invoice_id, $seen_invoices)) {
+                                                $sum_cash += $inv_cash;
+                                                $sum_network += $inv_network;
+                                                $seen_invoices[] = $detail->invoice_id;
+                                            }
+                                        ?>
                                         <tr>
                                             <td class="text-center">{{$loop -> index + 1}}</td>
                                             <td class="text-center">
                                             <a href="{{route('sales.show' , $detail -> invoice_id)}}" target="_blank">{{$detail -> invoice -> bill_number}}</a>
                                             </td>
                                             <td class="text-center">{{ \Carbon\Carbon::parse($detail -> invoice -> date) -> format('d-m-Y')  }}</td>
-                                            <td class="text-center">{{$detail -> invoice -> customer_name}}</td> 
+                                            <td class="text-center">{{$detail -> invoice -> customer_name}}</td>
                                             <td class="text-center">{{ $detail -> item->title }}</td>
                                             <td class="text-center">{{$detail -> carat->title}}</td>
                                             <td class="text-center">{{number_format($detail->out_weight, 3)}}</td>
                                             <td class="text-center">{{number_format($detail->unit_price, 2)}}</td>
-                                            <td class="text-center">{{number_format($detail->net_total, 2)}}</td>
                                             <td class="text-center">{{number_format($detail->line_total, 2)}}</td>
                                             <td class="text-center">{{number_format($detail->line_tax, 2)}}</td>
+                                            <td class="text-center">{{$inv_cash > 0 ? number_format($inv_cash, 2) : '-'}}</td>
+                                            <td class="text-center">{{$inv_network > 0 ? number_format($inv_network, 2) : '-'}}</td>
+                                            <td class="text-center">{{number_format($detail->net_total, 2)}}</td>
                                         </tr>
                                         <?php $sum_weight += $detail->out_weight ?>
                                         <?php $sum_total += ($detail->line_total) ?>
@@ -117,15 +131,17 @@
 
                                     @endforeach
                                     </tbody>
-                                    <tfoot>  
+                                    <tfoot>
                                         <tr class="text-white bg-primary">
-                                            <td colspan="5"></td> 
+                                            <td colspan="5"></td>
                                             <td class="text-center">{{__('main.total')}}</td>
                                             <td class="text-center">{{number_format($sum_weight, 3)}}</td>
                                             <td class="text-center"></td>
-                                            <td class="text-center">{{number_format($sum_net, 2)}}</td>
                                             <td class="text-center">{{number_format($sum_total, 2)}}</td>
-                                            <td class="text-center">{{number_format($sum_tax, 2)}}</td>  
+                                            <td class="text-center">{{number_format($sum_tax, 2)}}</td>
+                                            <td class="text-center">{{number_format($sum_cash, 2)}}</td>
+                                            <td class="text-center">{{number_format($sum_network, 2)}}</td>
+                                            <td class="text-center">{{number_format($sum_net, 2)}}</td>
                                         </tr>
                                     </tfoot>  
                                 </table>

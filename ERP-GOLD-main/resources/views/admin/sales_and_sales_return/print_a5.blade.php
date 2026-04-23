@@ -52,12 +52,21 @@
             ];
         }
 
+        $returnedTotal = $isSale ? $invoice->returned_total : 0;
+        $hasReturns = $isSale && $returnedTotal > 0;
+        $netAfterReturns = $isSale ? $invoice->net_after_returns : 0;
+
         $summaryRows = [
             ['label' => 'الإجمالي قبل الضريبة', 'label_en' => '(Total Without Vat)', 'value' => $invoice->lines_total],
             ['label' => 'الخصم', 'label_en' => '(Discount Value)', 'value' => $invoice->discount_total],
             ['label' => 'ضريبة القيمة المضافة', 'label_en' => '(Add Value Vat)', 'value' => $invoice->taxes_total],
             ['label' => 'قيمة الفاتورة', 'label_en' => '(Total)', 'value' => $invoice->round_net_total ?: $invoice->net_total],
         ];
+
+        if ($hasReturns) {
+            $summaryRows[] = ['label' => 'إجمالي المرتجعات (-)', 'label_en' => '(Returns)', 'value' => $returnedTotal, 'is_return' => true];
+            $summaryRows[] = ['label' => 'الصافي بعد المرتجع', 'label_en' => '(Net After Returns)', 'value' => $netAfterReturns, 'is_net_after_return' => true];
+        }
 
         $invoiceTerms = trim((string) ($invoice->invoice_terms ?? ''));
         $inlineInvoiceTerms = $invoiceTermsService->formatTermsForPrint($invoiceTerms);
@@ -143,6 +152,18 @@
                             <span class="compact-meta-label">العميل :</span>
                             <span class="compact-meta-value">{{ $invoice->customerName ?: 'عميل افتراضي' }}</span>
                         </div>
+                        @if($invoice->customerPhone)
+                            <div class="compact-meta-row">
+                                <span class="compact-meta-label">الجوال :</span>
+                                <span class="compact-meta-value ltr">{{ $invoice->customerPhone }}</span>
+                            </div>
+                        @endif
+                        @if($invoice->customerIdentityNumber)
+                            <div class="compact-meta-row">
+                                <span class="compact-meta-label">الهوية :</span>
+                                <span class="compact-meta-value ltr">{{ $invoice->customerIdentityNumber }}</span>
+                            </div>
+                        @endif
                         <div class="compact-meta-row">
                             <span class="compact-meta-label">رقم أمر البيع :</span>
                             <span class="compact-meta-value ltr">{{ $saleOrderNumber }}</span>
@@ -256,7 +277,12 @@
                         </thead>
                         <tbody>
                             @foreach($summaryRows as $summaryRow)
-                                <tr>
+                                @php
+                                    $isReturn = $summaryRow['is_return'] ?? false;
+                                    $isNetAfterReturn = $summaryRow['is_net_after_return'] ?? false;
+                                    $rowStyle = $isReturn ? 'color:#c0392b;font-weight:bold;' : ($isNetAfterReturn ? 'color:#27ae60;font-weight:bold;border-top:2px solid #27ae60;' : '');
+                                @endphp
+                                <tr style="{{ $rowStyle }}">
                                     <td class="summary-label">
                                         {{ $summaryRow['label'] }}
                                         <span class="summary-sub">{{ $summaryRow['label_en'] }}</span>

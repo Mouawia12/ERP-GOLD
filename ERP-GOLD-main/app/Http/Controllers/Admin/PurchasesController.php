@@ -12,12 +12,15 @@ use App\Models\GoldCaratType;
 use App\Models\Invoice;
 use App\Models\Item;
 use App\Models\ItemUnit;
+use App\Models\Shift;
 use App\Models\Tax;
 use App\Services\Branches\BranchAccessService;
 use App\Services\Invoices\InvoicePartySnapshotService;
 use App\Services\Invoices\InvoiceTermsService;
 use App\Services\JournalEntriesService;
 use App\Services\Payments\InvoicePaymentService;
+use App\Services\Purchases\DefaultPurchaseSupplierService;
+use App\Services\Shifts\SalesShiftModeService;
 use App\Services\Shifts\ShiftService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -37,6 +40,8 @@ class PurchasesController extends Controller
         private readonly InvoiceTermsService $invoiceTermsService,
         private readonly InvoicePartySnapshotService $invoicePartySnapshotService,
         private readonly InvoicePaymentService $invoicePaymentService,
+        private readonly DefaultPurchaseSupplierService $defaultPurchaseSupplierService,
+        private readonly SalesShiftModeService $salesShiftModeService,
         private readonly ShiftService $shiftService,
     ) {
     }
@@ -109,6 +114,7 @@ class PurchasesController extends Controller
             'customers' => $customers,
             'branches' => $branches,
             'caratTypes' => $caratTypes,
+            'defaultPurchaseSupplierId' => $this->defaultPurchaseSupplierService->currentSupplierId($currentUser),
             'defaultInvoiceTerms' => $this->invoiceTermsService->defaultTerms(InvoiceTermsService::CONTEXT_PURCHASES),
         ]);
     }
@@ -284,7 +290,7 @@ class PurchasesController extends Controller
             $lines = array();
             $stockLines = array();
             if (count($request->unit_id)) {
-                $activeShift = $this->shiftService->requireActiveShift(Auth::user(), (int) $request->branch_id);
+                $activeShift = $this->resolvePurchaseShift((int) $request->branch_id);
                 // store header
                 $branch = Branch::find($request->branch_id);
                 $warehouse = $branch->warehouses->first();
@@ -484,7 +490,7 @@ class PurchasesController extends Controller
                     'taxes_total' => $linesTax,
                     'net_total' => $linesNetTotal,
                     'user_id' => Auth::user()->id,
-                    'shift_id' => $activeShift->id,
+                    'shift_id' => $activeShift?->id,
                 ] + $this->invoicePartySnapshotService->resolve(
                     $supplier,
                     $request->input('bill_client_name'),
@@ -517,7 +523,7 @@ class PurchasesController extends Controller
                         'taxes_total' => $linesTax,
                         'net_total' => $linesNetTotal,
                         'user_id' => Auth::user()->id,
-                        'shift_id' => $activeShift->id,
+                        'shift_id' => $activeShift?->id,
                     ] + $this->invoicePartySnapshotService->resolve(
                         $supplier,
                         $request->input('bill_client_name'),
@@ -570,7 +576,7 @@ class PurchasesController extends Controller
 
         try {
             DB::beginTransaction();
-            $activeShift = $this->shiftService->requireActiveShift(Auth::user(), (int) $invoice->branch_id);
+            $activeShift = $this->resolvePurchaseShift((int) $invoice->branch_id);
             $selectedDetailIds = collect($request->input('checkDetail', []))
                 ->filter()
                 ->map(fn ($detailId) => (int) $detailId)
@@ -675,7 +681,7 @@ class PurchasesController extends Controller
                 'taxes_total' => $linesTax,
                 'net_total' => $linesNetTotal,
                 'user_id' => Auth::user()->id,
-                'shift_id' => $activeShift->id,
+                'shift_id' => $activeShift?->id,
             ] + $this->invoicePartySnapshotService->fromInvoice($invoice));
 
             $returnInvoice->details()->createMany($lines);
@@ -702,6 +708,15 @@ class PurchasesController extends Controller
                 ->route('purchase_return.create', ['id' => $id])
                 ->with('error', $ex->getMessage());
         }
+    }
+
+    private function resolvePurchaseShift(int $branchId): ?Shift
+    {
+        if (! $this->salesShiftModeService->requiresShift()) {
+            return null;
+        }
+
+        return $this->shiftService->requireActiveShift(Auth::user(), $branchId);
     }
 
     function convertCarat($weight, $fromFactor, $toFactor)
