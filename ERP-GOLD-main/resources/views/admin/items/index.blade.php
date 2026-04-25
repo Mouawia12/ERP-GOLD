@@ -350,7 +350,18 @@
             url = "{{ route('items.delete', ':id') }}";
         }
         url = url.replace(':id', id);
-        document.location.href = url;
+        submitDeleteForm(url);
+    }
+
+    function submitDeleteForm(url) {
+        $('<form>', {
+            method: 'POST',
+            action: url
+        })
+            .append('@csrf')
+            .append('<input type="hidden" name="_method" value="DELETE">')
+            .appendTo('body')
+            .submit();
     }
 
     $(document).on('click', '.showBarcodeTable', function (event) {

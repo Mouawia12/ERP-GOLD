@@ -17,6 +17,15 @@ class BranchAccessService
 
     public function branchIdForUser(User $user): ?int
     {
+        $sessionBranchId = (int) session(BranchContextService::SESSION_KEY);
+
+        if (
+            $sessionBranchId
+            && in_array($sessionBranchId, app(BranchContextService::class)->accessibleBranchIds($user), true)
+        ) {
+            return $sessionBranchId;
+        }
+
         return filled($user->branch_id) ? (int) $user->branch_id : null;
     }
 

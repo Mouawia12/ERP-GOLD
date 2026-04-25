@@ -125,6 +125,31 @@
                                     </tbody> 
                                 </table>
 
+                                @if(($sales_by_carat ?? collect())->isNotEmpty())
+                                    <table class="display w-100 text-nowrap table-bordered mt-4" style="text-align: center;direction: rtl;">
+                                        <thead>
+                                            <tr>
+                                                <th>العيار</th>
+                                                <th>{{__('main.total_weight')}}</th>
+                                                <th>{{__('main.total_without_tax')}}</th>
+                                                <th>{{__('main.tax')}}</th>
+                                                <th>{{__('main.net_money')}}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($sales_by_carat as $caratRow)
+                                                <tr>
+                                                    <td class="text-center">{{ $caratRow->carat_title }}</td>
+                                                    <td class="text-center">{{ number_format($caratRow->total_weight, 3) }}</td>
+                                                    <td class="text-center">{{ number_format($caratRow->total_line_total, 2) }}</td>
+                                                    <td class="text-center">{{ number_format($caratRow->total_taxes_total, 2) }}</td>
+                                                    <td class="text-center">{{ number_format($caratRow->total_net_total, 2) }}</td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                @endif
+
                             </div>
                         </div>
                     </div>

@@ -287,7 +287,7 @@ class StockReportFiltersFeatureTest extends TestCase
         $response->assertOk();
         $response->assertSee('PUR-TOTAL-002');
         $response->assertDontSee('PUR-TOTAL-001');
-        $response->assertSee('1035');
+        $response->assertSee('1,035.00');
     }
 
     public function test_daily_carat_report_respects_time_user_and_invoice_number_filters(): void

@@ -1,0 +1,335 @@
+<?php
+
+namespace App\Services\Invoices;
+
+use App\Models\SystemSetting;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+
+class InvoiceBackgroundService
+{
+    public const SETTING_PATH          = 'invoice_bg_image_path';
+    public const SETTING_SCALE         = 'invoice_bg_scale';
+    public const SETTING_ENABLED       = 'invoice_bg_enabled';
+    public const SETTING_PAPER_SIZE    = 'invoice_bg_paper_size';    // 'a4' | 'a5'
+    public const SETTING_CONTENT_TOP   = 'invoice_bg_content_top';   // mm
+    public const SETTING_CONTENT_BOTTOM= 'invoice_bg_content_bottom';// mm
+    public const SETTING_CONTENT_WIDTH = 'invoice_bg_content_width'; // %, 50..100
+    public const SETTING_OFFSET_X      = 'invoice_bg_offset_x';      // %, -50..50
+    public const SETTING_OFFSET_Y      = 'invoice_bg_offset_y';      // %, -50..50
+    public const SETTING_HIDE_HEADER   = 'invoice_bg_hide_header';   // '1' | '0'
+
+    private ?string $lastConversionError = null;
+
+    /* ──────────────────── image URL ──────────────────── */
+
+    public function currentImageUrl(): ?string
+    {
+        if (! $this->isEnabled()) {
+            return null;
+        }
+
+        return $this->rawImageUrl();
+    }
+
+    public function rawImageUrl(): ?string
+    {
+        $path = SystemSetting::getValue(self::SETTING_PATH);
+
+        if (! $path || ! Storage::disk('public')->exists($path)) {
+            return null;
+        }
+
+        $url = '/storage/'.ltrim($path, '/');
+
+        try {
+            $version = Storage::disk('public')->lastModified($path);
+        } catch (\Throwable) {
+            return $url;
+        }
+
+        return $url.'?v='.$version;
+    }
+
+    /* ──────────────────── enabled ──────────────────── */
+
+    public function isEnabled(): bool
+    {
+        return SystemSetting::getValue(self::SETTING_ENABLED, '0') === '1';
+    }
+
+    public function setEnabled(bool $enabled): void
+    {
+        SystemSetting::putValue(self::SETTING_ENABLED, $enabled ? '1' : '0');
+    }
+
+    public function hasTemplate(): bool
+    {
+        $path = SystemSetting::getValue(self::SETTING_PATH);
+
+        return (bool) ($path && Storage::disk('public')->exists($path));
+    }
+
+    /* ──────────────────── scale ──────────────────── */
+
+    public function currentScale(bool $allowRequestOverride = true): float
+    {
+        if ($allowRequestOverride) {
+            $v = request()->query('bg_scale');
+            if ($v !== null && is_numeric($v)) {
+                $s = (float) $v;
+                if ($s >= 0.3 && $s <= 2.0) return round($s, 2);
+            }
+        }
+
+        $s = (float) SystemSetting::getValue(self::SETTING_SCALE, '1.00');
+
+        return ($s >= 0.3 && $s <= 2.0) ? round($s, 2) : 1.0;
+    }
+
+    public function setScale(float $scale): void
+    {
+        SystemSetting::putValue(self::SETTING_SCALE, number_format(max(0.3, min(2.0, $scale)), 2));
+    }
+
+    /* ──────────────────── paper size ──────────────────── */
+
+    public function currentPaperSize(bool $allowRequestOverride = true): string
+    {
+        if ($allowRequestOverride) {
+            $v = request()->query('bg_paper_size');
+            if (in_array($v, ['a4', 'a5'], true)) return $v;
+        }
+
+        $val = SystemSetting::getValue(self::SETTING_PAPER_SIZE, 'a4');
+
+        return in_array($val, ['a4', 'a5'], true) ? $val : 'a4';
+    }
+
+    public function setPaperSize(string $size): void
+    {
+        SystemSetting::putValue(self::SETTING_PAPER_SIZE, in_array($size, ['a4', 'a5'], true) ? $size : 'a4');
+    }
+
+    /* ──────────────────── content top ──────────────────── */
+
+    public function currentContentTop(bool $allowRequestOverride = true): float
+    {
+        if ($allowRequestOverride) {
+            $v = request()->query('bg_content_top');
+            if ($v !== null && is_numeric($v)) {
+                $mm = (float) $v;
+                if ($mm >= 0 && $mm <= 200) return round($mm, 1);
+            }
+        }
+
+        return max(0.0, min(200.0, (float) SystemSetting::getValue(self::SETTING_CONTENT_TOP, '0')));
+    }
+
+    public function setContentTop(float $mm): void
+    {
+        SystemSetting::putValue(self::SETTING_CONTENT_TOP, number_format(max(0.0, min(200.0, $mm)), 1));
+    }
+
+    /* ──────────────────── content bottom ──────────────────── */
+
+    public function currentContentBottom(bool $allowRequestOverride = true): float
+    {
+        if ($allowRequestOverride) {
+            $v = request()->query('bg_content_bottom');
+            if ($v !== null && is_numeric($v)) {
+                $mm = (float) $v;
+                if ($mm >= 0 && $mm <= 200) return round($mm, 1);
+            }
+        }
+
+        return max(0.0, min(200.0, (float) SystemSetting::getValue(self::SETTING_CONTENT_BOTTOM, '0')));
+    }
+
+    public function setContentBottom(float $mm): void
+    {
+        SystemSetting::putValue(self::SETTING_CONTENT_BOTTOM, number_format(max(0.0, min(200.0, $mm)), 1));
+    }
+
+    /* ──────────────────── content width ──────────────────── */
+
+    public function currentContentWidth(bool $allowRequestOverride = true): float
+    {
+        if ($allowRequestOverride) {
+            $v = request()->query('bg_content_width');
+            if ($v !== null && is_numeric($v)) {
+                $pct = (float) $v;
+                if ($pct >= 50 && $pct <= 100) return round($pct, 1);
+            }
+        }
+
+        $val = (float) SystemSetting::getValue(self::SETTING_CONTENT_WIDTH, '100');
+
+        return ($val >= 50 && $val <= 100) ? round($val, 1) : 100.0;
+    }
+
+    public function setContentWidth(float $pct): void
+    {
+        SystemSetting::putValue(self::SETTING_CONTENT_WIDTH, number_format(max(50.0, min(100.0, $pct)), 1));
+    }
+
+    /* ──────────────────── offset X ──────────────────── */
+
+    public function currentOffsetX(bool $allowRequestOverride = true): float
+    {
+        if ($allowRequestOverride) {
+            $v = request()->query('bg_offset_x');
+            if ($v !== null && is_numeric($v)) {
+                $pct = (float) $v;
+                if ($pct >= -50 && $pct <= 50) return round($pct, 1);
+            }
+        }
+
+        return max(-50.0, min(50.0, (float) SystemSetting::getValue(self::SETTING_OFFSET_X, '0')));
+    }
+
+    public function setOffsetX(float $pct): void
+    {
+        SystemSetting::putValue(self::SETTING_OFFSET_X, number_format(max(-50.0, min(50.0, $pct)), 1));
+    }
+
+    /* ──────────────────── offset Y ──────────────────── */
+
+    public function currentOffsetY(): float
+    {
+        return max(-50.0, min(50.0, (float) SystemSetting::getValue(self::SETTING_OFFSET_Y, '0')));
+    }
+
+    public function setOffsetY(float $pct): void
+    {
+        SystemSetting::putValue(self::SETTING_OFFSET_Y, number_format(max(-50.0, min(50.0, $pct)), 1));
+    }
+
+    /* ──────────────────── hide header ──────────────────── */
+
+    public function isHideHeader(bool $allowRequestOverride = true): bool
+    {
+        if ($allowRequestOverride) {
+            $v = request()->query('bg_hide_header');
+            if ($v !== null) return $v === '1';
+        }
+
+        return SystemSetting::getValue(self::SETTING_HIDE_HEADER, '0') === '1';
+    }
+
+    public function setHideHeader(bool $hide): void
+    {
+        SystemSetting::putValue(self::SETTING_HIDE_HEADER, $hide ? '1' : '0');
+    }
+
+    /* ──────────────────── upload / delete ──────────────────── */
+
+    /**
+     * @throws \RuntimeException
+     */
+    public function upload(UploadedFile $file): void
+    {
+        $extension = strtolower((string) $file->getClientOriginalExtension());
+        $isPdf = $extension === 'pdf';
+
+        $oldPath = SystemSetting::getValue(self::SETTING_PATH);
+
+        if ($isPdf) {
+            $imagePath = $this->convertPdfToImage($file);
+
+            if ($imagePath === null) {
+                throw new \RuntimeException(
+                    $this->lastConversionError
+                        ?: 'تعذر تحويل ملف PDF إلى صورة. تأكد من تثبيت Imagick وGhostscript على الخادم، أو ارفع الملف بصيغة صورة (PNG/JPG).'
+                );
+            }
+
+            SystemSetting::putValue(self::SETTING_PATH, $imagePath);
+        } else {
+            $newPath = (string) $file->store('invoice-backgrounds', 'public');
+            SystemSetting::putValue(self::SETTING_PATH, $newPath);
+        }
+
+        if ($oldPath && $oldPath !== SystemSetting::getValue(self::SETTING_PATH) && Storage::disk('public')->exists($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        SystemSetting::putValue(self::SETTING_ENABLED, '1');
+
+        if (! $oldPath) {
+            SystemSetting::putValue(self::SETTING_HIDE_HEADER,    '1');
+            SystemSetting::putValue(self::SETTING_CONTENT_TOP,    '50.0');
+            SystemSetting::putValue(self::SETTING_CONTENT_BOTTOM, '20.0');
+            SystemSetting::putValue(self::SETTING_CONTENT_WIDTH,  '100.0');
+        }
+    }
+
+    public function delete(): void
+    {
+        $path = SystemSetting::getValue(self::SETTING_PATH);
+
+        if ($path && Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
+
+        SystemSetting::putValue(self::SETTING_PATH, '');
+        SystemSetting::putValue(self::SETTING_ENABLED, '0');
+    }
+
+    /* ──────────────────── private helpers ──────────────────── */
+
+    private function convertPdfToImage(UploadedFile $file): ?string
+    {
+        $this->lastConversionError = null;
+
+        if (! class_exists('\\Imagick')) {
+            $this->lastConversionError = 'تعذر تحويل ملف PDF إلى صورة لأن امتداد Imagick غير مثبت على الخادم.';
+
+            return null;
+        }
+
+        if (! $this->commandExists('gs')) {
+            $this->lastConversionError = 'تعذر تحويل ملف PDF إلى صورة لأن Ghostscript غير مثبت على الخادم. ثبّت Ghostscript أو ارفع الملف بصيغة PNG/JPG.';
+
+            return null;
+        }
+
+        try {
+            $imagick = new \Imagick();
+            $imagick->setResolution(150, 150);
+            $imagick->readImage($file->getRealPath().'[0]');
+            $imagick->setImageFormat('png');
+            $imagick->setImageBackgroundColor('white');
+            $image = $imagick->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
+            $image->setImageFormat('png');
+
+            Storage::disk('public')->makeDirectory('invoice-backgrounds');
+            $filename = 'invoice-backgrounds/'.uniqid('bg_').'.png';
+            $fullPath = Storage::disk('public')->path($filename);
+
+            $image->writeImage($fullPath);
+            $image->clear();
+            $image->destroy();
+            $imagick->clear();
+            $imagick->destroy();
+
+            return $filename;
+        } catch (\Throwable $e) {
+            $this->lastConversionError = 'تعذر تحويل ملف PDF إلى صورة. التفاصيل: '.$e->getMessage();
+
+            return null;
+        }
+    }
+
+    private function commandExists(string $command): bool
+    {
+        if (! function_exists('shell_exec')) {
+            return true;
+        }
+
+        $escaped = escapeshellarg($command);
+        $result = trim((string) shell_exec("command -v {$escaped} 2>/dev/null"));
+
+        return $result !== '';
+    }
+}

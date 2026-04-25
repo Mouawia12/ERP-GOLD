@@ -82,6 +82,18 @@
         $whatsappUrl = ! empty($invoice->client_phone)
             ? route('send.invoice.whatsapp', $invoice->id)
             : null;
+        $bgService  = app(\App\Services\Invoices\InvoiceBackgroundService::class);
+        $bgImageUrl = $bgService->currentImageUrl();
+        $bgScale      = $bgService->currentScale();
+        $bgOffsetX    = $bgService->currentOffsetX();
+        $bgContentTop    = $bgService->currentContentTop();
+        $bgContentBottom = $bgService->currentContentBottom();
+        $bgHideHeader    = $bgService->isHideHeader();
+        $bgContentWidth  = $bgService->currentContentWidth();
+        if ($bgHideHeader && $bgImageUrl) {
+            $showHeader = false;
+            $showFooter = false;
+        }
     @endphp
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -372,6 +384,7 @@
     data-show-footer="{{ $showFooter ? '1' : '0' }}"
     class="invoice-print-format-a4 invoice-template-{{ $printTemplate }}"
 >
+@include('admin.invoices.partials.print_background', compact('bgImageUrl', 'bgScale', 'bgOffsetX', 'bgContentTop', 'bgContentBottom', 'bgContentWidth', 'bgHideHeader'))
     <div class="page">
         <div class="page-content">
             @if($showHeader)
@@ -583,6 +596,6 @@
         @endif
     </div>
 
-    @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice'))
+    @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice', 'bgImageUrl', 'bgScale'))
 </body>
 </html>

@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\BankAccountController;
 use App\Http\Controllers\Admin\CaratController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CustomerController;
+use App\Http\Controllers\Admin\CustomerReportController;
 use App\Http\Controllers\Admin\CurrentBranchController;
 use App\Http\Controllers\Admin\FinancialVoucherController;
 use App\Http\Controllers\Admin\HomeController;
@@ -81,15 +82,15 @@ Route::group(
                 Route::middleware('ops.only')->group(function () {
                     Route::get('/categories', [CategoryController::class, 'index'])->name('categories');
                     Route::post('/storeCategory', [CategoryController::class, 'store'])->name('storeCategory');
-                    Route::get('/deleteCategory/{id}', [CategoryController::class, 'destroy'])->name('deleteCategory');
+                    Route::delete('/deleteCategory/{id}', [CategoryController::class, 'destroy'])->name('deleteCategory');
                     Route::get('/getCategory/{id}', [CategoryController::class, 'show'])->name('getCategory');
 
                     Route::get('/customers/{type}', [CustomerController::class, 'index'])->name('customers');
                     Route::get('/customers/cash/{type}', [CustomerController::class, 'cashDirectory'])->name('customers.cash');
                     Route::get('/customers/reports/{type}', [CustomerController::class, 'reportDirectory'])->name('customers.reports.index');
                     Route::get('/customers/reports/{type}/cash', [CustomerController::class, 'cashReportDirectory'])->name('customers.reports.cash');
-                    Route::get('/customers/report/{id}', [CustomerController::class, 'report'])->name('customers.report');
-                    Route::get('/customers/report/{id}/cash', [CustomerController::class, 'cashReport'])->name('customers.report.cash');
+                    Route::get('/customers/report/{id}', [CustomerReportController::class, 'report'])->name('customers.report');
+                    Route::get('/customers/report/{id}/cash', [CustomerReportController::class, 'cashReport'])->name('customers.report.cash');
                     Route::post('customers/store/{type}', [CustomerController::class, 'store'])->name('customers.store');
                     Route::post('customers/quick-store/{type}', [CustomerController::class, 'quickStore'])->name('customers.quick-store');
                     Route::post('/customers/delete/{id}', [CustomerController::class, 'destroy'])->name('customers.delete');
@@ -154,7 +155,7 @@ Route::group(
                     Route::get('/items/create', [ItemController::class, 'create'])->name('items.create');
                     Route::get('/items/edit/{id}', [ItemController::class, 'edit'])->name('items.edit');
                     Route::post('/items/store', [ItemController::class, 'store'])->name('items.store');
-                    Route::get('/items/delete/{id}', [ItemController::class, 'destroy'])->name('items.delete');
+                    Route::delete('/items/delete/{id}', [ItemController::class, 'destroy'])->name('items.delete');
                     Route::get('/items/get/{id}', [ItemController::class, 'show'])->name('items.get');
                     Route::get('/items/get_code', [ItemController::class, 'getItemCode'])->name('items.get_code');
                     Route::get('/items/lost-barcodes', [ItemController::class, 'lost_barcodes'])->name('items.lost_barcodes');
@@ -170,7 +171,7 @@ Route::group(
                     Route::get('/accounts', [AccountsController::class, 'index'])->name('accounts.index');
                     Route::get('/accounts/create', [AccountsController::class, 'create'])->name('accounts.create');
                     Route::post('/accounts/store', [AccountsController::class, 'store'])->name('accounts.store');
-                    Route::get('/accounts/delete/{id}', [AccountsController::class, 'destroy'])->name('accounts.delete');
+                    Route::delete('/accounts/delete/{id}', [AccountsController::class, 'destroy'])->name('accounts.delete');
 
                     Route::post('/accounts/excepted_code', [AccountsController::class, 'excepted_code'])->name('accounts.excepted_code');
                     Route::post('/accounts/search', [AccountsController::class, 'search'])->name('accounts.search');
@@ -184,13 +185,13 @@ Route::group(
                     Route::post('/accounts/settings/create', [AccountSettingController::class, 'store'])->name('accounts.settings.store');
                     Route::get('/accounts/settings/edit/{id}', [AccountSettingController::class, 'edit'])->name('accounts.settings.edit');
                     Route::post('/accounts/settings/edit/{id}', [AccountSettingController::class, 'update'])->name('accounts.settings.update');
-                    Route::get('/accounts/settings/delete/{id}', [AccountSettingController::class, 'destroy'])->name('accounts.settings.destroy');
+                    Route::delete('/accounts/settings/delete/{id}', [AccountSettingController::class, 'destroy'])->name('accounts.settings.destroy');
 
                     Route::get('/accounts/journals/{type}', [JournalEntryController::class, 'journals'])->name('accounts.journals.index');
                     Route::get('/accounts/journals/preview/{id}', [JournalEntryController::class, 'preview_journal'])->name('accounts.journals.preview');
                     Route::get('/accounts/journals/form/create', [JournalEntryController::class, 'create'])->name('accounts.journals.create');
                     Route::post('/accounts/journals/form/store', [JournalEntryController::class, 'store'])->name('accounts.journals.store');
-                    Route::get('/accounts/journals/delete/{id}', [JournalEntryController::class, 'delete'])->name('accounts.journals.delete');
+                    Route::delete('/accounts/journals/delete/{id}', [JournalEntryController::class, 'delete'])->name('accounts.journals.delete');
 
                     Route::get('/reports/trail_balance', [AccountingReportsController::class, 'trail_balance'])->name('trail_balance.index');
                     Route::post('/reports/trail_balance', [AccountingReportsController::class, 'trail_balance_search'])->name('trail_balance.search');
@@ -309,6 +310,16 @@ Route::group(
                         ->name('admin.system-settings.invoice-print.edit');
                     Route::patch('system-settings/invoice-print', [SystemSettingController::class, 'updateInvoicePrint'])
                         ->name('admin.system-settings.invoice-print.update');
+                    Route::get('system-settings/invoice-background', [SystemSettingController::class, 'editInvoiceBackground'])
+                        ->name('admin.system-settings.invoice-background.edit');
+                    Route::post('system-settings/invoice-background/upload', [SystemSettingController::class, 'uploadInvoiceBackground'])
+                        ->name('admin.system-settings.invoice-background.upload');
+                    Route::post('system-settings/invoice-background/scale', [SystemSettingController::class, 'saveInvoiceBackgroundScale'])
+                        ->name('admin.system-settings.invoice-background.scale');
+                    Route::patch('system-settings/invoice-background/toggle', [SystemSettingController::class, 'toggleInvoiceBackground'])
+                        ->name('admin.system-settings.invoice-background.toggle');
+                    Route::delete('system-settings/invoice-background', [SystemSettingController::class, 'deleteInvoiceBackground'])
+                        ->name('admin.system-settings.invoice-background.delete');
                     Route::get('system-settings/branding', [SystemSettingController::class, 'editBranding'])
                         ->name('admin.system-settings.branding.edit');
                     Route::patch('system-settings/branding', [SystemSettingController::class, 'updateBranding'])

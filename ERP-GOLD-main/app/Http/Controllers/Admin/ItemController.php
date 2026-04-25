@@ -49,7 +49,7 @@ class ItemController extends Controller
             return Datatables::of($data)
                 ->addIndexColumn()
                 ->editColumn('title', function ($row) {
-                    return $row->getTranslation('title', 'ar');
+                    return $this->localizedAttribute($row, 'title');
                 })
                 ->addColumn('status', function ($row) {
                     $row->status ? $span = 'متاح' : $span = 'غير متاح';
@@ -59,13 +59,13 @@ class ItemController extends Controller
                     return $row->inventory_classification_label;
                 })
                 ->addColumn('category', function ($row) {
-                    return $row->category->title ?? '-';
+                    return $this->localizedAttribute($row->category, 'title');
                 })
                 ->addColumn('gold_carat', function ($row) {
-                    return $row->goldCarat->title ?? '-';
+                    return $this->localizedAttribute($row->goldCarat, 'title');
                 })
                 ->addColumn('gold_carat_type', function ($row) {
-                    return $row->goldCaratType->title ?? '-';
+                    return $this->localizedAttribute($row->goldCaratType, 'title');
                 })
                 ->addColumn('weight', function ($row) {
                     return $row->defaultUnit->weight ?? '-';
@@ -887,6 +887,49 @@ class ItemController extends Controller
                 'print_url' => route('items.units.print_barcode', $unit->id, false),
             ];
         })->values()->all();
+    }
+
+    private function localizedAttribute($model, string $attribute): string
+    {
+        if (! $model) {
+            return '-';
+        }
+
+        if (method_exists($model, 'getTranslation')) {
+            $translated = $model->getTranslation($attribute, app()->getLocale());
+            $normalized = $this->localizedValue($translated);
+
+            if ($normalized !== '-') {
+                return $normalized;
+            }
+        }
+
+        return $this->localizedValue($model->{$attribute} ?? null);
+    }
+
+    private function localizedValue($value): string
+    {
+        if (is_array($value)) {
+            $locale = app()->getLocale();
+            $value = $value[$locale] ?? $value['ar'] ?? $value['en'] ?? reset($value);
+        }
+
+        if (is_string($value)) {
+            $trimmed = trim($value);
+            $decoded = json_decode($trimmed, true);
+
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                return $this->localizedValue($decoded);
+            }
+
+            return $trimmed !== '' ? $trimmed : '-';
+        }
+
+        if ($value === null) {
+            return '-';
+        }
+
+        return (string) $value;
     }
 
     private function syncPublishedBranches(Item $item, Request $request, int $ownerBranchId, ?int $publisherUserId = null): void

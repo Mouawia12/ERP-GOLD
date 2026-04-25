@@ -111,6 +111,61 @@
         background: #16a34a;
     }
 
+    .print-control-range {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 120px;
+        height: 6px;
+        border-radius: 4px;
+        background: #4b5563;
+        outline: none;
+        cursor: pointer;
+    }
+
+    .print-control-range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #0ea5e9;
+        cursor: pointer;
+    }
+
+    .print-control-range::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #0ea5e9;
+        cursor: pointer;
+        border: 0;
+    }
+
+    .bg-scale-value {
+        font-size: 12px;
+        color: #e5e7eb;
+        text-align: center;
+        font-weight: 700;
+    }
+
+    .print-control-save-scale {
+        height: 28px;
+        border: 0;
+        border-radius: 8px;
+        padding: 0 10px;
+        font-family: 'Almarai', sans-serif !important;
+        font-size: 11px;
+        font-weight: 700;
+        background: #4b5563;
+        color: #fff !important;
+        cursor: pointer;
+        margin-top: 2px;
+    }
+
+    .print-control-save-scale:hover {
+        background: #374151;
+    }
+
     @media print {
         .no-print,
         .print-preview-notice,
@@ -147,6 +202,26 @@
                 @endforeach
             </select>
         </div>
+    @endif
+
+    @if(! empty($bgImageUrl))
+    <div class="print-control-group" style="min-width: 140px;">
+        <label class="print-control-label">
+            حجم الخلفية &nbsp;<span id="bg-scale-display">{{ round(($bgScale ?? 1) * 100) }}%</span>
+        </label>
+        <input
+            type="range"
+            id="bg-scale-slider"
+            class="print-control-range"
+            min="0.3"
+            max="2"
+            step="0.05"
+            value="{{ $bgScale ?? 1 }}"
+        >
+        <button type="button" id="bg-scale-save" class="print-control-save-scale">
+            حفظ كافتراضي
+        </button>
+    </div>
     @endif
 
     <button type="button" id="print-now-button" class="print-control-button">طباعة</button>
@@ -208,6 +283,42 @@
             printButton.addEventListener('click', function () {
                 setPrintMode(true);
                 window.print();
+            });
+        }
+
+        var bgScaleSlider = document.getElementById('bg-scale-slider');
+        var bgScaleDisplay = document.getElementById('bg-scale-display');
+        var bgScaleSave = document.getElementById('bg-scale-save');
+
+        if (bgScaleSlider) {
+            bgScaleSlider.addEventListener('input', function () {
+                document.documentElement.style.setProperty('--invoice-bg-scale', this.value);
+                if (bgScaleDisplay) {
+                    bgScaleDisplay.textContent = Math.round(this.value * 100) + '%';
+                }
+                var url = new URL(window.location.href);
+                url.searchParams.set('bg_scale', this.value);
+                window.history.replaceState({}, '', url.toString());
+            });
+        }
+
+        if (bgScaleSave) {
+            bgScaleSave.addEventListener('click', function () {
+                var scale = bgScaleSlider ? bgScaleSlider.value : '1';
+                fetch('{{ route("admin.system-settings.invoice-background.scale") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    },
+                    body: JSON.stringify({ scale: scale }),
+                }).then(function () {
+                    bgScaleSave.textContent = 'تم الحفظ ✓';
+                    setTimeout(function () { bgScaleSave.textContent = 'حفظ كافتراضي'; }, 2000);
+                }).catch(function () {
+                    bgScaleSave.textContent = 'فشل الحفظ';
+                    setTimeout(function () { bgScaleSave.textContent = 'حفظ كافتراضي'; }, 2000);
+                });
             });
         }
     })();

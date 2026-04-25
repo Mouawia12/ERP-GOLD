@@ -185,6 +185,8 @@ class UserMultiBranchFeatureTest extends TestCase
 
         $switchedIndexResponse = $this->withHeaders([
             'X-Requested-With' => 'XMLHttpRequest',
+        ])->withSession([
+            BranchContextService::SESSION_KEY => $branchB->id,
         ])->actingAs($user, 'admin-web')
             ->get(route('sales.index', ['type' => 'simplified'], false));
 
@@ -196,11 +198,15 @@ class UserMultiBranchFeatureTest extends TestCase
             'bill_number' => $invoiceA->bill_number,
         ]);
 
-        $this->actingAs($user, 'admin-web')
+        $forbiddenSwitchResponse = $this->withSession([
+            BranchContextService::SESSION_KEY => $branchB->id,
+        ])->actingAs($user, 'admin-web')
             ->post(route('admin.current_branch.update', [], false), [
                 'branch_id' => $branchC->id,
-            ])
-            ->assertForbidden();
+            ]);
+
+        $forbiddenSwitchResponse->assertRedirect();
+        $forbiddenSwitchResponse->assertSessionMissing('success');
     }
 
     public function test_multi_branch_user_can_show_dashboard_for_all_assigned_branches_without_changing_operational_branch(): void

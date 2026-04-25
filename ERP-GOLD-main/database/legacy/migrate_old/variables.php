@@ -1,10 +1,6 @@
 <?php
-namespace App\Services\MigrateOld;
 
-class Variables
-{
-  public static function getArray($var)
-  {
+return (function (string $var): array {
     /* `gold-rawayie`.`accounts_trees` */
     $accounts_trees = array(
       array('id' => '1', 'name' => 'الأصول', 'code' => '1', 'type' => '0', 'parent_id' => '0', 'parent_code' => '', 'level' => '1', 'list' => '1', 'department' => '1', 'side' => '1', 'created_at' => NULL, 'updated_at' => '2023-09-27 17:34:28'),
@@ -3705,6 +3701,5 @@ class Variables
       array('id' => '831', 'branch_id' => '1', 'date' => '2025-08-14 20:09:00', 'basedon_no' => 'ME-1-000348', 'basedon_id' => '348', 'baseon_text' => 'مستند قبض', 'total_credit' => '0', 'total_debit' => '0', 'notes' => '', 'created_at' => NULL, 'updated_at' => NULL),
       array('id' => '832', 'branch_id' => '1', 'date' => '2025-08-14 17:10:03', 'basedon_no' => 'SWSI-1-000316', 'basedon_id' => '326', 'baseon_text' => 'بيع ذهب مشغول ', 'total_credit' => '0', 'total_debit' => '0', 'notes' => '', 'created_at' => NULL, 'updated_at' => NULL)
     );
-    return ${$var};
-  }
-}
+    return $$var;
+})($var);

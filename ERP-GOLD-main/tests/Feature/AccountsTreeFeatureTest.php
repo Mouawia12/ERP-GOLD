@@ -174,7 +174,7 @@ class AccountsTreeFeatureTest extends TestCase
 
         $blockedResponse = $this
             ->actingAs($admin, 'admin-web')
-            ->get(route('accounts.delete', $parentId, false));
+            ->delete(route('accounts.delete', $parentId, false));
 
         $blockedResponse->assertRedirect(route('accounts.index', [], false));
         $blockedResponse->assertSessionHas('error');
@@ -187,7 +187,7 @@ class AccountsTreeFeatureTest extends TestCase
 
         $deletedResponse = $this
             ->actingAs($admin, 'admin-web')
-            ->get(route('accounts.delete', $leafId, false));
+            ->delete(route('accounts.delete', $leafId, false));
 
         $deletedResponse->assertRedirect(route('accounts.index', [], false));
         $deletedResponse->assertSessionHas('success');

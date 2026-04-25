@@ -13,14 +13,14 @@ class JournalsMove
 {
     public static function move()
     {
-        $journals = collect(Variables::getArray('journals'))->where('basedon_no', '')->toArray();
+        $journals = collect(LegacyMigrationData::getArray('journals'))->where('basedon_no', '')->toArray();
         foreach ($journals as $journal) {
             $journal_entry = JournalEntry::create([
                 'journal_date' => $journal['date'],
                 'financial_year' => FinancialYear::where('is_active', true)->first()->id,
                 'branch_id' => $journal['branch_id'],
             ]);
-            $journalDocuments = collect(Variables::getArray('journal_details'))->where('journal_id', $journal['id'])->toArray();
+            $journalDocuments = collect(LegacyMigrationData::getArray('journal_details'))->where('journal_id', $journal['id'])->toArray();
             $lines = [];
             foreach ($journalDocuments ?? [] as $journalDocument) {
                 $account = Account::where('old_id', $journalDocument['account_id'])->first();

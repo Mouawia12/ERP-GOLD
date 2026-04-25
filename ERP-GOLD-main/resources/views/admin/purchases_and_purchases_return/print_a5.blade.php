@@ -61,6 +61,18 @@
             ? route('send.invoice.whatsapp', $invoice->id)
             : null;
         $branchAddressAr = $branch->short_address ?: $branch->full_address ?: '---';
+        $bgService  = app(\App\Services\Invoices\InvoiceBackgroundService::class);
+        $bgImageUrl = $bgService->currentImageUrl();
+        $bgScale      = $bgService->currentScale();
+        $bgOffsetX    = $bgService->currentOffsetX();
+        $bgContentTop    = $bgService->currentContentTop();
+        $bgContentBottom = $bgService->currentContentBottom();
+        $bgHideHeader    = $bgService->isHideHeader();
+        $bgContentWidth  = $bgService->currentContentWidth();
+        if ($bgHideHeader && $bgImageUrl) {
+            $showHeader = false;
+            $showFooter = false;
+        }
     @endphp
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -75,6 +87,7 @@
     data-paper-orientation="{{ $printOrientation }}"
     class="invoice-print-format-a5 invoice-template-{{ $printTemplate }} invoice-orientation-{{ $printOrientation }}{{ $compactStandalonePrint ? ' invoice-paper-ready' : '' }}"
 >
+@include('admin.invoices.partials.print_background', compact('bgImageUrl', 'bgScale', 'bgOffsetX', 'bgContentTop', 'bgContentBottom', 'bgContentWidth', 'bgHideHeader'))
     <div class="page">
         <div class="page-content">
             <div class="invoice-shell">
@@ -336,6 +349,6 @@
     </div>
     @endforeach
 
-    @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice'))
+    @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice', 'bgImageUrl', 'bgScale'))
 </body>
 </html>

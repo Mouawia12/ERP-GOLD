@@ -222,6 +222,62 @@ class ItemBranchPublicationFeatureTest extends TestCase
         $this->assertStringContainsString($scrapItem->units->first()->barcode, $scrapPayload[0]['item_name_without_break']);
     }
 
+    public function test_items_index_ajax_localizes_translated_columns(): void
+    {
+        app()->setLocale('ar');
+
+        $ownerBranch = $this->createBranch('فرع الأصناف');
+        $admin = $this->createAdminUser([
+            'employee.items.add',
+            'employee.items.show',
+        ], $ownerBranch, [$ownerBranch]);
+        [$categoryId, $caratId, $caratTypeId] = $this->createCatalogLookups();
+
+        DB::table('gold_carat_types')
+            ->where('id', $caratTypeId)
+            ->update([
+                'title' => json_encode(['ar' => 'مشغول', 'en' => 'Crafted'], JSON_UNESCAPED_UNICODE),
+            ]);
+
+        $this->actingAs($admin, 'admin-web')
+            ->post(route('items.store', [], false), [
+                'branch_id' => $ownerBranch->id,
+                'published_branch_ids' => [$ownerBranch->id],
+                'inventory_classification' => Item::CLASSIFICATION_GOLD,
+                'sale_mode' => Item::SALE_MODE_SINGLE,
+                'item_type' => $caratTypeId,
+                'carats_id' => $caratId,
+                'name_ar' => 'خاتم عربي',
+                'name_en' => 'Arabic Ring',
+                'category_id' => $categoryId,
+                'weight' => 2,
+                'cost_per_gram' => 350,
+                'labor_cost_per_gram' => 15,
+                'profit_margin_per_gram' => 20,
+            ], [
+                'Accept' => 'application/json',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', true);
+
+        $response = $this
+            ->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])
+            ->actingAs($admin, 'admin-web')
+            ->get(route('items.index', [], false));
+
+        $response->assertOk();
+        $payload = $response->json('data.0');
+
+        $this->assertSame('خاتم عربي', $payload['title']);
+        $this->assertSame('مجوهرات', $payload['category']);
+        $this->assertSame('مشغول', $payload['gold_carat_type']);
+        $this->assertSame('عيار 21', $payload['gold_carat']);
+        $this->assertStringNotContainsString('{"', $payload['title']);
+        $this->assertStringNotContainsString('{"', $payload['category']);
+        $this->assertStringNotContainsString('{"', $payload['gold_carat_type']);
+        $this->assertStringNotContainsString('{"', $payload['gold_carat']);
+    }
+
     private function createBranch(string $name): Branch
     {
         return Branch::create([

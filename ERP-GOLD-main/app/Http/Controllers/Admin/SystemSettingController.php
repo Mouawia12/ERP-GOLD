@@ -8,6 +8,7 @@ use App\Models\GoldCaratType;
 use App\Models\Item;
 use App\Services\Auth\LoginModeService;
 use App\Services\Branding\BrandLogoService;
+use App\Services\Invoices\InvoiceBackgroundService;
 use App\Services\Invoices\InvoicePrintSettingsService;
 use App\Services\Invoices\InvoiceTermsService;
 use App\Services\Items\DefaultItemSettingsService;
@@ -28,9 +29,10 @@ class SystemSettingController extends Controller
         private readonly DefaultPurchaseSupplierService $defaultPurchaseSupplierService,
         private readonly SalesShiftModeService $salesShiftModeService,
         private readonly DefaultItemSettingsService $defaultItemSettingsService,
+        private readonly InvoiceBackgroundService $invoiceBackgroundService,
     ) {
-        $this->middleware('permission:employee.system_settings.show', ['only' => ['editLoginMode', 'editSalesShiftMode', 'editDefaultPurchaseSupplier', 'editInvoiceTerms', 'editInvoicePrint', 'editBranding', 'editDefaultItemSettings']]);
-        $this->middleware('permission:employee.system_settings.edit', ['only' => ['updateLoginMode', 'updateSalesShiftMode', 'updateDefaultPurchaseSupplier', 'updateInvoiceTerms', 'updateInvoicePrint', 'updateBranding', 'updateDefaultItemSettings']]);
+        $this->middleware('permission:employee.system_settings.show', ['only' => ['editLoginMode', 'editSalesShiftMode', 'editDefaultPurchaseSupplier', 'editInvoiceTerms', 'editInvoicePrint', 'editBranding', 'editDefaultItemSettings', 'editInvoiceBackground']]);
+        $this->middleware('permission:employee.system_settings.edit', ['only' => ['updateLoginMode', 'updateSalesShiftMode', 'updateDefaultPurchaseSupplier', 'updateInvoiceTerms', 'updateInvoicePrint', 'updateBranding', 'updateDefaultItemSettings', 'uploadInvoiceBackground', 'saveInvoiceBackgroundScale', 'toggleInvoiceBackground', 'deleteInvoiceBackground']]);
     }
 
     public function editLoginMode(): View
@@ -237,5 +239,109 @@ class SystemSettingController extends Controller
         return redirect()
             ->route('admin.system-settings.branding.edit')
             ->with('success', 'تم تحديث الشعار الرئيسي بنجاح.');
+    }
+
+    public function editInvoiceBackground(): View
+    {
+        $sampleInvoice = \App\Models\Invoice::latest()->first();
+
+        $previewUrl = $sampleInvoice
+            ? route('sales.show', $sampleInvoice->id)
+            : null;
+
+        return view('admin.settings.invoice_background', [
+            'hasTemplate'   => $this->invoiceBackgroundService->hasTemplate(),
+            'isEnabled'     => $this->invoiceBackgroundService->isEnabled(),
+            'scale'         => $this->invoiceBackgroundService->currentScale(false),
+            'paperSize'     => $this->invoiceBackgroundService->currentPaperSize(false),
+            'contentTop'    => $this->invoiceBackgroundService->currentContentTop(false),
+            'contentBottom' => $this->invoiceBackgroundService->currentContentBottom(false),
+            'contentWidth'  => $this->invoiceBackgroundService->currentContentWidth(false),
+            'offsetX'       => $this->invoiceBackgroundService->currentOffsetX(false),
+            'hideHeader'    => $this->invoiceBackgroundService->isHideHeader(false),
+            'sampleInvoice' => $sampleInvoice,
+            'previewUrl'    => $previewUrl,
+        ]);
+    }
+
+    public function uploadInvoiceBackground(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'background_file' => 'required|file|mimes:jpeg,jpg,png,webp,pdf|max:10240',
+        ]);
+
+        try {
+            $this->invoiceBackgroundService->upload($request->file('background_file'));
+        } catch (\RuntimeException $e) {
+            return redirect()
+                ->route('admin.system-settings.invoice-background.edit')
+                ->withErrors(['background_file' => $e->getMessage()]);
+        }
+
+        return redirect()
+            ->route('admin.system-settings.invoice-background.edit')
+            ->with('success', 'تم رفع التصميم بنجاح وتفعيله.');
+    }
+
+    public function saveInvoiceBackgroundScale(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $validated = $request->validate([
+            'scale'       => 'required|numeric|min:0.3|max:2.0',
+            'paper_size'  => 'nullable|in:a4,a5',
+            'content_top'    => 'nullable|numeric|min:0|max:200',
+            'content_bottom' => 'nullable|numeric|min:0|max:200',
+            'content_width'  => 'nullable|numeric|min:50|max:100',
+            'hide_header'    => 'nullable|boolean',
+            'offset_x'       => 'nullable|numeric|min:-50|max:50',
+            'offset_y'    => 'nullable|numeric|min:-50|max:50',
+        ]);
+
+        $this->invoiceBackgroundService->setScale((float) $validated['scale']);
+
+        if (isset($validated['paper_size'])) {
+            $this->invoiceBackgroundService->setPaperSize($validated['paper_size']);
+        }
+        if (isset($validated['content_top'])) {
+            $this->invoiceBackgroundService->setContentTop((float) $validated['content_top']);
+        }
+        if (isset($validated['content_bottom'])) {
+            $this->invoiceBackgroundService->setContentBottom((float) $validated['content_bottom']);
+        }
+        if (isset($validated['content_width'])) {
+            $this->invoiceBackgroundService->setContentWidth((float) $validated['content_width']);
+        }
+        if (array_key_exists('hide_header', $validated)) {
+            $this->invoiceBackgroundService->setHideHeader((bool) $validated['hide_header']);
+        }
+        if (isset($validated['offset_x'])) {
+            $this->invoiceBackgroundService->setOffsetX((float) $validated['offset_x']);
+        }
+        if (isset($validated['offset_y'])) {
+            $this->invoiceBackgroundService->setOffsetY((float) $validated['offset_y']);
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function toggleInvoiceBackground(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'enabled' => 'required|boolean',
+        ]);
+
+        $this->invoiceBackgroundService->setEnabled((bool) $validated['enabled']);
+
+        return redirect()
+            ->route('admin.system-settings.invoice-background.edit')
+            ->with('success', (bool) $validated['enabled'] ? 'تم تفعيل خلفية الفاتورة.' : 'تم إيقاف خلفية الفاتورة.');
+    }
+
+    public function deleteInvoiceBackground(): RedirectResponse
+    {
+        $this->invoiceBackgroundService->delete();
+
+        return redirect()
+            ->route('admin.system-settings.invoice-background.edit')
+            ->with('success', 'تم حذف التصميم بنجاح.');
     }
 }

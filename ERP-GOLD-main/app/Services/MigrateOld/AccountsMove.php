@@ -11,7 +11,7 @@ class AccountsMove
 {
     public static function move()
     {
-        $accounts = collect(Variables::getArray('accounts_trees'))->toArray();
+        $accounts = collect(LegacyMigrationData::getArray('accounts_trees'))->toArray();
         usort($accounts, function ($a, $b) {
             if ($a['level'] == $b['level']) {
                 return $a['parent_id'] <=> $b['parent_id'];
