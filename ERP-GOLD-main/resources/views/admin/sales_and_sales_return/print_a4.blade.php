@@ -43,6 +43,18 @@
             $paymentBreakdown[] = ['label' => 'تحويل', 'value' => $invoice->bank_transfer_paid_total];
         }
 
+        foreach (collect($invoice->payment_lines_breakdown ?? [])->filter(fn ($paymentLine) => ! empty($paymentLine['bank_account_name'])) as $paymentLine) {
+            $label = $paymentLine['method_label'].' - '.$paymentLine['bank_account_name'];
+            if (! empty($paymentLine['reference_no'])) {
+                $label .= ' / '.$paymentLine['reference_no'];
+            }
+
+            $paymentBreakdown[] = [
+                'label' => $label,
+                'value' => $paymentLine['amount'],
+            ];
+        }
+
         $caratSummary = [];
         foreach ($invoice->details as $detail) {
             $weightValue = $isSale ? $detail->out_weight : $detail->in_weight;
@@ -558,7 +570,7 @@
 
                     <section class="header-center">
                         <div class="brand-logo-wrap">
-                            <img src="{{ $brandLogoUrl }}" alt="Logo" class="brand-logo">
+                            <img src="{{ $brandLogoUrl }}" alt="Logo" class="brand-logo print-brand-logo">
                         </div>
                         <h1 class="invoice-title">{{ $documentTitle }}</h1>
                         <p class="invoice-title-en">{{ $invoice->sale_type === 'standard' ? 'Tax Invoice' : 'Simplified Tax Invoice' }}</p>

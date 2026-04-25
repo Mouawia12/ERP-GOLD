@@ -39,6 +39,18 @@
             $paymentBreakdown[] = ['label' => 'تحويل', 'value' => $invoice->bank_transfer_paid_total];
         }
 
+        foreach (collect($invoice->payment_lines_breakdown ?? [])->filter(fn ($paymentLine) => ! empty($paymentLine['bank_account_name'])) as $paymentLine) {
+            $label = $paymentLine['method_label'].' - '.$paymentLine['bank_account_name'];
+            if (! empty($paymentLine['reference_no'])) {
+                $label .= ' / '.$paymentLine['reference_no'];
+            }
+
+            $paymentBreakdown[] = [
+                'label' => $label,
+                'value' => $paymentLine['amount'],
+            ];
+        }
+
         $caratSummary = [];
         foreach ($invoice->details as $detail) {
             $weightValue = $isPurchase
@@ -376,7 +388,7 @@
 
                     <section class="header-center">
                         <div class="brand-logo-wrap">
-                            <img src="{{ $brandLogoUrl }}" alt="Logo" class="brand-logo">
+                            <img src="{{ $brandLogoUrl }}" alt="Logo" class="brand-logo print-brand-logo">
                         </div>
                         <h1 class="invoice-title">{{ $documentTitle }}</h1>
                         <p class="invoice-title-en">{{ $isPurchase ? 'Purchase Invoice' : 'Purchase Return Invoice' }}</p>
@@ -555,7 +567,7 @@
 
             @if($showInvoiceTerms)
                 <section class="terms-box">
-                    <div class="terms-box-title">ملاحظات</div>
+                    <div class="terms-box-title">شروط الفاتورة</div>
                     <div class="terms-box-content">{{ $inlineInvoiceTerms }}</div>
                 </section>
             @endif

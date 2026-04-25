@@ -56,9 +56,9 @@ class InvoicePrintSettingsFeatureTest extends TestCase
         $response->assertSee('data-paper-orientation="landscape"', false);
         $response->assertSee('class="invoice-print-format-a5 invoice-template-compact invoice-orientation-landscape invoice-paper-ready"', false);
         $response->assertSee('size: A5 landscape;', false);
-        $response->assertSee('--safe-print-width: 194mm;', false);
-        $response->assertSee('--safe-print-height: 100mm;', false);
-        $response->assertSee('--safe-print-offset-top: 24mm;', false);
+        $response->assertSee('--safe-print-width: 184mm;', false);
+        $response->assertSee('--safe-print-height: 106mm;', false);
+        $response->assertSee('--safe-print-offset-top: 18mm;', false);
         $response->assertSee('id="paper-orientation-select"', false);
         $response->assertSee('body.print-mode-active .print-control-bar.no-print {', false);
         $response->assertSee("window.addEventListener('beforeprint'", false);
@@ -101,8 +101,8 @@ class InvoicePrintSettingsFeatureTest extends TestCase
         $response->assertSee('data-show-header="1"', false);
         $response->assertSee('data-show-footer="1"', false);
         $response->assertDontSee('<style type="text/css" media="screen">', false);
-        $response->assertSee('<header class="print-header-section"', false);
-        $response->assertSee('<div class="row print-footer-section"', false);
+        $response->assertSee('<header class="invoice-header">', false);
+        $response->assertSee('<footer class="page-footer">', false);
     }
 
     public function test_purchases_print_page_uses_a5_template_and_honors_header_and_footer_settings(): void
@@ -139,8 +139,8 @@ class InvoicePrintSettingsFeatureTest extends TestCase
         $response->assertSee('data-show-footer="1"', false);
         $response->assertSee('data-paper-orientation="portrait"', false);
         $response->assertSee('class="invoice-print-format-a5 invoice-template-modern invoice-orientation-portrait"', false);
-        $response->assertSee('<header class="invoice-header">', false);
-        $response->assertSee('<footer class="page-footer">', false);
+        $response->assertSee('<section class="micro-header">', false);
+        $response->assertSee('<footer class="micro-footer">', false);
     }
 
     public function test_sales_print_page_can_temporarily_override_orientation_from_request(): void
