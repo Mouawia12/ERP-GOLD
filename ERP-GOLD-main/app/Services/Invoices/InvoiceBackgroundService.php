@@ -22,6 +22,8 @@ class InvoiceBackgroundService
 
     public const SETTING_CONTENT_WIDTH = 'invoice_bg_content_width'; // %, 50..100
 
+    public const SETTING_CONTENT_SCALE = 'invoice_bg_content_scale'; // 0.5..1.5
+
     public const SETTING_OFFSET_X = 'invoice_bg_offset_x';      // %, -50..50
 
     public const SETTING_OFFSET_Y = 'invoice_bg_offset_y';      // %, -50..50
@@ -238,6 +240,28 @@ class InvoiceBackgroundService
         $this->putSettingValue(self::SETTING_CONTENT_WIDTH, number_format(max(50.0, min(100.0, $pct)), 1));
     }
 
+    public function currentContentScale(bool $allowRequestOverride = true): float
+    {
+        if ($allowRequestOverride) {
+            $v = request()->query('bg_content_scale');
+            if ($v !== null && is_numeric($v)) {
+                $scale = (float) $v;
+                if ($scale >= 0.5 && $scale <= 1.5) {
+                    return round($scale, 2);
+                }
+            }
+        }
+
+        $val = (float) $this->settingValue(self::SETTING_CONTENT_SCALE, '1.00');
+
+        return ($val >= 0.5 && $val <= 1.5) ? round($val, 2) : 1.0;
+    }
+
+    public function setContentScale(float $scale): void
+    {
+        $this->putSettingValue(self::SETTING_CONTENT_SCALE, number_format(max(0.5, min(1.5, $scale)), 2));
+    }
+
     /* ──────────────────── offset X ──────────────────── */
 
     public function currentOffsetX(bool $allowRequestOverride = true): float
@@ -379,6 +403,7 @@ class InvoiceBackgroundService
             $this->putSettingValue(self::SETTING_CONTENT_TOP, '50.0');
             $this->putSettingValue(self::SETTING_CONTENT_BOTTOM, '20.0');
             $this->putSettingValue(self::SETTING_CONTENT_WIDTH, '100.0');
+            $this->putSettingValue(self::SETTING_CONTENT_SCALE, '1.00');
         }
     }
 

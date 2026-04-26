@@ -249,6 +249,11 @@
                 <input type="range" id="s-width" min="50" max="100" step="1" value="{{ $contentWidth }}">
             </div>
 
+            <div class="ctrl">
+                <label>حجم الفاتورة <span id="v-content-scale">{{ round($contentScale * 100) }}%</span></label>
+                <input type="range" id="s-content-scale" min="0.5" max="1.5" step="0.02" value="{{ $contentScale }}">
+            </div>
+
             <div class="ctrl mt-2">
                 <div class="custom-control custom-switch">
                     <input type="checkbox" class="custom-control-input" id="sw-hide-header"
@@ -320,6 +325,7 @@
         top:        {{ $contentTop }},
         bottom:     {{ $contentBottom }},
         width:      {{ $contentWidth }},
+        contentScale: {{ $contentScale }},
         paperSize:  '{{ $paperSize }}',
         paperOrientation: '{{ $paperOrientation }}',
         hideHeader: {{ $hideHeader ? 'true' : 'false' }},
@@ -337,9 +343,12 @@
         u.searchParams.set('bg_content_top',    S.top);
         u.searchParams.set('bg_content_bottom', S.bottom);
         u.searchParams.set('bg_content_width',  S.width);
+        u.searchParams.set('bg_content_scale',  S.contentScale);
         u.searchParams.set('bg_offset_x',       S.offsetX);
         u.searchParams.set('bg_paper_size',     S.paperSize);
         u.searchParams.set('bg_paper_orientation', S.paperOrientation);
+        u.searchParams.set('paper',             S.paperSize);
+        u.searchParams.set('orientation',       S.paperOrientation);
         u.searchParams.set('bg_hide_header',    S.hideHeader ? '1' : '0');
         u.searchParams.set('bg_hide_footer',    S.hideFooter ? '1' : '0');
         return u.toString();
@@ -374,6 +383,7 @@
     wire('s-top',      'top',     function(v){ return v+'mm'; });
     wire('s-bottom',   'bottom',  function(v){ return v+'mm'; });
     wire('s-width',    'width',   function(v){ return v+'%'; });
+    wire('s-content-scale', 'contentScale', function(v){ return Math.round(v*100)+'%'; }, 500);
 
     var swHide = document.getElementById('sw-hide-header');
     if (swHide) {
@@ -422,6 +432,7 @@
                     content_top:    S.top,
                     content_bottom: S.bottom,
                     content_width:  S.width,
+                    content_scale:  S.contentScale,
                     offset_x:       S.offsetX,
                     offset_y:       0,
                     hide_header:    S.hideHeader ? 1 : 0,
@@ -448,12 +459,12 @@
     if (resetBtn) {
         resetBtn.addEventListener('click', function () {
             if (!confirm('إعادة ضبط القيم الافتراضية؟')) return;
-            S.scale = 1; S.offsetX = 0; S.top = 50; S.bottom = 20; S.width = 100; S.hideHeader = true; S.hideFooter = true;
-            ['s-scale','s-offset-x','s-top','s-bottom','s-width'].forEach(function(id) {
+            S.scale = 1; S.offsetX = 0; S.top = 50; S.bottom = 20; S.width = 100; S.contentScale = 1; S.hideHeader = true; S.hideFooter = true;
+            ['s-scale','s-offset-x','s-top','s-bottom','s-width','s-content-scale'].forEach(function(id) {
                 var el = document.getElementById(id);
                 if (!el) return;
                 var key = id.replace('s-','').replace('-','');
-                var map = {'scale':'scale','offsetx':'offsetX','top':'top','bottom':'bottom','width':'width'};
+                var map = {'scale':'scale','offsetx':'offsetX','top':'top','bottom':'bottom','width':'width','contentscale':'contentScale'};
                 if (el) el.value = S[map[key]] !== undefined ? S[map[key]] : el.value;
             });
             document.getElementById('s-scale').value    = S.scale;
@@ -461,6 +472,7 @@
             document.getElementById('s-top').value      = S.top;
             document.getElementById('s-bottom').value   = S.bottom;
             document.getElementById('s-width').value    = S.width;
+            document.getElementById('s-content-scale').value = S.contentScale;
             if (swHide) swHide.checked = S.hideHeader;
             if (swHideFooter) swHideFooter.checked = S.hideFooter;
             document.getElementById('v-scale').textContent   = '100%';
@@ -468,6 +480,7 @@
             document.getElementById('v-top').textContent     = '50mm';
             document.getElementById('v-bottom').textContent  = '20mm';
             document.getElementById('v-width').textContent   = '100%';
+            document.getElementById('v-content-scale').textContent = '100%';
             scheduleReload(200);
         });
     }

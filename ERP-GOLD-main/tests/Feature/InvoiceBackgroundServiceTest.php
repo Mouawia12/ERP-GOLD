@@ -130,6 +130,21 @@ class InvoiceBackgroundServiceTest extends TestCase
         $this->assertSame('1.25', SystemSetting::getValue(InvoiceBackgroundService::SETTING_SCALE));
     }
 
+    public function test_invoice_content_scale_is_clamped_and_stored(): void
+    {
+        $service = app(InvoiceBackgroundService::class);
+
+        $service->setContentScale(1.24);
+        $this->assertSame(1.24, $service->currentContentScale(false));
+        $this->assertSame('1.24', SystemSetting::getValue(InvoiceBackgroundService::SETTING_CONTENT_SCALE));
+
+        $service->setContentScale(2.0);
+        $this->assertSame(1.5, $service->currentContentScale(false));
+
+        $service->setContentScale(0.1);
+        $this->assertSame(0.5, $service->currentContentScale(false));
+    }
+
     private function uploadedFile(string $name, string $content): UploadedFile
     {
         $path = tempnam(sys_get_temp_dir(), 'invoice-bg-');

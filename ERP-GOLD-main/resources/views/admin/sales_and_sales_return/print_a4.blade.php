@@ -103,6 +103,7 @@
         $bgHideHeader    = $bgService->isHideHeader();
         $bgHideFooter    = $bgService->isHideFooter();
         $bgContentWidth  = $bgService->currentContentWidth();
+        $bgContentScale  = $bgService->currentContentScale();
         $bgPaperSize      = $bgService->currentPaperSize();
         $bgPaperOrientation = $bgService->currentPaperOrientation();
         $bgRenderMode     = $bgService->currentRenderMode();
@@ -572,7 +573,7 @@
     data-show-footer="{{ $showFooter ? '1' : '0' }}"
     class="invoice-print-format-a4 invoice-template-{{ $printTemplate }}"
 >
-@include('admin.invoices.partials.print_background', compact('bgImageUrl', 'bgScale', 'bgOffsetX', 'bgContentTop', 'bgContentBottom', 'bgContentWidth', 'bgHideHeader', 'bgHideFooter', 'bgPaperSize', 'bgPaperOrientation', 'bgRenderMode'))
+@include('admin.invoices.partials.print_background', compact('bgImageUrl', 'bgScale', 'bgOffsetX', 'bgContentTop', 'bgContentBottom', 'bgContentWidth', 'bgContentScale', 'bgHideHeader', 'bgHideFooter', 'bgPaperSize', 'bgPaperOrientation', 'bgRenderMode'))
     <div class="page">
         <div class="page-content">
             @if($showHeader)

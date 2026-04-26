@@ -7,6 +7,7 @@
     $bgContentTop    = number_format((float)($bgContentTop    ?? 0.0), 1);
     $bgContentBottom = number_format((float)($bgContentBottom ?? 0.0), 1);
     $bgContentWidth  = number_format(max(50.0, min(100.0, (float)($bgContentWidth ?? 100.0))), 1);
+    $bgContentScale  = number_format(max(0.5, min(1.5, (float)($bgContentScale ?? 1.0))), 2);
     $bgHideHeader    = (bool)($bgHideHeader ?? false);
     $bgHideFooter    = (bool)($bgHideFooter ?? $bgHideHeader);
     $bgService = app(\App\Services\Invoices\InvoiceBackgroundService::class);
@@ -22,13 +23,16 @@
         : 'calc(100% * var(--invoice-bg-scale)) auto';
 @endphp
 @if(! empty($bgImageUrl))
-<style>
+    <style>
     :root {
         --invoice-bg-scale:          {{ $bgScale }};
         --invoice-bg-offset-x:       {{ $bgOffsetX }}%;
         --invoice-bg-content-top:    {{ $bgContentTop }}mm;
         --invoice-bg-content-bottom: {{ $bgContentBottom }}mm;
         --invoice-bg-content-width:  {{ $bgContentWidth }}%;
+        --invoice-bg-content-scale:  {{ $bgContentScale }};
+        --invoice-bg-paper-width:    {{ $paperW }}mm;
+        --invoice-bg-paper-height:   {{ $paperH }}mm;
     }
 
     /* ─────────────────────────────────────────────────────────────────
@@ -43,8 +47,8 @@
         }
 
         body {
-            width:      {{ $paperW }}mm !important;
-            height:     {{ $paperH }}mm !important;
+            width:      var(--invoice-bg-paper-width) !important;
+            height:     var(--invoice-bg-paper-height) !important;
             margin:     28px auto 60px !important;
             padding-top:    var(--invoice-bg-content-top)    !important;
             padding-bottom: var(--invoice-bg-content-bottom) !important;
@@ -77,6 +81,29 @@
             transform-origin: top center !important;
             width:     var(--invoice-bg-content-width) !important;
             max-width: var(--invoice-bg-content-width) !important;
+            min-height: calc(var(--invoice-bg-paper-height) - var(--invoice-bg-content-top) - var(--invoice-bg-content-bottom)) !important;
+        }
+
+        .page-content {
+            zoom: var(--invoice-bg-content-scale) !important;
+        }
+
+        body.invoice-paper-ready {
+            --safe-print-offset-top: 0mm !important;
+            --safe-print-width: 100% !important;
+            --safe-print-height: calc(var(--invoice-bg-paper-height) - var(--invoice-bg-content-top) - var(--invoice-bg-content-bottom)) !important;
+        }
+
+        body.invoice-paper-ready .page-content {
+            margin-top: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: var(--safe-print-height) !important;
+        }
+
+        body.invoice-paper-ready .invoice-shell {
+            width: 100% !important;
+            max-width: 100% !important;
         }
 
         /* faint red line marking the content-bottom boundary */
@@ -110,7 +137,29 @@
             max-width: var(--invoice-bg-content-width) !important;
             transform:  none !important;
             height:     auto !important;
-            min-height: calc({{ $paperH }}mm - var(--invoice-bg-content-top) - var(--invoice-bg-content-bottom)) !important;
+            min-height: calc(var(--invoice-bg-paper-height) - var(--invoice-bg-content-top) - var(--invoice-bg-content-bottom)) !important;
+        }
+
+        .page-content {
+            zoom: var(--invoice-bg-content-scale) !important;
+        }
+
+        body.invoice-paper-ready {
+            --safe-print-offset-top: 0mm !important;
+            --safe-print-width: 100% !important;
+            --safe-print-height: calc(var(--invoice-bg-paper-height) - var(--invoice-bg-content-top) - var(--invoice-bg-content-bottom)) !important;
+        }
+
+        body.invoice-paper-ready .page-content {
+            margin-top: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: var(--safe-print-height) !important;
+        }
+
+        body.invoice-paper-ready .invoice-shell {
+            width: 100% !important;
+            max-width: 100% !important;
         }
     }
 
@@ -122,51 +171,17 @@
     @endif
 </style>
 
-<script>
-(function () {
-    'use strict';
-    if (typeof window === 'undefined') return;
+    <script>
+    (function () {
+        'use strict';
+        if (typeof window === 'undefined') return;
 
-    function fitToPage() {
-        if (window.matchMedia && window.matchMedia('print').matches) return;
-
-        var page = document.querySelector('.page');
-        if (!page) return;
-
-        page.style.transform    = '';
-        page.style.marginBottom = '';
-
-        var body   = document.body;
-        var bodyH  = body.getBoundingClientRect().height;
-        var cs     = getComputedStyle(body);
-        var padTop = parseFloat(cs.paddingTop)    || 0;
-        var padBot = parseFloat(cs.paddingBottom) || 0;
-        var availH = bodyH - padTop - padBot;
-
-        if (availH <= 10) return;
-
-        var pageH = page.scrollHeight;
-        if (pageH <= availH) return;
-
-        var ratio = availH / pageH;
-        page.style.transform    = 'scale(' + ratio + ')';
-        page.style.marginBottom = '-' + Math.ceil(pageH * (1 - ratio)) + 'px';
-    }
-
-    if (document.readyState === 'complete') {
-        fitToPage();
-    } else {
-        window.addEventListener('load', fitToPage);
-    }
-
-    window.addEventListener('beforeprint', function () {
-        var page = document.querySelector('.page');
-        if (!page) return;
-        page.style.transform    = '';
-        page.style.marginBottom = '';
-    });
-
-    window.addEventListener('afterprint', fitToPage);
-})();
-</script>
+        window.addEventListener('beforeprint', function () {
+            var page = document.querySelector('.page');
+            if (!page) return;
+            page.style.transform = '';
+            page.style.marginBottom = '';
+        });
+    })();
+    </script>
 @endif

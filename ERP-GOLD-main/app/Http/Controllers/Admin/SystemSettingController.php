@@ -253,20 +253,29 @@ class SystemSettingController extends Controller
 
         $sampleInvoice = $sampleInvoiceQuery->first();
 
+        $paperSize = $invoiceBackgroundService->currentPaperSize(false);
+        $paperOrientation = $invoiceBackgroundService->currentPaperOrientation(false);
         $previewUrl = $sampleInvoice
-            ? route('sales.show', $sampleInvoice->id)
+            ? route('sales.show', [
+                'id' => $sampleInvoice->id,
+                'paper' => $paperSize,
+                'orientation' => $paperOrientation,
+                'bg_paper_size' => $paperSize,
+                'bg_paper_orientation' => $paperOrientation,
+            ])
             : null;
 
         return view('admin.settings.invoice_background', [
             'hasTemplate' => $invoiceBackgroundService->hasTemplate(),
             'isEnabled' => $invoiceBackgroundService->isEnabled(),
             'scale' => $invoiceBackgroundService->currentScale(false),
-            'paperSize' => $invoiceBackgroundService->currentPaperSize(false),
-            'paperOrientation' => $invoiceBackgroundService->currentPaperOrientation(false),
+            'paperSize' => $paperSize,
+            'paperOrientation' => $paperOrientation,
             'imageInfo' => $invoiceBackgroundService->currentImageInfo(),
             'contentTop' => $invoiceBackgroundService->currentContentTop(false),
             'contentBottom' => $invoiceBackgroundService->currentContentBottom(false),
             'contentWidth' => $invoiceBackgroundService->currentContentWidth(false),
+            'contentScale' => $invoiceBackgroundService->currentContentScale(false),
             'offsetX' => $invoiceBackgroundService->currentOffsetX(false),
             'hideHeader' => $invoiceBackgroundService->isHideHeader(false),
             'hideFooter' => $invoiceBackgroundService->isHideFooter(false),
@@ -305,6 +314,7 @@ class SystemSettingController extends Controller
             'content_top' => 'nullable|numeric|min:0|max:200',
             'content_bottom' => 'nullable|numeric|min:0|max:200',
             'content_width' => 'nullable|numeric|min:50|max:100',
+            'content_scale' => 'nullable|numeric|min:0.5|max:1.5',
             'hide_header' => 'nullable|boolean',
             'hide_footer' => 'nullable|boolean',
             'offset_x' => 'nullable|numeric|min:-50|max:50',
@@ -329,6 +339,9 @@ class SystemSettingController extends Controller
         }
         if (isset($validated['content_width'])) {
             $invoiceBackgroundService->setContentWidth((float) $validated['content_width']);
+        }
+        if (isset($validated['content_scale'])) {
+            $invoiceBackgroundService->setContentScale((float) $validated['content_scale']);
         }
         if (array_key_exists('hide_header', $validated)) {
             $invoiceBackgroundService->setHideHeader((bool) $validated['hide_header']);

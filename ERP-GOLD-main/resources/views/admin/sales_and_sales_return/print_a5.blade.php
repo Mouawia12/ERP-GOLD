@@ -22,8 +22,7 @@
         $printTemplate = $printSettings['template'] ?? 'classic';
         $showHeader = $printSettings['show_header'] ?? true;
         $showFooter = $printSettings['show_footer'] ?? true;
-        $compactStandalonePrint = ! $showHeader && ! $showFooter;
-        $printOrientation = $printSettings['orientation'] ?? ($compactStandalonePrint ? 'landscape' : 'portrait');
+        $printOrientation = $printSettings['orientation'] ?? 'portrait';
         $saleOrderNumber = $invoice->serial ?: '---';
         $paymentTypeLabel = [
             'cash' => 'نقدي',
@@ -96,6 +95,7 @@
         $bgHideHeader    = $bgService->isHideHeader();
         $bgHideFooter    = $bgService->isHideFooter();
         $bgContentWidth  = $bgService->currentContentWidth();
+        $bgContentScale  = $bgService->currentContentScale();
         $bgPaperSize      = $bgService->currentPaperSize();
         $bgPaperOrientation = $bgService->currentPaperOrientation();
         $bgRenderMode     = $bgService->currentRenderMode();
@@ -105,6 +105,7 @@
         if ($bgHideFooter && $bgImageUrl) {
             $showFooter = false;
         }
+        $compactStandalonePrint = ! $showHeader && ! $showFooter;
     @endphp
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -119,7 +120,7 @@
     data-paper-orientation="{{ $printOrientation }}"
     class="invoice-print-format-a5 invoice-template-{{ $printTemplate }} invoice-orientation-{{ $printOrientation }}{{ $compactStandalonePrint ? ' invoice-paper-ready' : '' }}"
 >
-@include('admin.invoices.partials.print_background', compact('bgImageUrl', 'bgScale', 'bgOffsetX', 'bgContentTop', 'bgContentBottom', 'bgContentWidth', 'bgHideHeader', 'bgHideFooter', 'bgPaperSize', 'bgPaperOrientation', 'bgRenderMode'))
+@include('admin.invoices.partials.print_background', compact('bgImageUrl', 'bgScale', 'bgOffsetX', 'bgContentTop', 'bgContentBottom', 'bgContentWidth', 'bgContentScale', 'bgHideHeader', 'bgHideFooter', 'bgPaperSize', 'bgPaperOrientation', 'bgRenderMode'))
     <div class="page">
         <div class="page-content">
             <div class="invoice-shell">
