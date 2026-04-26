@@ -198,9 +198,20 @@
         {{-- حجم الورق --}}
         <div class="bg-section">
             <div class="bg-section-title">حجم ورق التصميم</div>
+            @if(($imageInfo['width'] ?? 0) > 0 && ($imageInfo['height'] ?? 0) > 0)
+                <small class="text-muted d-block mb-2">
+                    الملف: {{ $imageInfo['width'] }}×{{ $imageInfo['height'] }}
+                    · {{ $imageInfo['orientation'] === 'landscape' ? 'أفقي' : 'عمودي' }}
+                    · {{ $imageInfo['mode'] === 'wide_strip' ? 'رأس/تذييل' : ($imageInfo['mode'] === 'partial' ? 'جزئي' : 'صفحة كاملة') }}
+                </small>
+            @endif
             <div class="paper-btn-group">
                 <button class="paper-btn {{ $paperSize==='a4'?'active':'' }}" id="btn-a4" onclick="setPaperSize('a4')">A4 &nbsp;<small>210×297</small></button>
                 <button class="paper-btn {{ $paperSize==='a5'?'active':'' }}" id="btn-a5" onclick="setPaperSize('a5')">A5 &nbsp;<small>148×210</small></button>
+            </div>
+            <div class="paper-btn-group mt-2">
+                <button class="paper-btn {{ $paperOrientation==='portrait'?'active':'' }}" id="btn-portrait" onclick="setPaperOrientation('portrait')">عمودي</button>
+                <button class="paper-btn {{ $paperOrientation==='landscape'?'active':'' }}" id="btn-landscape" onclick="setPaperOrientation('landscape')">أفقي</button>
             </div>
         </div>
 
@@ -243,10 +254,17 @@
                     <input type="checkbox" class="custom-control-input" id="sw-hide-header"
                            {{ $hideHeader ? 'checked' : '' }}>
                     <label class="custom-control-label" for="sw-hide-header">
-                        إخفاء ترويسة وتذييل الفاتورة
+                        إخفاء ترويسة الفاتورة
                     </label>
                 </div>
-                <small class="text-muted d-block mt-1">التصميم يحمل بيانات الشركة — لا حاجة للترويسة المدمجة</small>
+                <div class="custom-control custom-switch mt-2">
+                    <input type="checkbox" class="custom-control-input" id="sw-hide-footer"
+                           {{ $hideFooter ? 'checked' : '' }}>
+                    <label class="custom-control-label" for="sw-hide-footer">
+                        إخفاء تذييل الفاتورة
+                    </label>
+                </div>
+                <small class="text-muted d-block mt-1">عند الطباعة على ورق شركة جاهز يفضل إخفاء الاثنين.</small>
             </div>
         </div>
 
@@ -303,7 +321,9 @@
         bottom:     {{ $contentBottom }},
         width:      {{ $contentWidth }},
         paperSize:  '{{ $paperSize }}',
+        paperOrientation: '{{ $paperOrientation }}',
         hideHeader: {{ $hideHeader ? 'true' : 'false' }},
+        hideFooter: {{ $hideFooter ? 'true' : 'false' }},
     };
 
     var BASE_URL = '{{ $previewUrl }}';
@@ -319,7 +339,9 @@
         u.searchParams.set('bg_content_width',  S.width);
         u.searchParams.set('bg_offset_x',       S.offsetX);
         u.searchParams.set('bg_paper_size',     S.paperSize);
+        u.searchParams.set('bg_paper_orientation', S.paperOrientation);
         u.searchParams.set('bg_hide_header',    S.hideHeader ? '1' : '0');
+        u.searchParams.set('bg_hide_footer',    S.hideFooter ? '1' : '0');
         return u.toString();
     }
 
@@ -360,12 +382,26 @@
             scheduleReload(400);
         });
     }
+    var swHideFooter = document.getElementById('sw-hide-footer');
+    if (swHideFooter) {
+        swHideFooter.addEventListener('change', function () {
+            S.hideFooter = this.checked;
+            scheduleReload(400);
+        });
+    }
 
     /* ── paper size ── */
     window.setPaperSize = function (size) {
         S.paperSize = size;
         document.getElementById('btn-a4').classList.toggle('active', size === 'a4');
         document.getElementById('btn-a5').classList.toggle('active', size === 'a5');
+        scheduleReload(400);
+    };
+
+    window.setPaperOrientation = function (orientation) {
+        S.paperOrientation = orientation;
+        document.getElementById('btn-portrait').classList.toggle('active', orientation === 'portrait');
+        document.getElementById('btn-landscape').classList.toggle('active', orientation === 'landscape');
         scheduleReload(400);
     };
 
@@ -382,12 +418,14 @@
                 body: JSON.stringify({
                     scale:          S.scale,
                     paper_size:     S.paperSize,
+                    paper_orientation: S.paperOrientation,
                     content_top:    S.top,
                     content_bottom: S.bottom,
                     content_width:  S.width,
                     offset_x:       S.offsetX,
                     offset_y:       0,
                     hide_header:    S.hideHeader ? 1 : 0,
+                    hide_footer:    S.hideFooter ? 1 : 0,
                 }),
             }).then(function(r){ return r.json(); })
               .then(function(){
@@ -410,7 +448,7 @@
     if (resetBtn) {
         resetBtn.addEventListener('click', function () {
             if (!confirm('إعادة ضبط القيم الافتراضية؟')) return;
-            S.scale = 1; S.offsetX = 0; S.top = 50; S.bottom = 20; S.width = 100; S.hideHeader = true;
+            S.scale = 1; S.offsetX = 0; S.top = 50; S.bottom = 20; S.width = 100; S.hideHeader = true; S.hideFooter = true;
             ['s-scale','s-offset-x','s-top','s-bottom','s-width'].forEach(function(id) {
                 var el = document.getElementById(id);
                 if (!el) return;
@@ -424,6 +462,7 @@
             document.getElementById('s-bottom').value   = S.bottom;
             document.getElementById('s-width').value    = S.width;
             if (swHide) swHide.checked = S.hideHeader;
+            if (swHideFooter) swHideFooter.checked = S.hideFooter;
             document.getElementById('v-scale').textContent   = '100%';
             document.getElementById('v-offset-x').textContent= '0%';
             document.getElementById('v-top').textContent     = '50mm';

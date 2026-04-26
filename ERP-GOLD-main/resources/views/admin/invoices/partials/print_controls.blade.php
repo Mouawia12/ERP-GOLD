@@ -305,13 +305,41 @@
         if (bgScaleSave) {
             bgScaleSave.addEventListener('click', function () {
                 var scale = bgScaleSlider ? bgScaleSlider.value : '1';
+                var url = new URL(window.location.href);
+                var payload = {
+                    scale: scale,
+                    print_format: sizeSelect ? sizeSelect.value : (url.searchParams.get('paper') || 'a4'),
+                    print_orientation: orientationSelect
+                        ? orientationSelect.value
+                        : (url.searchParams.get('orientation') || 'portrait'),
+                    paper_size: sizeSelect ? sizeSelect.value : (url.searchParams.get('paper') || 'a4'),
+                    paper_orientation: orientationSelect
+                        ? orientationSelect.value
+                        : (url.searchParams.get('orientation') || url.searchParams.get('bg_paper_orientation') || 'portrait'),
+                };
+
+                [
+                    ['bg_content_top', 'content_top'],
+                    ['bg_content_bottom', 'content_bottom'],
+                    ['bg_content_width', 'content_width'],
+                    ['bg_offset_x', 'offset_x'],
+                    ['bg_offset_y', 'offset_y'],
+                    ['bg_hide_header', 'hide_header'],
+                    ['bg_hide_footer', 'hide_footer'],
+                ].forEach(function (pair) {
+                    var value = url.searchParams.get(pair[0]);
+                    if (value !== null) {
+                        payload[pair[1]] = value;
+                    }
+                });
+
                 fetch('{{ route("admin.system-settings.invoice-background.scale") }}', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
                     },
-                    body: JSON.stringify({ scale: scale }),
+                    body: JSON.stringify(payload),
                 }).then(function () {
                     bgScaleSave.textContent = 'تم الحفظ ✓';
                     setTimeout(function () { bgScaleSave.textContent = 'حفظ كافتراضي'; }, 2000);

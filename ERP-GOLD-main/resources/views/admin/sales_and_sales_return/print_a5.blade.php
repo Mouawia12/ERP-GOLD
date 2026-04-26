@@ -87,16 +87,22 @@
             ? route('send.invoice.whatsapp', $invoice->id)
             : null;
         $branchAddressAr = $branch->short_address ?: $branch->full_address ?: '---';
-        $bgService  = app(\App\Services\Invoices\InvoiceBackgroundService::class);
+        $bgService  = app(\App\Services\Invoices\InvoiceBackgroundService::class)->forBranch((int) $invoice->branch_id);
         $bgImageUrl = $bgService->currentImageUrl();
         $bgScale      = $bgService->currentScale();
         $bgOffsetX    = $bgService->currentOffsetX();
         $bgContentTop    = $bgService->currentContentTop();
         $bgContentBottom = $bgService->currentContentBottom();
         $bgHideHeader    = $bgService->isHideHeader();
+        $bgHideFooter    = $bgService->isHideFooter();
         $bgContentWidth  = $bgService->currentContentWidth();
+        $bgPaperSize      = $bgService->currentPaperSize();
+        $bgPaperOrientation = $bgService->currentPaperOrientation();
+        $bgRenderMode     = $bgService->currentRenderMode();
         if ($bgHideHeader && $bgImageUrl) {
             $showHeader = false;
+        }
+        if ($bgHideFooter && $bgImageUrl) {
             $showFooter = false;
         }
     @endphp
@@ -113,7 +119,7 @@
     data-paper-orientation="{{ $printOrientation }}"
     class="invoice-print-format-a5 invoice-template-{{ $printTemplate }} invoice-orientation-{{ $printOrientation }}{{ $compactStandalonePrint ? ' invoice-paper-ready' : '' }}"
 >
-@include('admin.invoices.partials.print_background', compact('bgImageUrl', 'bgScale', 'bgOffsetX', 'bgContentTop', 'bgContentBottom', 'bgContentWidth', 'bgHideHeader'))
+@include('admin.invoices.partials.print_background', compact('bgImageUrl', 'bgScale', 'bgOffsetX', 'bgContentTop', 'bgContentBottom', 'bgContentWidth', 'bgHideHeader', 'bgHideFooter', 'bgPaperSize', 'bgPaperOrientation', 'bgRenderMode'))
     <div class="page">
         <div class="page-content">
             <div class="invoice-shell">

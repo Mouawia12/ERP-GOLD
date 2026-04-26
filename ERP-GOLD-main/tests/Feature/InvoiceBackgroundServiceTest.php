@@ -71,6 +71,65 @@ class InvoiceBackgroundServiceTest extends TestCase
         );
     }
 
+    public function test_uploaded_landscape_page_sets_full_page_landscape_preview(): void
+    {
+        Storage::fake('public');
+
+        app(InvoiceBackgroundService::class)->upload(
+            UploadedFile::fake()->image('letterhead-landscape.png', 2356, 1744)
+        );
+
+        $this->assertSame('full_page', SystemSetting::getValue(InvoiceBackgroundService::SETTING_RENDER_MODE));
+        $this->assertSame('landscape', SystemSetting::getValue(InvoiceBackgroundService::SETTING_ORIENTATION));
+        $this->assertSame('2356', SystemSetting::getValue(InvoiceBackgroundService::SETTING_IMAGE_WIDTH));
+        $this->assertSame('1744', SystemSetting::getValue(InvoiceBackgroundService::SETTING_IMAGE_HEIGHT));
+    }
+
+    public function test_uploaded_wide_strip_is_not_treated_as_full_page(): void
+    {
+        Storage::fake('public');
+
+        app(InvoiceBackgroundService::class)->upload(
+            UploadedFile::fake()->image('letterhead-strip.png', 2400, 500)
+        );
+
+        $this->assertSame('wide_strip', SystemSetting::getValue(InvoiceBackgroundService::SETTING_RENDER_MODE));
+        $this->assertSame('landscape', SystemSetting::getValue(InvoiceBackgroundService::SETTING_ORIENTATION));
+    }
+
+    public function test_footer_visibility_can_be_controlled_independently_from_header(): void
+    {
+        $service = app(InvoiceBackgroundService::class);
+
+        $service->setHideHeader(true);
+
+        $this->assertTrue($service->isHideHeader(false));
+        $this->assertTrue($service->isHideFooter(false));
+
+        $service->setHideFooter(false);
+
+        $this->assertTrue($service->isHideHeader(false));
+        $this->assertFalse($service->isHideFooter(false));
+    }
+
+    public function test_background_settings_are_scoped_per_branch_with_global_fallback(): void
+    {
+        SystemSetting::putValue(InvoiceBackgroundService::SETTING_SCALE, '1.25');
+
+        $branchOne = app(InvoiceBackgroundService::class)->forBranch(1);
+        $branchTwo = app(InvoiceBackgroundService::class)->forBranch(2);
+
+        $this->assertSame(1.25, $branchOne->currentScale(false));
+        $this->assertSame(1.25, $branchTwo->currentScale(false));
+
+        $branchOne->setScale(0.85);
+
+        $this->assertSame(0.85, $branchOne->currentScale(false));
+        $this->assertSame(1.25, $branchTwo->currentScale(false));
+        $this->assertSame('0.85', SystemSetting::getValue(InvoiceBackgroundService::SETTING_SCALE.':branch:1'));
+        $this->assertSame('1.25', SystemSetting::getValue(InvoiceBackgroundService::SETTING_SCALE));
+    }
+
     private function uploadedFile(string $name, string $content): UploadedFile
     {
         $path = tempnam(sys_get_temp_dir(), 'invoice-bg-');

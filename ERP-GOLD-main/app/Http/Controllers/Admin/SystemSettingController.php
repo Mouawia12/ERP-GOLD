@@ -45,7 +45,7 @@ class SystemSettingController extends Controller
     public function updateLoginMode(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'login_mode' => 'required|in:' . implode(',', $this->loginModeService->availableModes()),
+            'login_mode' => 'required|in:'.implode(',', $this->loginModeService->availableModes()),
         ]);
 
         $this->loginModeService->setMode($validated['login_mode']);
@@ -66,7 +66,7 @@ class SystemSettingController extends Controller
     public function updateSalesShiftMode(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'sales_shift_mode' => 'required|in:' . implode(',', $this->salesShiftModeService->availableModes()),
+            'sales_shift_mode' => 'required|in:'.implode(',', $this->salesShiftModeService->availableModes()),
         ]);
 
         $this->salesShiftModeService->setMode($validated['sales_shift_mode']);
@@ -130,7 +130,7 @@ class SystemSettingController extends Controller
             'templates.*.key' => 'nullable|string|max:100',
             'templates.*.title' => 'nullable|string|max:255',
             'templates.*.content' => 'nullable|string|max:5000',
-            'templates.*.context' => 'nullable|string|in:' . $allowedContexts,
+            'templates.*.context' => 'nullable|string|in:'.$allowedContexts,
             'templates.*.show_on_invoice' => 'nullable|boolean',
             'default_template_keys' => 'nullable|array',
             'default_template_keys.*' => 'nullable|string|max:100',
@@ -169,9 +169,9 @@ class SystemSettingController extends Controller
     public function updateInvoicePrint(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'format' => 'required|in:' . implode(',', $this->invoicePrintSettingsService->availableFormats()),
-            'template' => 'required|in:' . implode(',', array_keys($this->invoicePrintSettingsService->availableTemplates())),
-            'orientation' => 'required|in:' . implode(',', array_keys($this->invoicePrintSettingsService->availableOrientations())),
+            'format' => 'required|in:'.implode(',', $this->invoicePrintSettingsService->availableFormats()),
+            'template' => 'required|in:'.implode(',', array_keys($this->invoicePrintSettingsService->availableTemplates())),
+            'orientation' => 'required|in:'.implode(',', array_keys($this->invoicePrintSettingsService->availableOrientations())),
         ]);
 
         $this->invoicePrintSettingsService->setSettings(
@@ -197,11 +197,11 @@ class SystemSettingController extends Controller
     public function editDefaultItemSettings(): View
     {
         return view('admin.settings.default_item_settings', [
-            'settings'                 => $this->defaultItemSettingsService->currentSettings(),
+            'settings' => $this->defaultItemSettingsService->currentSettings(),
             'inventoryClassifications' => Item::inventoryClassificationOptions(),
-            'saleModes'                => Item::saleModeOptions(),
-            'carats'                   => GoldCarat::all(),
-            'caratTypes'               => GoldCaratType::all(),
+            'saleModes' => Item::saleModeOptions(),
+            'carats' => GoldCarat::all(),
+            'caratTypes' => GoldCaratType::all(),
         ]);
     }
 
@@ -209,13 +209,13 @@ class SystemSettingController extends Controller
     {
         $validated = $request->validate([
             'inventory_classification' => 'nullable|string',
-            'sale_mode'                => 'nullable|string',
-            'gold_carat_type_id'       => 'nullable|integer',
-            'gold_carat_id'            => 'nullable|integer',
-            'no_metal_type'            => 'nullable|in:fixed,percent',
-            'no_metal'                 => 'nullable|numeric|min:0',
-            'labor_cost_per_gram'      => 'nullable|numeric|min:0',
-            'profit_margin_per_gram'   => 'nullable|numeric|min:0',
+            'sale_mode' => 'nullable|string',
+            'gold_carat_type_id' => 'nullable|integer',
+            'gold_carat_id' => 'nullable|integer',
+            'no_metal_type' => 'nullable|in:fixed,percent',
+            'no_metal' => 'nullable|numeric|min:0',
+            'labor_cost_per_gram' => 'nullable|numeric|min:0',
+            'profit_margin_per_gram' => 'nullable|numeric|min:0',
         ]);
 
         $this->defaultItemSettingsService->setSettings(array_map(
@@ -241,26 +241,37 @@ class SystemSettingController extends Controller
             ->with('success', 'تم تحديث الشعار الرئيسي بنجاح.');
     }
 
-    public function editInvoiceBackground(): View
+    public function editInvoiceBackground(Request $request): View
     {
-        $sampleInvoice = \App\Models\Invoice::latest()->first();
+        $invoiceBackgroundService = $this->invoiceBackgroundForRequest($request);
+        $branchId = $request->user('admin-web')?->branch_id;
+        $sampleInvoiceQuery = \App\Models\Invoice::query()->latest();
+
+        if ($branchId) {
+            $sampleInvoiceQuery->where('branch_id', $branchId);
+        }
+
+        $sampleInvoice = $sampleInvoiceQuery->first();
 
         $previewUrl = $sampleInvoice
             ? route('sales.show', $sampleInvoice->id)
             : null;
 
         return view('admin.settings.invoice_background', [
-            'hasTemplate'   => $this->invoiceBackgroundService->hasTemplate(),
-            'isEnabled'     => $this->invoiceBackgroundService->isEnabled(),
-            'scale'         => $this->invoiceBackgroundService->currentScale(false),
-            'paperSize'     => $this->invoiceBackgroundService->currentPaperSize(false),
-            'contentTop'    => $this->invoiceBackgroundService->currentContentTop(false),
-            'contentBottom' => $this->invoiceBackgroundService->currentContentBottom(false),
-            'contentWidth'  => $this->invoiceBackgroundService->currentContentWidth(false),
-            'offsetX'       => $this->invoiceBackgroundService->currentOffsetX(false),
-            'hideHeader'    => $this->invoiceBackgroundService->isHideHeader(false),
+            'hasTemplate' => $invoiceBackgroundService->hasTemplate(),
+            'isEnabled' => $invoiceBackgroundService->isEnabled(),
+            'scale' => $invoiceBackgroundService->currentScale(false),
+            'paperSize' => $invoiceBackgroundService->currentPaperSize(false),
+            'paperOrientation' => $invoiceBackgroundService->currentPaperOrientation(false),
+            'imageInfo' => $invoiceBackgroundService->currentImageInfo(),
+            'contentTop' => $invoiceBackgroundService->currentContentTop(false),
+            'contentBottom' => $invoiceBackgroundService->currentContentBottom(false),
+            'contentWidth' => $invoiceBackgroundService->currentContentWidth(false),
+            'offsetX' => $invoiceBackgroundService->currentOffsetX(false),
+            'hideHeader' => $invoiceBackgroundService->isHideHeader(false),
+            'hideFooter' => $invoiceBackgroundService->isHideFooter(false),
             'sampleInvoice' => $sampleInvoice,
-            'previewUrl'    => $previewUrl,
+            'previewUrl' => $previewUrl,
         ]);
     }
 
@@ -271,7 +282,7 @@ class SystemSettingController extends Controller
         ]);
 
         try {
-            $this->invoiceBackgroundService->upload($request->file('background_file'));
+            $this->invoiceBackgroundForRequest($request)->upload($request->file('background_file'));
         } catch (\RuntimeException $e) {
             return redirect()
                 ->route('admin.system-settings.invoice-background.edit')
@@ -286,38 +297,61 @@ class SystemSettingController extends Controller
     public function saveInvoiceBackgroundScale(Request $request): \Illuminate\Http\JsonResponse
     {
         $validated = $request->validate([
-            'scale'       => 'required|numeric|min:0.3|max:2.0',
-            'paper_size'  => 'nullable|in:a4,a5',
-            'content_top'    => 'nullable|numeric|min:0|max:200',
+            'scale' => 'required|numeric|min:0.3|max:2.0',
+            'print_format' => 'nullable|in:'.implode(',', $this->invoicePrintSettingsService->availableFormats()),
+            'print_orientation' => 'nullable|in:'.implode(',', array_keys($this->invoicePrintSettingsService->availableOrientations())),
+            'paper_size' => 'nullable|in:a4,a5',
+            'paper_orientation' => 'nullable|in:portrait,landscape',
+            'content_top' => 'nullable|numeric|min:0|max:200',
             'content_bottom' => 'nullable|numeric|min:0|max:200',
-            'content_width'  => 'nullable|numeric|min:50|max:100',
-            'hide_header'    => 'nullable|boolean',
-            'offset_x'       => 'nullable|numeric|min:-50|max:50',
-            'offset_y'    => 'nullable|numeric|min:-50|max:50',
+            'content_width' => 'nullable|numeric|min:50|max:100',
+            'hide_header' => 'nullable|boolean',
+            'hide_footer' => 'nullable|boolean',
+            'offset_x' => 'nullable|numeric|min:-50|max:50',
+            'offset_y' => 'nullable|numeric|min:-50|max:50',
         ]);
 
-        $this->invoiceBackgroundService->setScale((float) $validated['scale']);
+        $invoiceBackgroundService = $this->invoiceBackgroundForRequest($request);
+
+        $invoiceBackgroundService->setScale((float) $validated['scale']);
 
         if (isset($validated['paper_size'])) {
-            $this->invoiceBackgroundService->setPaperSize($validated['paper_size']);
+            $invoiceBackgroundService->setPaperSize($validated['paper_size']);
+        }
+        if (isset($validated['paper_orientation'])) {
+            $invoiceBackgroundService->setPaperOrientation($validated['paper_orientation']);
         }
         if (isset($validated['content_top'])) {
-            $this->invoiceBackgroundService->setContentTop((float) $validated['content_top']);
+            $invoiceBackgroundService->setContentTop((float) $validated['content_top']);
         }
         if (isset($validated['content_bottom'])) {
-            $this->invoiceBackgroundService->setContentBottom((float) $validated['content_bottom']);
+            $invoiceBackgroundService->setContentBottom((float) $validated['content_bottom']);
         }
         if (isset($validated['content_width'])) {
-            $this->invoiceBackgroundService->setContentWidth((float) $validated['content_width']);
+            $invoiceBackgroundService->setContentWidth((float) $validated['content_width']);
         }
         if (array_key_exists('hide_header', $validated)) {
-            $this->invoiceBackgroundService->setHideHeader((bool) $validated['hide_header']);
+            $invoiceBackgroundService->setHideHeader((bool) $validated['hide_header']);
+        }
+        if (array_key_exists('hide_footer', $validated)) {
+            $invoiceBackgroundService->setHideFooter((bool) $validated['hide_footer']);
         }
         if (isset($validated['offset_x'])) {
-            $this->invoiceBackgroundService->setOffsetX((float) $validated['offset_x']);
+            $invoiceBackgroundService->setOffsetX((float) $validated['offset_x']);
         }
         if (isset($validated['offset_y'])) {
-            $this->invoiceBackgroundService->setOffsetY((float) $validated['offset_y']);
+            $invoiceBackgroundService->setOffsetY((float) $validated['offset_y']);
+        }
+
+        if (isset($validated['print_format'])) {
+            $currentPrintSettings = $this->invoicePrintSettingsService->currentSettings(false);
+            $this->invoicePrintSettingsService->setSettings(
+                $validated['print_format'],
+                (bool) $currentPrintSettings['show_header'],
+                (bool) $currentPrintSettings['show_footer'],
+                (string) $currentPrintSettings['template'],
+                $validated['print_orientation'] ?? (string) $currentPrintSettings['orientation'],
+            );
         }
 
         return response()->json(['ok' => true]);
@@ -329,19 +363,26 @@ class SystemSettingController extends Controller
             'enabled' => 'required|boolean',
         ]);
 
-        $this->invoiceBackgroundService->setEnabled((bool) $validated['enabled']);
+        $this->invoiceBackgroundForRequest($request)->setEnabled((bool) $validated['enabled']);
 
         return redirect()
             ->route('admin.system-settings.invoice-background.edit')
             ->with('success', (bool) $validated['enabled'] ? 'تم تفعيل خلفية الفاتورة.' : 'تم إيقاف خلفية الفاتورة.');
     }
 
-    public function deleteInvoiceBackground(): RedirectResponse
+    public function deleteInvoiceBackground(Request $request): RedirectResponse
     {
-        $this->invoiceBackgroundService->delete();
+        $this->invoiceBackgroundForRequest($request)->delete();
 
         return redirect()
             ->route('admin.system-settings.invoice-background.edit')
             ->with('success', 'تم حذف التصميم بنجاح.');
+    }
+
+    private function invoiceBackgroundForRequest(Request $request): InvoiceBackgroundService
+    {
+        return $this->invoiceBackgroundService->forBranch(
+            $request->user('admin-web')?->branch_id ? (int) $request->user('admin-web')->branch_id : null
+        );
     }
 }

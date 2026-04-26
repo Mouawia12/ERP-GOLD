@@ -8,18 +8,49 @@ use Illuminate\Support\Facades\Storage;
 
 class InvoiceBackgroundService
 {
-    public const SETTING_PATH          = 'invoice_bg_image_path';
-    public const SETTING_SCALE         = 'invoice_bg_scale';
-    public const SETTING_ENABLED       = 'invoice_bg_enabled';
-    public const SETTING_PAPER_SIZE    = 'invoice_bg_paper_size';    // 'a4' | 'a5'
-    public const SETTING_CONTENT_TOP   = 'invoice_bg_content_top';   // mm
-    public const SETTING_CONTENT_BOTTOM= 'invoice_bg_content_bottom';// mm
+    public const SETTING_PATH = 'invoice_bg_image_path';
+
+    public const SETTING_SCALE = 'invoice_bg_scale';
+
+    public const SETTING_ENABLED = 'invoice_bg_enabled';
+
+    public const SETTING_PAPER_SIZE = 'invoice_bg_paper_size';    // 'a4' | 'a5'
+
+    public const SETTING_CONTENT_TOP = 'invoice_bg_content_top';   // mm
+
+    public const SETTING_CONTENT_BOTTOM = 'invoice_bg_content_bottom'; // mm
+
     public const SETTING_CONTENT_WIDTH = 'invoice_bg_content_width'; // %, 50..100
-    public const SETTING_OFFSET_X      = 'invoice_bg_offset_x';      // %, -50..50
-    public const SETTING_OFFSET_Y      = 'invoice_bg_offset_y';      // %, -50..50
-    public const SETTING_HIDE_HEADER   = 'invoice_bg_hide_header';   // '1' | '0'
+
+    public const SETTING_OFFSET_X = 'invoice_bg_offset_x';      // %, -50..50
+
+    public const SETTING_OFFSET_Y = 'invoice_bg_offset_y';      // %, -50..50
+
+    public const SETTING_HIDE_HEADER = 'invoice_bg_hide_header';   // '1' | '0'
+
+    public const SETTING_HIDE_FOOTER = 'invoice_bg_hide_footer';   // '1' | '0'
+
+    public const SETTING_IMAGE_WIDTH = 'invoice_bg_image_width';
+
+    public const SETTING_IMAGE_HEIGHT = 'invoice_bg_image_height';
+
+    public const SETTING_IMAGE_MIME = 'invoice_bg_image_mime';
+
+    public const SETTING_RENDER_MODE = 'invoice_bg_render_mode';   // 'full_page' | 'wide_strip' | 'partial'
+
+    public const SETTING_ORIENTATION = 'invoice_bg_orientation';   // 'portrait' | 'landscape'
 
     private ?string $lastConversionError = null;
+
+    private ?int $branchId = null;
+
+    public function forBranch(?int $branchId): self
+    {
+        $service = clone $this;
+        $service->branchId = $branchId && $branchId > 0 ? $branchId : null;
+
+        return $service;
+    }
 
     /* ──────────────────── image URL ──────────────────── */
 
@@ -34,7 +65,7 @@ class InvoiceBackgroundService
 
     public function rawImageUrl(): ?string
     {
-        $path = SystemSetting::getValue(self::SETTING_PATH);
+        $path = $this->settingValue(self::SETTING_PATH);
 
         if (! $path || ! Storage::disk('public')->exists($path)) {
             return null;
@@ -55,17 +86,17 @@ class InvoiceBackgroundService
 
     public function isEnabled(): bool
     {
-        return SystemSetting::getValue(self::SETTING_ENABLED, '0') === '1';
+        return $this->settingValue(self::SETTING_ENABLED, '0') === '1';
     }
 
     public function setEnabled(bool $enabled): void
     {
-        SystemSetting::putValue(self::SETTING_ENABLED, $enabled ? '1' : '0');
+        $this->putSettingValue(self::SETTING_ENABLED, $enabled ? '1' : '0');
     }
 
     public function hasTemplate(): bool
     {
-        $path = SystemSetting::getValue(self::SETTING_PATH);
+        $path = $this->settingValue(self::SETTING_PATH);
 
         return (bool) ($path && Storage::disk('public')->exists($path));
     }
@@ -78,18 +109,20 @@ class InvoiceBackgroundService
             $v = request()->query('bg_scale');
             if ($v !== null && is_numeric($v)) {
                 $s = (float) $v;
-                if ($s >= 0.3 && $s <= 2.0) return round($s, 2);
+                if ($s >= 0.3 && $s <= 2.0) {
+                    return round($s, 2);
+                }
             }
         }
 
-        $s = (float) SystemSetting::getValue(self::SETTING_SCALE, '1.00');
+        $s = (float) $this->settingValue(self::SETTING_SCALE, '1.00');
 
         return ($s >= 0.3 && $s <= 2.0) ? round($s, 2) : 1.0;
     }
 
     public function setScale(float $scale): void
     {
-        SystemSetting::putValue(self::SETTING_SCALE, number_format(max(0.3, min(2.0, $scale)), 2));
+        $this->putSettingValue(self::SETTING_SCALE, number_format(max(0.3, min(2.0, $scale)), 2));
     }
 
     /* ──────────────────── paper size ──────────────────── */
@@ -98,17 +131,43 @@ class InvoiceBackgroundService
     {
         if ($allowRequestOverride) {
             $v = request()->query('bg_paper_size');
-            if (in_array($v, ['a4', 'a5'], true)) return $v;
+            if (in_array($v, ['a4', 'a5'], true)) {
+                return $v;
+            }
         }
 
-        $val = SystemSetting::getValue(self::SETTING_PAPER_SIZE, 'a4');
+        $val = $this->settingValue(self::SETTING_PAPER_SIZE, 'a4');
 
         return in_array($val, ['a4', 'a5'], true) ? $val : 'a4';
     }
 
     public function setPaperSize(string $size): void
     {
-        SystemSetting::putValue(self::SETTING_PAPER_SIZE, in_array($size, ['a4', 'a5'], true) ? $size : 'a4');
+        $this->putSettingValue(self::SETTING_PAPER_SIZE, in_array($size, ['a4', 'a5'], true) ? $size : 'a4');
+    }
+
+    public function currentPaperOrientation(bool $allowRequestOverride = true): string
+    {
+        if ($allowRequestOverride) {
+            $v = request()->query('bg_paper_orientation');
+            if (in_array($v, ['portrait', 'landscape'], true)) {
+                return $v;
+            }
+        }
+
+        $this->ensureImageInfo();
+
+        $val = $this->settingValue(self::SETTING_ORIENTATION, 'portrait');
+
+        return in_array($val, ['portrait', 'landscape'], true) ? $val : 'portrait';
+    }
+
+    public function setPaperOrientation(string $orientation): void
+    {
+        $this->putSettingValue(
+            self::SETTING_ORIENTATION,
+            in_array($orientation, ['portrait', 'landscape'], true) ? $orientation : 'portrait'
+        );
     }
 
     /* ──────────────────── content top ──────────────────── */
@@ -119,16 +178,18 @@ class InvoiceBackgroundService
             $v = request()->query('bg_content_top');
             if ($v !== null && is_numeric($v)) {
                 $mm = (float) $v;
-                if ($mm >= 0 && $mm <= 200) return round($mm, 1);
+                if ($mm >= 0 && $mm <= 200) {
+                    return round($mm, 1);
+                }
             }
         }
 
-        return max(0.0, min(200.0, (float) SystemSetting::getValue(self::SETTING_CONTENT_TOP, '0')));
+        return max(0.0, min(200.0, (float) $this->settingValue(self::SETTING_CONTENT_TOP, '0')));
     }
 
     public function setContentTop(float $mm): void
     {
-        SystemSetting::putValue(self::SETTING_CONTENT_TOP, number_format(max(0.0, min(200.0, $mm)), 1));
+        $this->putSettingValue(self::SETTING_CONTENT_TOP, number_format(max(0.0, min(200.0, $mm)), 1));
     }
 
     /* ──────────────────── content bottom ──────────────────── */
@@ -139,16 +200,18 @@ class InvoiceBackgroundService
             $v = request()->query('bg_content_bottom');
             if ($v !== null && is_numeric($v)) {
                 $mm = (float) $v;
-                if ($mm >= 0 && $mm <= 200) return round($mm, 1);
+                if ($mm >= 0 && $mm <= 200) {
+                    return round($mm, 1);
+                }
             }
         }
 
-        return max(0.0, min(200.0, (float) SystemSetting::getValue(self::SETTING_CONTENT_BOTTOM, '0')));
+        return max(0.0, min(200.0, (float) $this->settingValue(self::SETTING_CONTENT_BOTTOM, '0')));
     }
 
     public function setContentBottom(float $mm): void
     {
-        SystemSetting::putValue(self::SETTING_CONTENT_BOTTOM, number_format(max(0.0, min(200.0, $mm)), 1));
+        $this->putSettingValue(self::SETTING_CONTENT_BOTTOM, number_format(max(0.0, min(200.0, $mm)), 1));
     }
 
     /* ──────────────────── content width ──────────────────── */
@@ -159,18 +222,20 @@ class InvoiceBackgroundService
             $v = request()->query('bg_content_width');
             if ($v !== null && is_numeric($v)) {
                 $pct = (float) $v;
-                if ($pct >= 50 && $pct <= 100) return round($pct, 1);
+                if ($pct >= 50 && $pct <= 100) {
+                    return round($pct, 1);
+                }
             }
         }
 
-        $val = (float) SystemSetting::getValue(self::SETTING_CONTENT_WIDTH, '100');
+        $val = (float) $this->settingValue(self::SETTING_CONTENT_WIDTH, '100');
 
         return ($val >= 50 && $val <= 100) ? round($val, 1) : 100.0;
     }
 
     public function setContentWidth(float $pct): void
     {
-        SystemSetting::putValue(self::SETTING_CONTENT_WIDTH, number_format(max(50.0, min(100.0, $pct)), 1));
+        $this->putSettingValue(self::SETTING_CONTENT_WIDTH, number_format(max(50.0, min(100.0, $pct)), 1));
     }
 
     /* ──────────────────── offset X ──────────────────── */
@@ -181,45 +246,94 @@ class InvoiceBackgroundService
             $v = request()->query('bg_offset_x');
             if ($v !== null && is_numeric($v)) {
                 $pct = (float) $v;
-                if ($pct >= -50 && $pct <= 50) return round($pct, 1);
+                if ($pct >= -50 && $pct <= 50) {
+                    return round($pct, 1);
+                }
             }
         }
 
-        return max(-50.0, min(50.0, (float) SystemSetting::getValue(self::SETTING_OFFSET_X, '0')));
+        return max(-50.0, min(50.0, (float) $this->settingValue(self::SETTING_OFFSET_X, '0')));
     }
 
     public function setOffsetX(float $pct): void
     {
-        SystemSetting::putValue(self::SETTING_OFFSET_X, number_format(max(-50.0, min(50.0, $pct)), 1));
+        $this->putSettingValue(self::SETTING_OFFSET_X, number_format(max(-50.0, min(50.0, $pct)), 1));
     }
 
     /* ──────────────────── offset Y ──────────────────── */
 
     public function currentOffsetY(): float
     {
-        return max(-50.0, min(50.0, (float) SystemSetting::getValue(self::SETTING_OFFSET_Y, '0')));
+        return max(-50.0, min(50.0, (float) $this->settingValue(self::SETTING_OFFSET_Y, '0')));
     }
 
     public function setOffsetY(float $pct): void
     {
-        SystemSetting::putValue(self::SETTING_OFFSET_Y, number_format(max(-50.0, min(50.0, $pct)), 1));
+        $this->putSettingValue(self::SETTING_OFFSET_Y, number_format(max(-50.0, min(50.0, $pct)), 1));
     }
 
-    /* ──────────────────── hide header ──────────────────── */
+    /* ──────────────────── header / footer visibility ──────────────────── */
 
     public function isHideHeader(bool $allowRequestOverride = true): bool
     {
         if ($allowRequestOverride) {
             $v = request()->query('bg_hide_header');
-            if ($v !== null) return $v === '1';
+            if ($v !== null) {
+                return $v === '1';
+            }
         }
 
-        return SystemSetting::getValue(self::SETTING_HIDE_HEADER, '0') === '1';
+        return $this->settingValue(self::SETTING_HIDE_HEADER, '0') === '1';
     }
 
     public function setHideHeader(bool $hide): void
     {
-        SystemSetting::putValue(self::SETTING_HIDE_HEADER, $hide ? '1' : '0');
+        $this->putSettingValue(self::SETTING_HIDE_HEADER, $hide ? '1' : '0');
+    }
+
+    public function isHideFooter(bool $allowRequestOverride = true): bool
+    {
+        if ($allowRequestOverride) {
+            $v = request()->query('bg_hide_footer');
+            if ($v !== null) {
+                return $v === '1';
+            }
+        }
+
+        return $this->settingValue(
+            self::SETTING_HIDE_FOOTER,
+            $this->settingValue(self::SETTING_HIDE_HEADER, '0')
+        ) === '1';
+    }
+
+    public function setHideFooter(bool $hide): void
+    {
+        $this->putSettingValue(self::SETTING_HIDE_FOOTER, $hide ? '1' : '0');
+    }
+
+    public function currentRenderMode(): string
+    {
+        $this->ensureImageInfo();
+
+        $mode = $this->settingValue(self::SETTING_RENDER_MODE, 'full_page');
+
+        return in_array($mode, ['full_page', 'wide_strip', 'partial'], true) ? $mode : 'full_page';
+    }
+
+    /**
+     * @return array{width: int, height: int, mime: string, mode: string, orientation: string}
+     */
+    public function currentImageInfo(): array
+    {
+        $this->ensureImageInfo();
+
+        return [
+            'width' => (int) $this->settingValue(self::SETTING_IMAGE_WIDTH, '0'),
+            'height' => (int) $this->settingValue(self::SETTING_IMAGE_HEIGHT, '0'),
+            'mime' => (string) $this->settingValue(self::SETTING_IMAGE_MIME, ''),
+            'mode' => $this->currentRenderMode(),
+            'orientation' => $this->currentPaperOrientation(false),
+        ];
     }
 
     /* ──────────────────── upload / delete ──────────────────── */
@@ -232,7 +346,8 @@ class InvoiceBackgroundService
         $extension = strtolower((string) $file->getClientOriginalExtension());
         $isPdf = $extension === 'pdf';
 
-        $oldPath = SystemSetting::getValue(self::SETTING_PATH);
+        $oldPath = $this->settingValue(self::SETTING_PATH);
+        $oldPathIsOwnedByCurrentScope = $this->hasStoredSetting(self::SETTING_PATH);
 
         if ($isPdf) {
             $imagePath = $this->convertPdfToImage($file);
@@ -244,39 +359,160 @@ class InvoiceBackgroundService
                 );
             }
 
-            SystemSetting::putValue(self::SETTING_PATH, $imagePath);
+            $this->putSettingValue(self::SETTING_PATH, $imagePath);
+            $this->storeImageInfo($imagePath, 'application/pdf');
         } else {
             $newPath = (string) $file->store('invoice-backgrounds', 'public');
-            SystemSetting::putValue(self::SETTING_PATH, $newPath);
+            $this->putSettingValue(self::SETTING_PATH, $newPath);
+            $this->storeImageInfo($newPath, (string) $file->getMimeType());
         }
 
-        if ($oldPath && $oldPath !== SystemSetting::getValue(self::SETTING_PATH) && Storage::disk('public')->exists($oldPath)) {
+        if ($oldPathIsOwnedByCurrentScope && $oldPath && $oldPath !== $this->settingValue(self::SETTING_PATH) && Storage::disk('public')->exists($oldPath)) {
             Storage::disk('public')->delete($oldPath);
         }
 
-        SystemSetting::putValue(self::SETTING_ENABLED, '1');
+        $this->putSettingValue(self::SETTING_ENABLED, '1');
 
         if (! $oldPath) {
-            SystemSetting::putValue(self::SETTING_HIDE_HEADER,    '1');
-            SystemSetting::putValue(self::SETTING_CONTENT_TOP,    '50.0');
-            SystemSetting::putValue(self::SETTING_CONTENT_BOTTOM, '20.0');
-            SystemSetting::putValue(self::SETTING_CONTENT_WIDTH,  '100.0');
+            $this->putSettingValue(self::SETTING_HIDE_HEADER, '1');
+            $this->putSettingValue(self::SETTING_HIDE_FOOTER, '1');
+            $this->putSettingValue(self::SETTING_CONTENT_TOP, '50.0');
+            $this->putSettingValue(self::SETTING_CONTENT_BOTTOM, '20.0');
+            $this->putSettingValue(self::SETTING_CONTENT_WIDTH, '100.0');
         }
     }
 
     public function delete(): void
     {
-        $path = SystemSetting::getValue(self::SETTING_PATH);
+        $path = $this->settingValue(self::SETTING_PATH);
 
         if ($path && Storage::disk('public')->exists($path)) {
             Storage::disk('public')->delete($path);
         }
 
-        SystemSetting::putValue(self::SETTING_PATH, '');
-        SystemSetting::putValue(self::SETTING_ENABLED, '0');
+        $this->putSettingValue(self::SETTING_PATH, '');
+        $this->putSettingValue(self::SETTING_ENABLED, '0');
+        $this->putSettingValue(self::SETTING_HIDE_HEADER, '0');
+        $this->putSettingValue(self::SETTING_HIDE_FOOTER, '0');
+        $this->putSettingValue(self::SETTING_IMAGE_WIDTH, '0');
+        $this->putSettingValue(self::SETTING_IMAGE_HEIGHT, '0');
+        $this->putSettingValue(self::SETTING_IMAGE_MIME, '');
+        $this->putSettingValue(self::SETTING_RENDER_MODE, 'full_page');
+        $this->putSettingValue(self::SETTING_ORIENTATION, 'portrait');
     }
 
     /* ──────────────────── private helpers ──────────────────── */
+
+    private function settingValue(string $key, ?string $default = null): ?string
+    {
+        $scopedKey = $this->scopedKey($key);
+
+        if ($scopedKey !== $key) {
+            $scopedValue = SystemSetting::getValue($scopedKey);
+
+            if ($scopedValue !== null) {
+                return $scopedValue;
+            }
+        }
+
+        return SystemSetting::getValue($key, $default);
+    }
+
+    private function putSettingValue(string $key, string $value): void
+    {
+        SystemSetting::putValue($this->scopedKey($key), $value);
+    }
+
+    private function hasStoredSetting(string $key): bool
+    {
+        return SystemSetting::getValue($this->scopedKey($key)) !== null;
+    }
+
+    private function scopedKey(string $key): string
+    {
+        $branchId = $this->resolvedBranchId();
+
+        return $branchId ? $key.':branch:'.$branchId : $key;
+    }
+
+    private function resolvedBranchId(): ?int
+    {
+        if ($this->branchId !== null) {
+            return $this->branchId;
+        }
+
+        try {
+            $sessionBranchId = session()->has(\App\Services\Branches\BranchContextService::SESSION_KEY)
+                ? (int) session(\App\Services\Branches\BranchContextService::SESSION_KEY)
+                : 0;
+        } catch (\Throwable) {
+            $sessionBranchId = 0;
+        }
+
+        if ($sessionBranchId > 0) {
+            return $sessionBranchId;
+        }
+
+        $user = auth('admin-web')->user();
+        $userBranchId = $user?->branch_id ? (int) $user->branch_id : 0;
+
+        return $userBranchId > 0 ? $userBranchId : null;
+    }
+
+    private function storeImageInfo(string $path, string $mime): void
+    {
+        $fullPath = Storage::disk('public')->path($path);
+        $size = @getimagesize($fullPath);
+
+        if (! $size) {
+            return;
+        }
+
+        $width = (int) ($size[0] ?? 0);
+        $height = (int) ($size[1] ?? 0);
+
+        if ($width <= 0 || $height <= 0) {
+            return;
+        }
+
+        $ratio = $width / $height;
+        $mode = $this->detectRenderMode($ratio);
+        $orientation = $ratio >= 1.10 ? 'landscape' : 'portrait';
+
+        $this->putSettingValue(self::SETTING_IMAGE_WIDTH, (string) $width);
+        $this->putSettingValue(self::SETTING_IMAGE_HEIGHT, (string) $height);
+        $this->putSettingValue(self::SETTING_IMAGE_MIME, $mime !== '' ? $mime : (string) ($size['mime'] ?? ''));
+        $this->putSettingValue(self::SETTING_RENDER_MODE, $mode);
+        $this->putSettingValue(self::SETTING_ORIENTATION, $orientation);
+    }
+
+    private function ensureImageInfo(): void
+    {
+        if ((int) $this->settingValue(self::SETTING_IMAGE_WIDTH, '0') > 0) {
+            return;
+        }
+
+        $path = $this->settingValue(self::SETTING_PATH);
+
+        if (! $path || ! Storage::disk('public')->exists($path)) {
+            return;
+        }
+
+        $this->storeImageInfo($path, '');
+    }
+
+    private function detectRenderMode(float $ratio): string
+    {
+        if ($ratio >= 2.0) {
+            return 'wide_strip';
+        }
+
+        if (($ratio >= 0.58 && $ratio <= 0.82) || ($ratio >= 1.18 && $ratio <= 1.65)) {
+            return 'full_page';
+        }
+
+        return 'partial';
+    }
 
     private function convertPdfToImage(UploadedFile $file): ?string
     {

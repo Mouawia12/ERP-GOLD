@@ -8,8 +8,18 @@
     $bgContentBottom = number_format((float)($bgContentBottom ?? 0.0), 1);
     $bgContentWidth  = number_format(max(50.0, min(100.0, (float)($bgContentWidth ?? 100.0))), 1);
     $bgHideHeader    = (bool)($bgHideHeader ?? false);
-    $bgPaperSize     = app(\App\Services\Invoices\InvoiceBackgroundService::class)->currentPaperSize();
-    [$paperW, $paperH] = $bgPaperSize === 'a5' ? ['148mm', '210mm'] : ['210mm', '297mm'];
+    $bgHideFooter    = (bool)($bgHideFooter ?? $bgHideHeader);
+    $bgService = app(\App\Services\Invoices\InvoiceBackgroundService::class);
+    $bgPaperSize = $bgPaperSize ?? $bgService->currentPaperSize();
+    $bgPaperOrientation = $bgPaperOrientation ?? $bgService->currentPaperOrientation();
+    $bgRenderMode = $bgRenderMode ?? $bgService->currentRenderMode();
+    [$paperW, $paperH] = $bgPaperSize === 'a5' ? [148, 210] : [210, 297];
+    if ($bgPaperOrientation === 'landscape') {
+        [$paperW, $paperH] = [$paperH, $paperW];
+    }
+    $bgSizeValue = $bgRenderMode === 'full_page'
+        ? 'calc(100% * var(--invoice-bg-scale)) calc(100% * var(--invoice-bg-scale))'
+        : 'calc(100% * var(--invoice-bg-scale)) auto';
 @endphp
 @if(! empty($bgImageUrl))
 <style>
@@ -33,8 +43,8 @@
         }
 
         body {
-            width:      {{ $paperW }} !important;
-            height:     {{ $paperH }} !important;
+            width:      {{ $paperW }}mm !important;
+            height:     {{ $paperH }}mm !important;
             margin:     28px auto 60px !important;
             padding-top:    var(--invoice-bg-content-top)    !important;
             padding-bottom: var(--invoice-bg-content-bottom) !important;
@@ -51,7 +61,7 @@
             top: 0 !important; left: var(--invoice-bg-offset-x) !important;
             width: 100% !important; height: 100% !important;
             background-image:    url('{{ $bgImageUrl }}') !important;
-            background-size:     calc(100% * var(--invoice-bg-scale)) auto !important;
+            background-size:     {{ $bgSizeValue }} !important;
             background-repeat:   no-repeat !important;
             background-position: center top !important;
             z-index:        0 !important;
@@ -100,12 +110,14 @@
             max-width: var(--invoice-bg-content-width) !important;
             transform:  none !important;
             height:     auto !important;
-            min-height: 267mm !important;
+            min-height: calc({{ $paperH }}mm - var(--invoice-bg-content-top) - var(--invoice-bg-content-bottom)) !important;
         }
     }
 
     @if($bgHideHeader)
-    .invoice-header,
+    .invoice-header { display: none !important; }
+    @endif
+    @if($bgHideFooter)
     .page-footer { display: none !important; }
     @endif
 </style>
