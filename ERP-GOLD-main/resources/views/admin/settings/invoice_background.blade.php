@@ -254,6 +254,11 @@
                 <input type="range" id="s-content-scale" min="0.5" max="1.5" step="0.02" value="{{ $contentScale }}">
             </div>
 
+            <div class="ctrl">
+                <label>حجم خط الفاتورة <span id="v-font-scale">{{ round($fontScale * 100) }}%</span></label>
+                <input type="range" id="s-font-scale" min="0.7" max="1.4" step="0.02" value="{{ $fontScale }}">
+            </div>
+
             <div class="ctrl mt-2">
                 <div class="custom-control custom-switch">
                     <input type="checkbox" class="custom-control-input" id="sw-hide-header"
@@ -326,6 +331,7 @@
         bottom:     {{ $contentBottom }},
         width:      {{ $contentWidth }},
         contentScale: {{ $contentScale }},
+        fontScale:  {{ $fontScale }},
         paperSize:  '{{ $paperSize }}',
         paperOrientation: '{{ $paperOrientation }}',
         hideHeader: {{ $hideHeader ? 'true' : 'false' }},
@@ -344,6 +350,7 @@
         u.searchParams.set('bg_content_bottom', S.bottom);
         u.searchParams.set('bg_content_width',  S.width);
         u.searchParams.set('bg_content_scale',  S.contentScale);
+        u.searchParams.set('bg_font_scale',     S.fontScale);
         u.searchParams.set('bg_offset_x',       S.offsetX);
         u.searchParams.set('bg_paper_size',     S.paperSize);
         u.searchParams.set('bg_paper_orientation', S.paperOrientation);
@@ -384,6 +391,7 @@
     wire('s-bottom',   'bottom',  function(v){ return v+'mm'; });
     wire('s-width',    'width',   function(v){ return v+'%'; });
     wire('s-content-scale', 'contentScale', function(v){ return Math.round(v*100)+'%'; }, 500);
+    wire('s-font-scale', 'fontScale', function(v){ return Math.round(v*100)+'%'; }, 500);
 
     var swHide = document.getElementById('sw-hide-header');
     if (swHide) {
@@ -433,6 +441,7 @@
                     content_bottom: S.bottom,
                     content_width:  S.width,
                     content_scale:  S.contentScale,
+                    font_scale:     S.fontScale,
                     offset_x:       S.offsetX,
                     offset_y:       0,
                     hide_header:    S.hideHeader ? 1 : 0,
@@ -459,12 +468,12 @@
     if (resetBtn) {
         resetBtn.addEventListener('click', function () {
             if (!confirm('إعادة ضبط القيم الافتراضية؟')) return;
-            S.scale = 1; S.offsetX = 0; S.top = 50; S.bottom = 20; S.width = 100; S.contentScale = 1; S.hideHeader = true; S.hideFooter = true;
-            ['s-scale','s-offset-x','s-top','s-bottom','s-width','s-content-scale'].forEach(function(id) {
+            S.scale = 1; S.offsetX = 0; S.top = 50; S.bottom = 20; S.width = 100; S.contentScale = 1; S.fontScale = 1; S.hideHeader = true; S.hideFooter = true;
+            ['s-scale','s-offset-x','s-top','s-bottom','s-width','s-content-scale','s-font-scale'].forEach(function(id) {
                 var el = document.getElementById(id);
                 if (!el) return;
                 var key = id.replace('s-','').replace('-','');
-                var map = {'scale':'scale','offsetx':'offsetX','top':'top','bottom':'bottom','width':'width','contentscale':'contentScale'};
+                var map = {'scale':'scale','offsetx':'offsetX','top':'top','bottom':'bottom','width':'width','contentscale':'contentScale','fontscale':'fontScale'};
                 if (el) el.value = S[map[key]] !== undefined ? S[map[key]] : el.value;
             });
             document.getElementById('s-scale').value    = S.scale;
@@ -473,6 +482,7 @@
             document.getElementById('s-bottom').value   = S.bottom;
             document.getElementById('s-width').value    = S.width;
             document.getElementById('s-content-scale').value = S.contentScale;
+            document.getElementById('s-font-scale').value = S.fontScale;
             if (swHide) swHide.checked = S.hideHeader;
             if (swHideFooter) swHideFooter.checked = S.hideFooter;
             document.getElementById('v-scale').textContent   = '100%';
@@ -481,6 +491,7 @@
             document.getElementById('v-bottom').textContent  = '20mm';
             document.getElementById('v-width').textContent   = '100%';
             document.getElementById('v-content-scale').textContent = '100%';
+            document.getElementById('v-font-scale').textContent = '100%';
             scheduleReload(200);
         });
     }

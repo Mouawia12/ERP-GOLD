@@ -96,6 +96,7 @@
         $bgHideFooter    = $bgService->isHideFooter();
         $bgContentWidth  = $bgService->currentContentWidth();
         $bgContentScale  = $bgService->currentContentScale();
+        $bgFontScale     = $bgService->currentFontScale();
         $bgPaperSize      = $bgService->currentPaperSize();
         $bgPaperOrientation = $bgService->currentPaperOrientation();
         $bgRenderMode     = $bgService->currentRenderMode();
@@ -120,7 +121,7 @@
     data-paper-orientation="{{ $printOrientation }}"
     class="invoice-print-format-a5 invoice-template-{{ $printTemplate }} invoice-orientation-{{ $printOrientation }}{{ $compactStandalonePrint ? ' invoice-paper-ready' : '' }}"
 >
-@include('admin.invoices.partials.print_background', compact('bgImageUrl', 'bgScale', 'bgOffsetX', 'bgContentTop', 'bgContentBottom', 'bgContentWidth', 'bgContentScale', 'bgHideHeader', 'bgHideFooter', 'bgPaperSize', 'bgPaperOrientation', 'bgRenderMode'))
+@include('admin.invoices.partials.print_background', compact('bgImageUrl', 'bgScale', 'bgOffsetX', 'bgContentTop', 'bgContentBottom', 'bgContentWidth', 'bgContentScale', 'bgFontScale', 'bgHideHeader', 'bgHideFooter', 'bgPaperSize', 'bgPaperOrientation', 'bgRenderMode'))
     <div class="page">
         <div class="page-content">
             <div class="invoice-shell">

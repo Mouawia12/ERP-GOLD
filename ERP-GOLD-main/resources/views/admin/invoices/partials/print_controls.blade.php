@@ -323,6 +323,7 @@
                     ['bg_content_bottom', 'content_bottom'],
                     ['bg_content_width', 'content_width'],
                     ['bg_content_scale', 'content_scale'],
+                    ['bg_font_scale', 'font_scale'],
                     ['bg_offset_x', 'offset_x'],
                     ['bg_offset_y', 'offset_y'],
                     ['bg_hide_header', 'hide_header'],

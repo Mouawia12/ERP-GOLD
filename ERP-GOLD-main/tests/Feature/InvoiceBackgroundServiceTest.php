@@ -145,6 +145,21 @@ class InvoiceBackgroundServiceTest extends TestCase
         $this->assertSame(0.5, $service->currentContentScale(false));
     }
 
+    public function test_invoice_font_scale_is_clamped_and_stored(): void
+    {
+        $service = app(InvoiceBackgroundService::class);
+
+        $service->setFontScale(1.18);
+        $this->assertSame(1.18, $service->currentFontScale(false));
+        $this->assertSame('1.18', SystemSetting::getValue(InvoiceBackgroundService::SETTING_FONT_SCALE));
+
+        $service->setFontScale(2.0);
+        $this->assertSame(1.4, $service->currentFontScale(false));
+
+        $service->setFontScale(0.2);
+        $this->assertSame(0.7, $service->currentFontScale(false));
+    }
+
     private function uploadedFile(string $name, string $content): UploadedFile
     {
         $path = tempnam(sys_get_temp_dir(), 'invoice-bg-');

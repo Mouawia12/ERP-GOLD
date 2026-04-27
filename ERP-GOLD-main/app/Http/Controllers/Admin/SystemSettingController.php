@@ -276,6 +276,7 @@ class SystemSettingController extends Controller
             'contentBottom' => $invoiceBackgroundService->currentContentBottom(false),
             'contentWidth' => $invoiceBackgroundService->currentContentWidth(false),
             'contentScale' => $invoiceBackgroundService->currentContentScale(false),
+            'fontScale' => $invoiceBackgroundService->currentFontScale(false),
             'offsetX' => $invoiceBackgroundService->currentOffsetX(false),
             'hideHeader' => $invoiceBackgroundService->isHideHeader(false),
             'hideFooter' => $invoiceBackgroundService->isHideFooter(false),
@@ -315,6 +316,7 @@ class SystemSettingController extends Controller
             'content_bottom' => 'nullable|numeric|min:0|max:200',
             'content_width' => 'nullable|numeric|min:50|max:100',
             'content_scale' => 'nullable|numeric|min:0.5|max:1.5',
+            'font_scale' => 'nullable|numeric|min:0.7|max:1.4',
             'hide_header' => 'nullable|boolean',
             'hide_footer' => 'nullable|boolean',
             'offset_x' => 'nullable|numeric|min:-50|max:50',
@@ -342,6 +344,9 @@ class SystemSettingController extends Controller
         }
         if (isset($validated['content_scale'])) {
             $invoiceBackgroundService->setContentScale((float) $validated['content_scale']);
+        }
+        if (isset($validated['font_scale'])) {
+            $invoiceBackgroundService->setFontScale((float) $validated['font_scale']);
         }
         if (array_key_exists('hide_header', $validated)) {
             $invoiceBackgroundService->setHideHeader((bool) $validated['hide_header']);

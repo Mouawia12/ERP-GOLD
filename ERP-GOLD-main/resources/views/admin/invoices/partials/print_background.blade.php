@@ -8,6 +8,7 @@
     $bgContentBottom = number_format((float)($bgContentBottom ?? 0.0), 1);
     $bgContentWidth  = number_format(max(50.0, min(100.0, (float)($bgContentWidth ?? 100.0))), 1);
     $bgContentScale  = number_format(max(0.5, min(1.5, (float)($bgContentScale ?? 1.0))), 2);
+    $bgFontScale     = number_format(max(0.7, min(1.4, (float)($bgFontScale ?? 1.0))), 2);
     $bgHideHeader    = (bool)($bgHideHeader ?? false);
     $bgHideFooter    = (bool)($bgHideFooter ?? $bgHideHeader);
     $bgService = app(\App\Services\Invoices\InvoiceBackgroundService::class);
@@ -31,8 +32,114 @@
         --invoice-bg-content-bottom: {{ $bgContentBottom }}mm;
         --invoice-bg-content-width:  {{ $bgContentWidth }}%;
         --invoice-bg-content-scale:  {{ $bgContentScale }};
+        --invoice-bg-font-scale:     {{ $bgFontScale }};
         --invoice-bg-paper-width:    {{ $paperW }}mm;
         --invoice-bg-paper-height:   {{ $paperH }}mm;
+    }
+
+    body.invoice-print-format-a4 {
+        --invoice-screen-font-size: calc(13px * var(--invoice-bg-font-scale)) !important;
+        --invoice-print-font-size: calc(11px * var(--invoice-bg-font-scale)) !important;
+        --invoice-title-font-size: calc(24px * var(--invoice-bg-font-scale)) !important;
+        --invoice-title-en-font-size: calc(14px * var(--invoice-bg-font-scale)) !important;
+        --invoice-meta-font-size: calc(16px * var(--invoice-bg-font-scale)) !important;
+        --company-font-size: calc(12px * var(--invoice-bg-font-scale)) !important;
+    }
+
+    body.invoice-print-format-a4.invoice-template-compact {
+        --invoice-title-font-size: calc(21px * var(--invoice-bg-font-scale)) !important;
+        --invoice-title-en-font-size: calc(13px * var(--invoice-bg-font-scale)) !important;
+        --invoice-meta-font-size: calc(14px * var(--invoice-bg-font-scale)) !important;
+        --company-font-size: calc(11px * var(--invoice-bg-font-scale)) !important;
+    }
+
+    body.invoice-print-format-a4 .items-table th,
+    body.invoice-print-format-a4 .totals-table th,
+    body.invoice-print-format-a4 .payment-table th,
+    body.invoice-print-format-a4 .carat-table th {
+        font-size: calc(11px * var(--invoice-bg-font-scale)) !important;
+    }
+
+    body.invoice-print-format-a4 .items-table .description-cell .sub-line,
+    body.invoice-print-format-a4 .terms-box,
+    body.invoice-print-format-a4 .signature-line {
+        font-size: calc(10px * var(--invoice-bg-font-scale)) !important;
+    }
+
+    body.invoice-print-format-a5 {
+        --invoice-screen-font-size: calc(13px * var(--invoice-bg-font-scale)) !important;
+        --invoice-print-font-size: calc(10px * var(--invoice-bg-font-scale)) !important;
+        --invoice-title-font-size: calc(14.4px * var(--invoice-bg-font-scale)) !important;
+        --invoice-title-sub-font-size: calc(7.1px * var(--invoice-bg-font-scale)) !important;
+        --invoice-title-en-font-size: calc(11.8px * var(--invoice-bg-font-scale)) !important;
+        --invoice-meta-font-size: calc(8.4px * var(--invoice-bg-font-scale)) !important;
+        --company-font-size: calc(9.2px * var(--invoice-bg-font-scale)) !important;
+        --item-font-size: calc(9.2px * var(--invoice-bg-font-scale)) !important;
+        --summary-font-size: calc(9.3px * var(--invoice-bg-font-scale)) !important;
+    }
+
+    body.invoice-print-format-a5.invoice-template-compact {
+        --invoice-title-font-size: calc(13.2px * var(--invoice-bg-font-scale)) !important;
+        --invoice-title-sub-font-size: calc(6.8px * var(--invoice-bg-font-scale)) !important;
+        --invoice-title-en-font-size: calc(10.6px * var(--invoice-bg-font-scale)) !important;
+        --invoice-meta-font-size: calc(7.8px * var(--invoice-bg-font-scale)) !important;
+        --company-font-size: calc(8.5px * var(--invoice-bg-font-scale)) !important;
+        --item-font-size: calc(8.75px * var(--invoice-bg-font-scale)) !important;
+        --summary-font-size: calc(8.85px * var(--invoice-bg-font-scale)) !important;
+    }
+
+    body.invoice-print-format-a5 .items-table th,
+    body.invoice-print-format-a5 .totals-table th,
+    body.invoice-print-format-a5 .payment-table th,
+    body.invoice-print-format-a5 .carat-table th {
+        font-size: calc(8.95px * var(--invoice-bg-font-scale)) !important;
+    }
+
+    body.invoice-print-format-a5 .items-table .description-cell .sub-line {
+        font-size: calc(7.85px * var(--invoice-bg-font-scale)) !important;
+    }
+
+    body.invoice-print-format-a5.invoice-paper-ready {
+        --invoice-title-font-size: calc(15.2px * var(--invoice-bg-font-scale)) !important;
+        --invoice-title-sub-font-size: calc(7.1px * var(--invoice-bg-font-scale)) !important;
+        --invoice-title-en-font-size: calc(10.8px * var(--invoice-bg-font-scale)) !important;
+        --invoice-meta-font-size: calc(8.8px * var(--invoice-bg-font-scale)) !important;
+        --item-font-size: calc(8.95px * var(--invoice-bg-font-scale)) !important;
+        --summary-font-size: calc(9px * var(--invoice-bg-font-scale)) !important;
+    }
+
+    body.invoice-print-format-a5.invoice-paper-ready .reference-table {
+        font-size: calc(8.45px * var(--invoice-bg-font-scale)) !important;
+    }
+
+    body.invoice-print-format-a5.invoice-paper-ready .head-main {
+        font-size: calc(7.75px * var(--invoice-bg-font-scale)) !important;
+    }
+
+    body.invoice-print-format-a5.invoice-paper-ready .head-sub {
+        font-size: calc(6.15px * var(--invoice-bg-font-scale)) !important;
+    }
+
+    body.invoice-print-format-a5.invoice-paper-ready .description-main {
+        font-size: calc(8.6px * var(--invoice-bg-font-scale)) !important;
+    }
+
+    body.invoice-print-format-a5.invoice-paper-ready .description-sub,
+    body.invoice-print-format-a5.invoice-paper-ready .terms-content {
+        font-size: calc(6.65px * var(--invoice-bg-font-scale)) !important;
+    }
+
+    body.invoice-print-format-a5.invoice-paper-ready .payment-table .summary-label,
+    body.invoice-print-format-a5.invoice-paper-ready .terms-title {
+        font-size: calc(7.75px * var(--invoice-bg-font-scale)) !important;
+    }
+
+    body.invoice-print-format-a5.invoice-paper-ready .invoice-summary-table .summary-sub {
+        font-size: calc(5.95px * var(--invoice-bg-font-scale)) !important;
+    }
+
+    body.invoice-print-format-a5.invoice-paper-ready .signatures {
+        font-size: calc(7.95px * var(--invoice-bg-font-scale)) !important;
     }
 
     /* ─────────────────────────────────────────────────────────────────

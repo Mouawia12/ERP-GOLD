@@ -24,6 +24,8 @@ class InvoiceBackgroundService
 
     public const SETTING_CONTENT_SCALE = 'invoice_bg_content_scale'; // 0.5..1.5
 
+    public const SETTING_FONT_SCALE = 'invoice_bg_font_scale'; // 0.7..1.4
+
     public const SETTING_OFFSET_X = 'invoice_bg_offset_x';      // %, -50..50
 
     public const SETTING_OFFSET_Y = 'invoice_bg_offset_y';      // %, -50..50
@@ -262,6 +264,28 @@ class InvoiceBackgroundService
         $this->putSettingValue(self::SETTING_CONTENT_SCALE, number_format(max(0.5, min(1.5, $scale)), 2));
     }
 
+    public function currentFontScale(bool $allowRequestOverride = true): float
+    {
+        if ($allowRequestOverride) {
+            $v = request()->query('bg_font_scale');
+            if ($v !== null && is_numeric($v)) {
+                $scale = (float) $v;
+                if ($scale >= 0.7 && $scale <= 1.4) {
+                    return round($scale, 2);
+                }
+            }
+        }
+
+        $val = (float) $this->settingValue(self::SETTING_FONT_SCALE, '1.00');
+
+        return ($val >= 0.7 && $val <= 1.4) ? round($val, 2) : 1.0;
+    }
+
+    public function setFontScale(float $scale): void
+    {
+        $this->putSettingValue(self::SETTING_FONT_SCALE, number_format(max(0.7, min(1.4, $scale)), 2));
+    }
+
     /* ──────────────────── offset X ──────────────────── */
 
     public function currentOffsetX(bool $allowRequestOverride = true): float
@@ -404,6 +428,7 @@ class InvoiceBackgroundService
             $this->putSettingValue(self::SETTING_CONTENT_BOTTOM, '20.0');
             $this->putSettingValue(self::SETTING_CONTENT_WIDTH, '100.0');
             $this->putSettingValue(self::SETTING_CONTENT_SCALE, '1.00');
+            $this->putSettingValue(self::SETTING_FONT_SCALE, '1.00');
         }
     }
 
