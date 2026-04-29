@@ -27,13 +27,18 @@
                                 @csrf
                                 <div class="row">
                                     <div class="col-6">
-                                        @include('admin.reports.partials.branch_filter', [
-                                            'branches' => $branches,
-                                            'defaultFilters' => $defaultFilters,
-                                            'branchFieldId' => 'gold_stock_branch_ids',
-                                            'branchHiddenFieldId' => 'gold_stock_branch_id',
-                                            'branchLabelText' => __('main.branch'),
-                                        ])
+                                        <div class="form-group">
+                                            <label>{{ __('main.branch') }}</label>
+                                            <select name="branch_id" class="form-control">
+                                                <option value="">كل الفروع</option>
+                                                @foreach($branches as $branch)
+                                                    <option value="{{ $branch->id }}"
+                                                        @selected(($defaultFilters['branch_id'] ?? null) == $branch->id)>
+                                                        {{ $branch->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
                                     </div>
                                     <div class="col-3">
                                         <div class="form-group">

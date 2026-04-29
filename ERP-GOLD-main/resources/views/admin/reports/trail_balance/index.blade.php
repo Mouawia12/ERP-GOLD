@@ -45,6 +45,7 @@
                                 <div class="accounting-print-meta">
                                     <div>[ {{$periodFrom}} - {{$periodTo}} ]</div>
                                     <div>الفرع: {{ $branchLabel ?? ($branch?->name ?: 'جميع الفروع') }}</div>
+                                    <div>المستوى: {{ $accountLevel ? 'مستوى ' . $accountLevel : 'تفصيلي (آخر مستوى)' }}</div>
                                 </div>
                             </div>
                             <div class="col-3 text-left">

@@ -36,6 +36,8 @@
         --screen-outline: #d8dce2;
         --invoice-screen-font-size: 13px;
         --invoice-print-font-size: 10px;
+        --item-font-size: 7.85px;
+        --summary-font-size: 7.85px;
         --invoice-title-font-size: 14.4px;
         --invoice-title-sub-font-size: 7.1px;
         --invoice-meta-font-size: 8.4px;
@@ -93,6 +95,8 @@
         --invoice-title-font-size: 15.2px;
         --invoice-title-sub-font-size: 7.1px;
         --invoice-meta-font-size: 8.8px;
+        --item-font-size: 8.45px;
+        --summary-font-size: 8.45px;
         --page-width: 210mm;
         --page-min-height: 148mm;
         --safe-print-width: 184mm;
@@ -293,7 +297,11 @@
 
     .reference-table {
         margin-bottom: 2.2mm;
-        font-size: 7.85px;
+        font-size: var(--item-font-size);
+    }
+
+    .summary-table {
+        font-size: var(--summary-font-size);
     }
 
     .reference-table th,
@@ -468,7 +476,6 @@
 
     body.invoice-paper-ready .reference-table {
         margin-bottom: 2.1mm;
-        font-size: 8.45px;
     }
 
     body.invoice-paper-ready .description-main {

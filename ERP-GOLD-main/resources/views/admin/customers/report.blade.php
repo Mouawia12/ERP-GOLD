@@ -2,279 +2,255 @@
 
 @section('content')
 @php
-    $partyLabel = $customer->type === 'customer' ? 'العميل' : 'المورد';
+    $partyLabel  = $customer->type === 'customer' ? 'عميل' : 'مورد';
+    $branch      = auth()->user()?->branch;
+    $subscriber  = $branch?->subscriber;
+    $fromDate    = $filters['from_date'] ?? null;
+    $toDate      = $filters['to_date'] ?? null;
+    $period      = 'الفترة : ' . ($fromDate ?? 'من البداية') . ' -- ' . ($toDate ?? 'حتى اليوم');
+
+    // Use all system carats so columns are always complete
+    $usedCarats = $carats->pluck('title');
+
+    // Determine money debit/credit per transaction type
+    $debitTypes  = ['sale', 'purchase_return', 'manufacturing_order', 'manufacturing_receipt'];
+    $creditTypes = ['purchase', 'sale_return', 'receipt', 'payment', 'manufacturing_return', 'manufacturing_loss_settlement'];
 @endphp
 
 <style>
-    .customer-report-page {
-        direction: rtl;
-    }
-    .customer-report-page .summary-card {
-        border: 1px solid #e8e8e8;
-        border-radius: 12px;
-        padding: 16px;
-        height: 100%;
-        background: #fff;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
-    }
-    .customer-report-page .summary-card h5 {
-        margin-bottom: 10px;
-        color: #7a5b00;
-    }
-    .customer-report-page .report-table th,
-    .customer-report-page .report-table td {
-        vertical-align: middle;
-        text-align: center;
-    }
-    .customer-report-page .carat-badge {
-        display: inline-block;
-        margin: 2px 0;
-        padding: 4px 8px;
-        border-radius: 999px;
-        background: #f3f6fb;
-        color: #2f4f6f;
-        font-size: 13px;
-    }
-    .customer-report-page .filter-card {
-        border-radius: 14px;
+    body { direction: rtl; }
+    .report-table th, .report-table td { text-align: center; vertical-align: middle; font-size: 12px; }
+    @media print {
+        @page { size: A4 landscape; margin: 8mm; }
+        .no-print { display: none !important; }
+        .report-table th, .report-table td { font-size: 10px; }
     }
 </style>
 
-<div class="container-fluid customer-report-page">
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
-        <div>
-            <h3 class="mb-1">كشف {{ $partyLabel }} التفصيلي</h3>
-            <p class="mb-0 text-muted">
-                {{ $customer->name }}
-                @if($customer->phone)
-                    <span class="mr-2">| {{ $customer->phone }}</span>
-                @endif
-                @if($customer->identity_number)
-                    <span class="mr-2">| رقم الهوية: {{ $customer->identity_number }}</span>
-                @endif
-            </p>
-        </div>
-        <div class="mt-2 mt-md-0">
-            <a href="{{ route('customers.report.cash', $customer->id) }}" class="btn btn-outline-primary mr-2">
-                التقرير النقدي
-            </a>
-            <a href="{{ route('customers', ['type' => $customer->type]) }}" class="btn btn-outline-secondary">
-                رجوع إلى قائمة {{ $customer->type === 'customer' ? __('main.customers') : __('main.suppliers') }}
-            </a>
-        </div>
-    </div>
+<div class="row row-sm">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body px-0 pt-0 pb-2">
 
-    <div class="card filter-card shadow-sm mb-4">
-        <div class="card-body">
-            <form method="GET" action="{{ route('customers.report', $customer->id) }}">
-                <div class="row">
-                    <div class="col-lg-2 col-md-3">
-                        <label>من تاريخ</label>
-                        <input type="date" name="from_date" class="form-control" value="{{ $filters['from_date'] ?? '' }}">
-                    </div>
-                    <div class="col-lg-2 col-md-3">
-                        <label>إلى تاريخ</label>
-                        <input type="date" name="to_date" class="form-control" value="{{ $filters['to_date'] ?? '' }}">
-                    </div>
-                    <div class="col-lg-2 col-md-3">
-                        <label>من وقت</label>
-                        <input type="time" name="from_time" class="form-control" value="{{ $filters['from_time'] ?? '' }}">
-                    </div>
-                    <div class="col-lg-2 col-md-3">
-                        <label>إلى وقت</label>
-                        <input type="time" name="to_time" class="form-control" value="{{ $filters['to_time'] ?? '' }}">
-                    </div>
-                    <div class="col-lg-2 col-md-3">
-                        <label>رقم الفاتورة</label>
-                        <input type="text" name="invoice_number" class="form-control" value="{{ $filters['invoice_number'] ?? '' }}" placeholder="مثال: SALE-1001">
-                    </div>
-                    <div class="col-lg-2 col-md-3">
-                        <label>الفرع</label>
-                        <select name="branch_id" class="form-control">
-                            <option value="">الكل</option>
-                            @foreach($branches as $branch)
-                                <option value="{{ $branch->id }}" @selected(($filters['branch_id'] ?? null) == $branch->id)>
-                                    {{ $branch->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-lg-2 col-md-3 mt-3 mt-lg-0">
-                        <label>المستخدم</label>
-                        <select name="user_id" class="form-control">
-                            <option value="">الكل</option>
-                            @foreach($users as $user)
-                                <option value="{{ $user->id }}" @selected(($filters['user_id'] ?? null) == $user->id)>
-                                    {{ $user->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-lg-2 col-md-3 mt-3 mt-lg-0">
-                        <label>العيار</label>
-                        <select name="carat_id" class="form-control">
-                            <option value="">الكل</option>
-                            @foreach($carats as $carat)
-                                <option value="{{ $carat->id }}" @selected(($filters['carat_id'] ?? null) == $carat->id)>
-                                    {{ $carat->title }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-lg-2 col-md-3 mt-3 mt-lg-0">
-                        <label>نوع العملية</label>
-                        <select name="operation_type" class="form-control">
-                            <option value="">الكل</option>
-                            <option value="sale" @selected(($filters['operation_type'] ?? null) === 'sale')>بيع</option>
-                            <option value="sale_return" @selected(($filters['operation_type'] ?? null) === 'sale_return')>مرتجع بيع</option>
-                            <option value="purchase" @selected(($filters['operation_type'] ?? null) === 'purchase')>شراء</option>
-                            <option value="purchase_return" @selected(($filters['operation_type'] ?? null) === 'purchase_return')>مرتجع شراء</option>
-                            <option value="receipt" @selected(($filters['operation_type'] ?? null) === 'receipt')>سند قبض</option>
-                            <option value="payment" @selected(($filters['operation_type'] ?? null) === 'payment')>سند صرف</option>
-                        </select>
+                {{-- Filter Form (no-print) --}}
+                <div class="card shadow mb-3 no-print">
+                    <div class="card-body py-3">
+                        <form method="GET" action="{{ route('customers.report', $customer->id) }}">
+                            <div class="row align-items-end">
+                                <div class="col-md-2">
+                                    <label>من تاريخ</label>
+                                    <input type="date" name="from_date" class="form-control" value="{{ $filters['from_date'] ?? '' }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <label>إلى تاريخ</label>
+                                    <input type="date" name="to_date" class="form-control" value="{{ $filters['to_date'] ?? '' }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <label>الفرع</label>
+                                    <select name="branch_id" class="form-control">
+                                        <option value="">الكل</option>
+                                        @foreach($branches as $b)
+                                            <option value="{{ $b->id }}" @selected(($filters['branch_id'] ?? null) == $b->id)>{{ $b->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label>نوع العملية</label>
+                                    <select name="operation_type" class="form-control">
+                                        <option value="">الكل</option>
+                                        <option value="sale" @selected(($filters['operation_type'] ?? null) === 'sale')>بيع</option>
+                                        <option value="sale_return" @selected(($filters['operation_type'] ?? null) === 'sale_return')>مرتجع بيع</option>
+                                        <option value="purchase" @selected(($filters['operation_type'] ?? null) === 'purchase')>شراء</option>
+                                        <option value="purchase_return" @selected(($filters['operation_type'] ?? null) === 'purchase_return')>مرتجع شراء</option>
+                                        <option value="receipt" @selected(($filters['operation_type'] ?? null) === 'receipt')>سند قبض</option>
+                                        <option value="payment" @selected(($filters['operation_type'] ?? null) === 'payment')>سند صرف</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label>رقم الفاتورة</label>
+                                    <input type="text" name="invoice_number" class="form-control"
+                                           value="{{ $filters['invoice_number'] ?? '' }}" placeholder="رقم الفاتورة">
+                                </div>
+                                <div class="col-md-2 mt-3 mt-md-0">
+                                    <button type="submit" class="btn btn-primary btn-block">
+                                        <i class="fa fa-search"></i> بحث
+                                    </button>
+                                    <a href="{{ route('customers.report', $customer->id) }}"
+                                       class="btn btn-outline-secondary btn-block mt-1">إعادة تعيين</a>
+                                </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
-                <div class="mt-3 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">تطبيق الفلاتر</button>
-                    <a href="{{ route('customers.report', $customer->id) }}" class="btn btn-outline-secondary">إعادة التعيين</a>
-                </div>
-            </form>
-        </div>
-    </div>
 
-    <div class="row mb-4">
-        @forelse($operationSummary as $summary)
-            <div class="col-md-6 col-xl-3 mb-3">
-                <div class="summary-card">
-                    <h5>{{ $summary['label'] }}</h5>
-                    <div>عدد العمليات: <strong>{{ $summary['count'] }}</strong></div>
-                    <div>إجمالي قبل الضريبة: <strong>{{ number_format($summary['line_total'], 2) }}</strong></div>
-                    <div>إجمالي الضريبة: <strong>{{ number_format($summary['tax_total'], 2) }}</strong></div>
-                    <div>الإجمالي النهائي: <strong>{{ number_format($summary['net_total'], 2) }}</strong></div>
-                    <div>وزن داخل: <strong>{{ number_format($summary['in_weight'], 3) }}</strong></div>
-                    <div>وزن خارج: <strong>{{ number_format($summary['out_weight'], 3) }}</strong></div>
-                </div>
-            </div>
-        @empty
-            <div class="col-12">
-                <div class="alert alert-info text-center mb-0">لا توجد عمليات ضمن الفلاتر الحالية.</div>
-            </div>
-        @endforelse
-    </div>
-
-    <div class="card shadow-sm mb-4">
-        <div class="card-header">
-            <h4 class="mb-0">العمليات التفصيلية</h4>
-        </div>
-        <div class="card-body table-responsive">
-            <table class="table table-bordered report-table mb-0">
-                <thead class="thead-light">
-                    <tr>
-                        <th>#</th>
-                        <th>رقم الفاتورة</th>
-                        <th>الطرف على المستند</th>
-                        <th>العملية</th>
-                        <th>التاريخ</th>
-                        <th>الوقت</th>
-                        <th>الفرع</th>
-                        <th>المستخدم</th>
-                        <th>الدفع / الحسابات</th>
-                        <th>تفصيل العيارات</th>
-                        <th>وزن داخل</th>
-                        <th>وزن خارج</th>
-                        <th>قبل الضريبة</th>
-                        <th>الضريبة</th>
-                        <th>الإجمالي</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($transactions as $transaction)
-                        <tr>
-                            <td>{{ $loop->iteration }}</td>
-                            <td>{{ $transaction['bill_number'] }}</td>
-                            <td>
-                                <div>{{ $transaction['party_name'] }}</div>
-                                @if($transaction['party_phone'] !== '-')
-                                    <small class="text-muted d-block">{{ $transaction['party_phone'] }}</small>
+                {{-- Print Header --}}
+                <div class="card shadow mb-3">
+                    <div class="card-header py-3" style="direction: rtl; border-bottom: solid 1px #ccc;">
+                        <div class="row" style="direction: ltr;">
+                            {{-- Logo --}}
+                            <div class="col-3 text-left">
+                                @php
+                                    $logoUrl = null;
+                                    try {
+                                        $logoUrl = app(\App\Services\Invoices\InvoicePrintSettingsService::class)->currentSettings()->logoUrl ?? null;
+                                    } catch(\Throwable $e) {}
+                                @endphp
+                                @if($logoUrl)
+                                    <img src="{{ $logoUrl }}" height="70" alt="logo">
                                 @endif
-                            </td>
-                            <td>{{ $transaction['operation_label'] }}</td>
-                            <td>{{ $transaction['date'] }}</td>
-                            <td>{{ $transaction['time'] }}</td>
-                            <td>{{ $transaction['branch_name'] }}</td>
-                            <td>{{ $transaction['user_name'] }}</td>
-                            <td>{{ $transaction['payment_type_label'] }}</td>
-                            <td style="min-width: 220px;">
-                                @forelse($transaction['carat_summary'] as $carat)
-                                    <div class="carat-badge">
-                                        {{ $carat['carat_title'] }}
-                                        |
-                                        داخل {{ number_format($carat['in_weight'], 3) }}
-                                        |
-                                        خارج {{ number_format($carat['out_weight'], 3) }}
-                                    </div>
-                                @empty
-                                    <span class="text-muted">-</span>
-                                @endforelse
-                            </td>
-                            <td>{{ number_format($transaction['in_weight'], 3) }}</td>
-                            <td>{{ number_format($transaction['out_weight'], 3) }}</td>
-                            <td>{{ number_format($transaction['line_total'], 2) }}</td>
-                            <td>{{ number_format($transaction['tax_total'], 2) }}</td>
-                            <td>{{ number_format($transaction['net_total'], 2) }}</td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="15" class="text-center text-muted">لا توجد بيانات لعرضها.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
+                            </div>
+                            {{-- Title --}}
+                            <div class="col-6 text-center">
+                                <h4 class="alert alert-primary mb-1">تقرير حركة حساب تفصيلي</h4>
+                                <h5>[ {{ $customer->name }} ]</h5>
+                                @if($branch)
+                                    <h6>[ {{ $branch->name }} ]</h6>
+                                @endif
+                                <h6>[ {{ $period }} ]</h6>
+                            </div>
+                            {{-- Company Info + Actions --}}
+                            <div class="col-3 text-right">
+                                <div>
+                                    @if($subscriber?->name)
+                                        <strong>{{ $subscriber->name }}</strong><br>
+                                    @elseif($branch?->name)
+                                        <strong>{{ $branch->name }}</strong><br>
+                                    @endif
+                                    @if($branch?->tax_number)
+                                        س.ت : {{ $branch->tax_number }}<br>
+                                    @endif
+                                </div>
+                                <div class="mt-2 no-print">
+                                    <button class="btn btn-primary btn-sm" onclick="window.print()">
+                                        <i class="fa fa-print"></i> طباعة
+                                    </button>
+                                    <a href="{{ route('customers', ['type' => $customer->type]) }}"
+                                       class="btn btn-outline-secondary btn-sm mt-1 d-block">رجوع</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-    <div class="card shadow-sm">
-        <div class="card-header">
-            <h4 class="mb-0">التجميع حسب العيار ونوع العملية</h4>
-        </div>
-        <div class="card-body table-responsive">
-            <table class="table table-bordered report-table mb-0">
-                <thead class="thead-light">
-                    <tr>
-                        <th>#</th>
-                        <th>العملية</th>
-                        <th>العيار</th>
-                        <th>عدد الفواتير</th>
-                        <th>عدد البنود</th>
-                        <th>وزن داخل</th>
-                        <th>وزن خارج</th>
-                        <th>قبل الضريبة</th>
-                        <th>الضريبة</th>
-                        <th>الإجمالي</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($caratSummary as $row)
-                        <tr>
-                            <td>{{ $loop->iteration }}</td>
-                            <td>{{ $row['operation_label'] }}</td>
-                            <td>{{ $row['carat_title'] }}</td>
-                            <td>{{ $row['invoice_count'] }}</td>
-                            <td>{{ $row['line_count'] }}</td>
-                            <td>{{ number_format($row['in_weight'], 3) }}</td>
-                            <td>{{ number_format($row['out_weight'], 3) }}</td>
-                            <td>{{ number_format($row['line_total'], 2) }}</td>
-                            <td>{{ number_format($row['tax_total'], 2) }}</td>
-                            <td>{{ number_format($row['net_total'], 2) }}</td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="10" class="text-center text-muted">لا يوجد تجميع متاح ضمن الفلاتر الحالية.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
+                {{-- Report Table --}}
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered report-table w-100" style="direction: rtl;">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th rowspan="2">#</th>
+                                    <th rowspan="2">تاريخ العملية</th>
+                                    <th rowspan="2">السند</th>
+                                    <th rowspan="2">رقمه</th>
+                                    <th colspan="2">النقدية</th>
+                                    @if($usedCarats->isNotEmpty())
+                                    <th colspan="{{ $usedCarats->count() * 2 }}">الذهب</th>
+                                    @endif
+                                </tr>
+                                <tr>
+                                    <th>مبلغ مدين</th>
+                                    <th>مبلغ دائن</th>
+                                    @foreach($usedCarats as $carat)
+                                        <th>{{ $carat }} مدين</th>
+                                        <th>{{ $carat }} دائن</th>
+                                    @endforeach
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @php
+                                    $total_money_debit  = 0;
+                                    $total_money_credit = 0;
+                                    $carat_totals = [];
+                                    foreach ($usedCarats as $c) {
+                                        $carat_totals[$c] = ['debit' => 0, 'credit' => 0];
+                                    }
+                                @endphp
+
+                                {{-- Opening balance row --}}
+                                <tr style="background: #f8f9fa; font-weight: bold;">
+                                    <td>1</td>
+                                    <td>--</td>
+                                    <td>رصيد اول المدة</td>
+                                    <td></td>
+                                    <td>0</td>
+                                    <td>0</td>
+                                    @foreach($usedCarats as $carat)
+                                        <td>0</td><td>0</td>
+                                    @endforeach
+                                </tr>
+
+                                @forelse($transactions as $transaction)
+                                    @php
+                                        $isDebit = in_array($transaction['type'], $debitTypes);
+                                        $moneyDebit  = $isDebit ? $transaction['net_total'] : 0;
+                                        $moneyCredit = !$isDebit ? $transaction['net_total'] : 0;
+                                        $total_money_debit  += $moneyDebit;
+                                        $total_money_credit += $moneyCredit;
+                                        $caratMap = collect($transaction['carat_summary'])->keyBy('carat_title');
+                                    @endphp
+                                    <tr>
+                                        <td>{{ $loop->iteration + 1 }}</td>
+                                        <td>{{ $transaction['date'] }}</td>
+                                        <td>{{ $transaction['operation_label'] }}</td>
+                                        <td>{{ $transaction['bill_number'] }}</td>
+                                        <td>{{ $moneyDebit > 0 ? number_format($moneyDebit, 2) : 0 }}</td>
+                                        <td>{{ $moneyCredit > 0 ? number_format($moneyCredit, 2) : 0 }}</td>
+                                        @foreach($usedCarats as $carat)
+                                            @php
+                                                $cd = $caratMap->get($carat);
+                                                $inW  = $cd ? $cd['in_weight']  : 0;
+                                                $outW = $cd ? $cd['out_weight'] : 0;
+                                                $carat_totals[$carat]['debit']  += $inW;
+                                                $carat_totals[$carat]['credit'] += $outW;
+                                            @endphp
+                                            <td>{{ $inW  > 0 ? number_format($inW,  3) : 0 }}</td>
+                                            <td>{{ $outW > 0 ? number_format($outW, 3) : 0 }}</td>
+                                        @endforeach
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="{{ 6 + $usedCarats->count() * 2 }}" class="text-center text-muted">
+                                            لا توجد حركات ضمن هذه الفترة.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                            <tfoot>
+                                <tr style="background: antiquewhite; font-weight: bold;">
+                                    <td colspan="4" class="text-center">الإجمالي</td>
+                                    <td>{{ number_format($total_money_debit, 2) }}</td>
+                                    <td>{{ number_format($total_money_credit, 2) }}</td>
+                                    @foreach($usedCarats as $carat)
+                                        <td>{{ number_format($carat_totals[$carat]['debit'],  3) }}</td>
+                                        <td>{{ number_format($carat_totals[$carat]['credit'], 3) }}</td>
+                                    @endforeach
+                                </tr>
+                                <tr style="background: lightblue; font-weight: bold;">
+                                    <td colspan="4" class="text-center">الرصيد</td>
+                                    <td colspan="2">{{ number_format(abs($total_money_debit - $total_money_credit), 2) }}
+                                        ({{ $total_money_debit >= $total_money_credit ? 'مدين' : 'دائن' }})
+                                    </td>
+                                    @foreach($usedCarats as $carat)
+                                        @php $net = $carat_totals[$carat]['debit'] - $carat_totals[$carat]['credit']; @endphp
+                                        <td colspan="2">{{ number_format(abs($net), 3) }}
+                                            ({{ $net >= 0 ? 'مدين' : 'دائن' }})
+                                        </td>
+                                    @endforeach
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
         </div>
     </div>
 </div>
+
+@endsection
+
+@section('js')
+<script>
+    document.title = "كشف {{ $partyLabel }} - {{ $customer->name }}";
+</script>
 @endsection

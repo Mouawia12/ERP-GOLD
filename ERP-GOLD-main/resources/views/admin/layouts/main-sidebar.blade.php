@@ -687,28 +687,6 @@
                     </ul>
                 </li>
             @endcan
-            @can('employee.suppliers.show')
-                <li class="slide {{ $currentSidebarSection === 'supplier-reports' ? 'is-expanded active' : '' }}">
-                    <a class="side-menu__item {{ $currentSidebarSection === 'supplier-reports' ? 'active' : '' }}" data-toggle="slide" href="#">
-                        <i class="fa fa-line-chart side-menu__icon"></i>
-                        <span class="side-menu__label">
-                        {{ __('تقارير الموردين') }}
-                        </span><i class="angle fe fe-chevron-down"></i>
-                    </a>
-                    <ul class="slide-menu">
-                        <li>
-                            <a class="slide-item" href="{{ route('customers.reports.index', 'supplier') }}">
-                            {{ __('تقارير الموردين التفصيلية') }}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="slide-item" href="{{ route('customers.reports.cash', 'supplier') }}">
-                            {{ __('تقارير الموردين النقدية') }}
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-            @endcan
             @can('employee.customers.show')                  
                 <li class="slide {{ $currentSidebarSection === 'customers' ? 'is-expanded active' : '' }}">
                     <a class="side-menu__item {{ $currentSidebarSection === 'customers' ? 'active' : '' }}" data-toggle="slide" href="#">
@@ -731,28 +709,6 @@
                     </ul>
                 </li>  
             @endcan
-            @can('employee.customers.show')                  
-                <li class="slide {{ $currentSidebarSection === 'customer-reports' ? 'is-expanded active' : '' }}">
-                    <a class="side-menu__item {{ $currentSidebarSection === 'customer-reports' ? 'active' : '' }}" data-toggle="slide" href="#">
-                        <i class="fa fa-area-chart side-menu__icon"></i>
-                        <span class="side-menu__label">
-                            {{ __('تقارير العملاء') }}
-                        </span><i class="angle fe fe-chevron-down"></i>
-                    </a> 
-                    <ul class="slide-menu">  
-                        <li>
-                            <a class="slide-item" href="{{ route('customers.reports.index', 'customer') }}">
-                            {{ __('تقارير العملاء التفصيلية') }}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="slide-item" href="{{ route('customers.reports.cash', 'customer') }}">
-                            {{ __('تقارير العملاء النقدية') }}
-                            </a>
-                        </li>
-                    </ul>
-                </li>  
-            @endcan  
 
             @can(['عرض دفتر خروج النقدية','عرض دفتر دخول النقدية'])        
                 <li class="slide {{ $currentSidebarSection === 'cash-books' ? 'is-expanded active' : '' }}">

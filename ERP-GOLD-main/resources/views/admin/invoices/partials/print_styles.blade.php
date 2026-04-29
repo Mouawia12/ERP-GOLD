@@ -29,7 +29,7 @@
         --sheet-gap: {{ $printFormat === 'a5' ? '10px' : '14px' }};
         --table-cell-padding: {{ $printFormat === 'a5' ? '7px 8px' : '9px 10px' }};
         --hero-title-size: {{ $printFormat === 'a5' ? '17px' : '21px' }};
-        --meta-value-size: {{ $printFormat === 'a5' ? '12px' : '13px' }};
+        --meta-value-size: 1em;
         --shadow-soft: 0 14px 34px rgba(15, 23, 42, 0.08);
     }
 
@@ -360,7 +360,7 @@
         table-layout: fixed;
         margin: 0;
         direction: rtl;
-        font-size: {{ $printFormat === 'a5' ? '11px' : '12px' }};
+        font-size: inherit;
     }
 
     .invoice-print-table thead th {

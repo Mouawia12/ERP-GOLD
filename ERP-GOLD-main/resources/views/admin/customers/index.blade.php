@@ -42,96 +42,27 @@
             <div class="card">
                 <div class="card-header pb-0" id="head-right" >
                     <div class="col-lg-12 margin-tb text-center">
-                        @php
-                            $isReportDirectory = !empty($reportDirectory);
-                            $isCashListing = !empty($cashDirectory) || !empty($cashOnly);
-                            $isCashCreationDirectory = !$isReportDirectory && $isCashListing;
-                            $directoryRouteName = $isReportDirectory
-                                ? ($isCashListing ? 'customers.reports.cash' : 'customers.reports.index')
-                                : ($isCashListing ? 'customers.cash' : 'customers');
-                            $allPartiesRoute = route('customers', array_filter([
-                                'type' => $type,
-                                'identity_number' => $identityNumber ?? null,
-                            ], fn ($value) => $value !== null && $value !== ''));
-                            $cashPartiesRoute = route('customers.cash', array_filter([
-                                'type' => $type,
-                                'identity_number' => $identityNumber ?? null,
-                            ], fn ($value) => $value !== null && $value !== ''));
-                            $allReportsRoute = route('customers.reports.index', array_filter([
-                                'type' => $type,
-                                'identity_number' => $identityNumber ?? null,
-                            ], fn ($value) => $value !== null && $value !== ''));
-                            $cashReportsRoute = route('customers.reports.cash', array_filter([
-                                'type' => $type,
-                                'identity_number' => $identityNumber ?? null,
-                            ], fn ($value) => $value !== null && $value !== ''));
-                            $directoryTitle = $isReportDirectory
-                                ? ($isCashListing
-                                    ? ($type == 'customer' ? 'تقارير العملاء النقدية' : 'تقارير الموردين النقدية')
-                                    : ($type == 'customer' ? 'تقارير العملاء' : 'تقارير الموردين'))
-                                : ($isCashListing
-                                    ? ($type == 'customer' ? 'العملاء النقديون' : 'الموردون النقديون')
-                                    : ($type == 'customer' ? __('main.customers') : __('main.suppliers')));
-                            $primaryAlertClass = $isReportDirectory ? 'alert alert-info' : 'alert alert-primary';
-                        @endphp
-                        <h4  class="{{ $primaryAlertClass }} text-center">
-                         [ {{$directoryTitle}} ] 
+                        <h4 class="alert alert-primary text-center">
+                            [ {{ $type == 'customer' ? __('main.customers') : __('main.suppliers') }} ]
                         </h4>
-                        @if(!$isReportDirectory)
-                        @canany(['employee.customers.add','employee.suppliers.add' ])     
-                            <button type="button" class="btn btn-labeled btn-info " id="createButton">
-                                <span class="btn-label" style="margin-right: 10px;">
-                                <i class="fa fa-plus"></i></span>
+                        @canany(['employee.customers.add','employee.suppliers.add'])
+                            <button type="button" class="btn btn-labeled btn-info" id="createButton">
+                                <span class="btn-label" style="margin-right: 10px;"><i class="fa fa-plus"></i></span>
                                 {{__('main.add_new')}}
-                            </button> 
-                        @endcan
-                        @endif
-                        <div class="mt-3">
-                            <a
-                                href="{{ $isReportDirectory ? $allReportsRoute : $allPartiesRoute }}"
-                                class="btn {{ empty($isCashListing) ? 'btn-primary' : 'btn-outline-primary' }}"
-                            >
-                                {{ $isReportDirectory
-                                    ? ($type == 'customer' ? 'كل تقارير العملاء' : 'كل تقارير الموردين')
-                                    : ($type == 'customer' ? __('main.customers') : __('main.suppliers')) }}
-                            </a>
-                            <a
-                                href="{{ $isReportDirectory ? $cashReportsRoute : $cashPartiesRoute }}"
-                                class="btn {{ !empty($isCashListing) ? 'btn-primary' : 'btn-outline-primary' }}"
-                            >
-                                {{ $isReportDirectory
-                                    ? ($type == 'customer' ? 'تقارير العملاء النقديين' : 'تقارير الموردين النقديين')
-                                    : ($type == 'customer' ? 'العملاء النقديون' : 'الموردون النقديون') }}
-                            </a>
-                        </div>
-                        <form method="GET" action="{{ route($directoryRouteName, ['type' => $type]) }}" class="mt-3">
+                            </button>
+                        @endcanany
+                        <form method="GET" action="{{ route('customers', ['type' => $type]) }}" class="mt-3">
                             <div class="row justify-content-center">
                                 <div class="col-lg-4 col-md-6">
                                     <div class="input-group">
-                                        <input
-                                            type="text"
-                                            name="identity_number"
-                                            class="form-control text-right"
-                                            placeholder="{{ $isReportDirectory
-                                                ? (!empty($cashDirectory) ? 'بحث في تقارير الأطراف النقدية برقم الهوية' : 'بحث في التقارير برقم الهوية')
-                                                : (!empty($cashDirectory) ? 'بحث داخل الأطراف النقدية برقم الهوية' : 'بحث برقم الهوية') }}"
-                                            value="{{ $identityNumber ?? '' }}"
-                                        >
+                                        <input type="text" name="identity_number" class="form-control text-right"
+                                            placeholder="بحث برقم الهوية"
+                                            value="{{ $identityNumber ?? '' }}">
                                         <div class="input-group-append">
                                             <button type="submit" class="btn btn-outline-primary">بحث</button>
-                                            <a
-                                                href="{{ route($directoryRouteName, ['type' => $type]) }}"
-                                                class="btn btn-outline-secondary"
-                                            >
-                                                مسح
-                                            </a>
+                                            <a href="{{ route('customers', ['type' => $type]) }}" class="btn btn-outline-secondary">مسح</a>
                                         </div>
                                     </div>
-                                    @if(!empty($isCashListing))
-                                        <small class="text-muted d-block mt-2">
-                                            {{ $isReportDirectory ? 'هذه القائمة تعرض تقارير الأطراف النقدية فقط.' : 'هذه القائمة تعرض الأطراف النقدية فقط.' }}
-                                        </small>
-                                    @endif
                                     @if(!empty($identityNumber))
                                         <small class="text-muted d-block mt-2">التصفية الحالية على رقم الهوية: {{ $identityNumber }}</small>
                                     @endif
@@ -157,7 +88,7 @@
                                             <th>رقم الهوية</th>
                                             <th>{{__('main.email')}}</th> 
                                             <th>{{__('main.vat_no')}}</th>
-                                            <th>{{ $isReportDirectory ? 'التقارير' : __('main.actions') }}</th>
+                                            <th>{{ __('main.actions') }}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -177,36 +108,25 @@
                                                 <td class="text-center">{{$customer -> email}}</td> 
                                                 <td class="text-center">{{$customer -> tax_number}}</td>
                                                 <td class="text-center">
-                                                @if($isReportDirectory)
-                                                <a
-                                                    href="{{ route('customers.report', $customer->id) }}"
-                                                    class="btn btn-primary btn-sm"
-                                                    title="التقرير التفصيلي"
-                                                >
-                                                    تفصيلي
-                                                </a>
-                                                <a
-                                                    href="{{ route('customers.report.cash', $customer->id) }}"
-                                                    class="btn btn-outline-primary btn-sm"
-                                                    title="التقرير النقدي"
-                                                >
-                                                    نقدي
-                                                </a>
-                                                @else
-                                                @canany(['employee.customers.edit','employee.suppliers.edit'])    
-                                                <button type="button" class="btn btn-labeled btn-info editBtn"
-                                                    url="{{route('customers.get', $customer->id)}}" > 
-                                                    <i class="fa-regular fa-pen-to-square"></i>
-                                                </button>
-                                                @endcanany 
-                                                @canany(['employee.customers.delete','employee.suppliers.delete'])
-                                                <button type="button" class="btn btn-labeled btn-danger deleteBtn"  value="{{$customer -> id}}"
-                                                    >
-                                                    <i class="fa fa-trash"></i>
-                                                </button>
-                                                @endcanany 
-                                                @endif
-                                            </td>
+                                                    @can('employee.suppliers.show')
+                                                    <a href="{{ route('customers.report', $customer->id) }}"
+                                                        class="btn btn-success btn-sm">
+                                                        <i class="fa fa-chart-bar"></i> تقرير تفصيلي
+                                                    </a>
+                                                    @endcan
+                                                    @canany(['employee.customers.edit','employee.suppliers.edit'])
+                                                    <button type="button" class="btn btn-labeled btn-info editBtn"
+                                                        url="{{route('customers.get', $customer->id)}}">
+                                                        <i class="fa-regular fa-pen-to-square"></i>
+                                                    </button>
+                                                    @endcanany
+                                                    @canany(['employee.customers.delete','employee.suppliers.delete'])
+                                                    <button type="button" class="btn btn-labeled btn-danger deleteBtn"
+                                                        value="{{$customer->id}}">
+                                                        <i class="fa fa-trash"></i>
+                                                    </button>
+                                                    @endcanany
+                                                </td>
                                             </tr>
                                     @endforeach 
                                 </tbody>
@@ -233,9 +153,6 @@
                 <form id="createForm"   method="POST" action="{{ route('customers.store' , $type) }}"
                         enctype="multipart/form-data" >
                     @csrf
-                    @if($isCashCreationDirectory)
-                        <input type="hidden" name="force_cash_party" value="1">
-                    @endif
 
                     <div class="row">
                         <div class="col-12">
@@ -271,14 +188,9 @@
                         <div class="col-6">
                             <div class="form-group text-right pt-4">
                                 <div class="custom-control custom-switch">
-                                    <input type="checkbox" class="custom-control-input" id="is_cash_party" name="is_cash_party" value="1" @checked($isCashCreationDirectory) @disabled($isCashCreationDirectory)>
+                                    <input type="checkbox" class="custom-control-input" id="is_cash_party" name="is_cash_party" value="1">
                                     <label class="custom-control-label" for="is_cash_party">تصنيف كطرف نقدي</label>
                                 </div>
-                                <small class="text-muted d-block mt-2">
-                                    {{ $isCashCreationDirectory
-                                        ? 'هذه الصفحة تحفظ الطرف كنقدي تلقائيًا ليظهر في جدوله الصحيح.'
-                                        : 'سيظهر ضمن قائمة العملاء/الموردين النقديين ويمكن تصفيته بسرعة.' }}
-                                </small>
                             </div>
                         </div>
                         <div class="col-6 " >
@@ -422,9 +334,7 @@
 @section('js')
 <script type="text/javascript">
     let id = 0;
-    document.title = @json(!empty($reportDirectory)
-        ? ($type == 'customer' ? 'تقارير العملاء' : 'تقارير الموردين')
-        : ($type == 'customer' ? __('main.customers') : __('main.suppliers')));
+    document.title = @json($type == 'customer' ? __('main.customers') : __('main.suppliers'));
 
     $(document).ready(function(){
         const $createModal = $('#createModal');
@@ -434,7 +344,7 @@
         const editTitle = @json($type == 'customer' ? 'تعديل بيانات العميل' : 'تعديل بيانات المورد');
         const genericSaveError = @json($type == 'customer' ? 'تعذر حفظ العميل. حاول مرة أخرى.' : 'تعذر حفظ المورد. حاول مرة أخرى.');
         const genericLoadError = @json($type == 'customer' ? 'تعذر تحميل بيانات العميل.' : 'تعذر تحميل بيانات المورد.');
-        const isCashCreationDirectory = @json($isCashCreationDirectory);
+        const isCashCreationDirectory = false;
 
         $('.js-example-basic-single').select2({
             placeholder: "اختر مما يلى",

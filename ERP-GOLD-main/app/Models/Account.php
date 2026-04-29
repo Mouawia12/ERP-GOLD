@@ -40,6 +40,21 @@ class Account extends Model
         });
     }
 
+    public function getNameAttribute($value): string
+    {
+        $locale = app()->getLocale();
+        if (is_array($value)) {
+            return $value[$locale] ?? $value['ar'] ?? $value['en'] ?? '';
+        }
+        if (is_string($value) && str_starts_with($value, '{')) {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                return $decoded[$locale] ?? $decoded['ar'] ?? $decoded['en'] ?? $value;
+            }
+        }
+        return (string) ($value ?? '');
+    }
+
     public function parent()
     {
         return $this->belongsTo(self::class, 'parent_account_id');

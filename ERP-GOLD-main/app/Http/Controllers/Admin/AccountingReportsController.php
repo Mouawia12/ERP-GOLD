@@ -32,6 +32,8 @@ class AccountingReportsController extends Controller
             Carbon::now()->endOfYear()->format('Y-m-d')
         );
 
+        $accountLevel = $request->input('account_level') ? (int) $request->input('account_level') : null;
+
         $filters = [
             'period_from' => $periodFrom,
             'period_to' => $periodTo,
@@ -39,8 +41,14 @@ class AccountingReportsController extends Controller
             'branch_scope_all' => $branchSelection['selects_all'],
         ];
 
-        $accounts = Account::query()
-            ->whereDoesntHave('childrens')
+        $accountQuery = Account::query();
+        if ($accountLevel !== null) {
+            $accountQuery->where('level', $accountLevel);
+        } else {
+            $accountQuery->whereDoesntHave('childrens');
+        }
+
+        $accounts = $accountQuery
             ->get()
             ->filter(function (Account $account) use ($filters) {
                 $metrics = $this->buildSummaryMetricsForAccount($account, $filters);
@@ -61,7 +69,7 @@ class AccountingReportsController extends Controller
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
 
-        return view('admin.reports.trail_balance.index', compact('periodFrom', 'periodTo', 'accounts', 'accountMetrics', 'branch', 'branchLabel'));
+        return view('admin.reports.trail_balance.index', compact('periodFrom', 'periodTo', 'accounts', 'accountMetrics', 'branch', 'branchLabel', 'accountLevel'));
     }
 
     public function income_statement()
@@ -321,8 +329,16 @@ class AccountingReportsController extends Controller
     {
         $branchSelection = $this->availableBranchSelection();
 
+        $availableLevels = Account::query()
+            ->selectRaw('DISTINCT level')
+            ->orderBy('level')
+            ->pluck('level')
+            ->filter()
+            ->values();
+
         return [
             'branches' => $branchSelection['branches']->where('status', 1)->values(),
+            'availableLevels' => $availableLevels,
             'defaultFilters' => [
                 'date_from' => Carbon::now()->startOfYear()->format('Y-m-d'),
                 'date_to' => Carbon::now()->endOfYear()->format('Y-m-d'),
