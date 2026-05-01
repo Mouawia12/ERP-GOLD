@@ -31,7 +31,8 @@
         }
     }
 </style>
-<div class="row row-sm">
+@include('admin.reports.partials.result_print_styles')
+<div class="row row-sm erp-print-report">
     <div class="col-xl-12">  
             <div class="card-body px-0 pt-0 pb-2"> 
                     <div class="card shadow mb-3 ">
@@ -48,7 +49,7 @@
                                 <h5 class="text-center">  {{ $periodFrom . ' - ' . $periodTo}} </h5>
                             </div>
                             <div class="col-3 text-left">
-                                <button type="button" class="btn btn-primary no-print" id="btnPrint" onclick="window.print()">
+                                <button type="button" class="btn btn-primary no-print" id="btnPrint">
                                     <i class="fa fa-print"></i> طباعة
                                 </button>
                             </div>
@@ -166,7 +167,7 @@
 
         head.appendChild(style);
 
-        window.print();
+        window.ErpPrint.printCurrentPage();
     }
 </script>
 <script>

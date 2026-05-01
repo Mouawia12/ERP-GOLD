@@ -41,8 +41,9 @@
     padding: 6px;
 }
 </style>
+@include('admin.reports.partials.result_print_styles')
 
-<div class="row row-sm">
+<div class="row row-sm erp-print-report">
     <div class="col-xl-12">
         <div class="card">   
             <div class="card-body px-0 pt-0 pb-2"> 
@@ -61,12 +62,13 @@
                                 
                             </div> 
                             <div class="col-3 text-left">
-                                <button type="button" class="btn btn-primary no-print" id="btnPrint" onclick="window.print()">
+                                <button type="button" class="btn btn-primary no-print" id="btnPrint">
                                     <i class="fa fa-print"></i> طباعة
                                 </button>
                             </div>
                         </div>
-    
+                    </div>
+
                         <div class="card-body"> 
                             <hr>
                             <div class="table-responsive hoverable-table" id="d-table"  style="direction: rtl;"> 
@@ -194,10 +196,8 @@
     });
 
     function printPage(){
-        window.print();
+        window.ErpPrint.printCurrentPage();
     }
 </script> 
         
 @endsection 
-
-

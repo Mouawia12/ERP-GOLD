@@ -1,6 +1,7 @@
 @extends('admin.layouts.master')
 @section('content')
 @can('employee.accounts.add')   
+    @include('admin.reports.partials.result_print_styles')
     @if (session('success'))
         <div class="alert alert-success  fade show">
             <button class="close" data-dismiss="alert" aria-label="Close">×</button>
@@ -26,7 +27,7 @@
                                 {{__('main.manual_journals')}}
                             @endif
                         </h4>
-                        <div class="row mt-1 mb-1 text-center justify-content-center align-content-center"> 
+                        <div class="row mt-1 mb-1 text-center justify-content-center align-content-center no-print">
                             @if($type == 'manual')   
                             <a href="{{route('accounts.journals.create')}}" type="button" class="btn btn-labeled btn-primary"> 
                                 <i class="fa fa-plus"></i>
@@ -39,7 +40,7 @@
                 <div class="card-body px-0 pt-0 pb-2">
 
                     <div class="card shadow mb-4">
-                        <div class="card-header py-3">
+                        <div class="card-header py-3 no-print">
                             <form   method="POST" action="{{ route('accounts.journals.index', $type) }}"
                                     enctype="multipart/form-data" >
                                 @csrf
@@ -89,7 +90,7 @@
                                             <th>{{__('main.notes')}}</th>
                                             <th>{{__('main.total_debit')}}</th>
                                             <th>{{__('main.total_credit')}}</th> 
-                                            <th class="col-md-2">{{__('main.actions')}}</th>
+                                            <th class="col-md-2 no-print">{{__('main.actions')}}</th>
                                         </tr>
                                     </thead>
                                     <tbody> 
@@ -235,6 +236,7 @@
                 {
                     data: 'action',
                     name: 'action',
+                    className: 'no-print',
                     orderable: false,
                     searchable: false
                 },
@@ -247,8 +249,10 @@
                     text: '<i title="export to excel" class="fa fa-file-excel"></i>',
                 }, 
                 {
-                    extend: 'print',
                     text: '<i title="print" class="fa fa-print"></i>',
+                    action: function () {
+                        window.ErpPrint.printCurrentPage();
+                    },
                 },
                 {
                     extend: 'colvis',
@@ -266,6 +270,10 @@
 
 <script type="text/javascript">
     let id = 0 ;
+
+    function printJournal(url) {
+        window.ErpPrint.printInHiddenFrame(url);
+    }
 
     function showPayments(id) {
         var route = '{{route("accounts.journals.preview",":id")}}';

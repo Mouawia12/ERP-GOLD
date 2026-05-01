@@ -97,8 +97,9 @@
         }
     }
 </style>
+@include('admin.reports.partials.result_print_styles')
 
-<div class="container-fluid customer-cash-report-page">
+<div class="container-fluid customer-cash-report-page erp-print-report">
     <div class="report-shell">
         <div class="report-head">
             <div class="d-flex flex-wrap justify-content-between align-items-start">
@@ -118,8 +119,16 @@
                     </p>
                 </div>
                 <div class="report-actions no-print">
-                    <a href="{{ route('customers.report', $customer->id) }}" class="btn btn-outline-primary">التقرير التفصيلي</a>
-                    <button type="button" class="btn btn-outline-secondary" onclick="window.print()">طباعة</button>
+                    <button
+                        type="button"
+                        class="btn btn-outline-primary"
+                        data-print-open
+                        data-print-url="{{ route('customers.report', $customer->id) }}"
+                        data-print-target="_iframe"
+                    >
+                        التقرير التفصيلي
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="window.ErpPrint.printCurrentPage()">طباعة</button>
                     <a href="{{ route('customers', ['type' => $customer->type]) }}" class="btn btn-outline-dark">
                         رجوع إلى قائمة {{ $customer->type === 'customer' ? __('main.customers') : __('main.suppliers') }}
                     </a>

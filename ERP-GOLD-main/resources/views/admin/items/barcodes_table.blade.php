@@ -120,11 +120,11 @@ $(document).ready(function () {
     });
 
     $(document).on('click', '.print_barcodes', function () {
-        window.open("{{ route('items.print_barcodes', $item->id) }}?paper_profile=" + selectedPaperProfile(), '_blank');
+        window.ErpPrint.printInHiddenFrame("{{ route('items.print_barcodes', $item->id) }}?paper_profile=" + selectedPaperProfile());
     });
     $(document).on('click', '.print_barcode', function () {
         let id = $(this).val();
-        window.open("{{ route('items.units.print_barcode',':id') }}".replace(':id', id) + "?paper_profile=" + selectedPaperProfile(), '_blank');
+        window.ErpPrint.printInHiddenFrame("{{ route('items.units.print_barcode',':id') }}".replace(':id', id) + "?paper_profile=" + selectedPaperProfile());
     });
     $(document).on('keyup', '#count', function () {
         let count = $(this).val();

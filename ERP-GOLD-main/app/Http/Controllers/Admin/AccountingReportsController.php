@@ -11,19 +11,95 @@ use App\Models\Invoice;
 use App\Models\InvoiceDetail;
 use App\Models\JournalEntryDocument;
 use App\Models\User;
+use App\Services\Printing\PrintFormatResolver;
+use App\Services\Printing\PrintUrlBuilder;
 use App\Services\Reports\ReportBranchSelectionService;
+use App\Services\Reports\TrialBalanceReportPayloadBuilder;
+use Barryvdh\DomPDF\Facade\Pdf as DomPdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use DB;
 
 class AccountingReportsController extends Controller
 {
-    public function trail_balance()
+    public function trail_balance(Request $request, TrialBalanceReportPayloadBuilder $payloadBuilder)
     {
-        return view('admin.reports.trail_balance.search', $this->summaryReportFiltersData());
+        return view('admin.reports.trail_balance.search', $payloadBuilder->filtersData($request->user('admin-web')));
     }
 
-    public function trail_balance_search(Request $request)
+    public function trail_balance_search(Request $request, TrialBalanceReportPayloadBuilder $payloadBuilder)
+    {
+        return view('admin.reports.trail_balance.index', $payloadBuilder->build($request, $request->user('admin-web')));
+    }
+
+    public function trail_balance_print(
+        Request $request,
+        TrialBalanceReportPayloadBuilder $payloadBuilder,
+        PrintFormatResolver $formatResolver,
+        PrintUrlBuilder $urlBuilder
+    ) {
+        $payload = $payloadBuilder->build($request, $request->user('admin-web'));
+        $printFormat = $formatResolver->resolve($request, 'a4', 'landscape');
+
+        return view('admin.reports.trail_balance.print', $payload + [
+            'printFormat' => $printFormat,
+            'company' => $this->companyPrintPayload($payload['branch'] ?? null),
+            'backUrl' => route('trail_balance.index'),
+            'pdfUrl' => $urlBuilder->routeFromRequest('trail_balance.pdf', $request),
+        ]);
+    }
+
+    public function trail_balance_pdf(
+        Request $request,
+        TrialBalanceReportPayloadBuilder $payloadBuilder,
+        PrintFormatResolver $formatResolver
+    ) {
+        $payload = $payloadBuilder->build($request, $request->user('admin-web'));
+        $printFormat = $formatResolver->resolve($request, 'a4', 'landscape');
+
+        $pdf = DomPdf::loadView('admin.reports.trail_balance.print', $payload + [
+            'printFormat' => $printFormat,
+            'company' => $this->companyPrintPayload($payload['branch'] ?? null),
+            'hidePrintActions' => true,
+            'pdfUrl' => null,
+            'backUrl' => null,
+        ])->setPaper(strtolower($printFormat['format']) === 'a5' ? 'a5' : 'a4', $printFormat['orientation']);
+
+        return $pdf->download('trial-balance-' . now()->format('Ymd-His') . '.pdf');
+    }
+
+    public function reports_trial_balance_print(
+        Request $request,
+        TrialBalanceReportPayloadBuilder $payloadBuilder,
+        PrintFormatResolver $formatResolver,
+        PrintUrlBuilder $urlBuilder
+    ) {
+        return $this->trail_balance_print($request, $payloadBuilder, $formatResolver, $urlBuilder);
+    }
+
+    public function reports_trial_balance_pdf(
+        Request $request,
+        TrialBalanceReportPayloadBuilder $payloadBuilder,
+        PrintFormatResolver $formatResolver
+    ) {
+        return $this->trail_balance_pdf($request, $payloadBuilder, $formatResolver);
+    }
+
+    private function companyPrintPayload(?Branch $branch): array
+    {
+        $user = auth('admin-web')->user();
+        $subscriber = $user?->subscriber;
+
+        return [
+            'name' => $subscriber?->name ?: ($branch?->name ?: config('app.name')),
+            'tax_number' => $branch?->tax_number,
+            'commercial_register' => $branch?->commercial_register,
+            'phone' => $branch?->phone ?: $subscriber?->contact_phone,
+            'address' => $branch?->full_address,
+        ];
+    }
+
+    public function income_statement_print(Request $request)
     {
         $branchSelection = $this->branchSelection($request);
         [$periodFrom, $periodTo] = $this->resolvePeriod(
@@ -31,9 +107,6 @@ class AccountingReportsController extends Controller
             Carbon::now()->startOfYear()->format('Y-m-d'),
             Carbon::now()->endOfYear()->format('Y-m-d')
         );
-
-        $accountLevel = $request->input('account_level') ? (int) $request->input('account_level') : null;
-
         $filters = [
             'period_from' => $periodFrom,
             'period_to' => $periodTo,
@@ -41,35 +114,28 @@ class AccountingReportsController extends Controller
             'branch_scope_all' => $branchSelection['selects_all'],
         ];
 
-        $accountQuery = Account::query();
-        if ($accountLevel !== null) {
-            $accountQuery->where('level', $accountLevel);
-        } else {
-            $accountQuery->whereDoesntHave('childrens');
+        $revenuesAccount = Account::where('parent_account_id', null)->where('account_type', 'revenues')->where('transfer_side', 'income_statement')->first();
+        $expensesAccount = Account::where('parent_account_id', null)->where('account_type', 'expenses')->where('transfer_side', 'income_statement')->first();
+
+        if (!$revenuesAccount || !$expensesAccount) {
+            return redirect()->back()->with('error', 'Revenues or Expenses account not found');
         }
 
-        $accounts = $accountQuery
-            ->get()
-            ->filter(function (Account $account) use ($filters) {
-                $metrics = $this->buildSummaryMetricsForAccount($account, $filters);
+        $accountMetrics = $this->buildSummaryMetricsTree([
+            $revenuesAccount,
+            $expensesAccount,
+        ], $filters);
 
-                return abs($metrics['opening_debit']) > 0
-                    || abs($metrics['opening_credit']) > 0
-                    || abs($metrics['period_debit']) > 0
-                    || abs($metrics['period_credit']) > 0;
-            })
-            ->values();
-
-        $accountMetrics = $accounts
-            ->mapWithKeys(function (Account $account) use ($filters) {
-                return [$account->id => $this->buildSummaryMetricsForAccount($account, $filters)];
-            })
-            ->all();
+        $profitTotal = abs($accountMetrics[$revenuesAccount->id]['closing_net'])
+            - abs($accountMetrics[$expensesAccount->id]['closing_net']);
 
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
 
-        return view('admin.reports.trail_balance.index', compact('periodFrom', 'periodTo', 'accounts', 'accountMetrics', 'branch', 'branchLabel', 'accountLevel'));
+        return view('admin.reports.income_statement.index', compact(
+            'periodFrom', 'periodTo', 'revenuesAccount', 'expensesAccount',
+            'profitTotal', 'accountMetrics', 'branch', 'branchLabel'
+        ));
     }
 
     public function income_statement()
@@ -119,6 +185,47 @@ class AccountingReportsController extends Controller
             'accountMetrics',
             'branch',
             'branchLabel'
+        ));
+    }
+
+    public function balance_sheet_print(Request $request)
+    {
+        $branchSelection = $this->branchSelection($request);
+        [$periodFrom, $periodTo] = $this->resolvePeriod(
+            $request,
+            Carbon::now()->startOfYear()->format('Y-m-d'),
+            Carbon::now()->endOfYear()->format('Y-m-d')
+        );
+        $filters = [
+            'period_from' => $periodFrom,
+            'period_to' => $periodTo,
+            'branch_ids' => $branchSelection['effective_branch_ids'],
+            'branch_scope_all' => $branchSelection['selects_all'],
+        ];
+
+        $assetsAccount = Account::where('parent_account_id', null)->where('account_type', 'assets')->where('transfer_side', 'budget')->first();
+        $equityAccount = Account::where('parent_account_id', null)->where('account_type', 'equity')->where('transfer_side', 'budget')->first();
+        $liabilitiesAccount = Account::where('parent_account_id', null)->where('account_type', 'liabilities')->where('transfer_side', 'budget')->first();
+
+        if (!$assetsAccount || !$equityAccount || !$liabilitiesAccount) {
+            return redirect()->back()->with('error', 'Assets, Equity or Liabilities account not found');
+        }
+
+        $accountMetrics = $this->buildSummaryMetricsTree([
+            $assetsAccount, $equityAccount, $liabilitiesAccount,
+        ], $filters);
+
+        $assetsTotal = abs($accountMetrics[$assetsAccount->id]['closing_net']);
+        $liabilitiesTotal = abs($accountMetrics[$liabilitiesAccount->id]['closing_net']);
+        $equityTotal = abs($accountMetrics[$equityAccount->id]['closing_net']);
+        $profitTotal = $assetsTotal - ($liabilitiesTotal + $equityTotal);
+
+        $branch = $branchSelection['single_branch'];
+        $branchLabel = $branchSelection['branch_label'];
+
+        return view('admin.reports.balance_sheet.index', compact(
+            'periodFrom', 'periodTo', 'assetsAccount', 'equityAccount', 'liabilitiesAccount',
+            'profitTotal', 'accountMetrics', 'branch', 'branchLabel'
         ));
     }
 
@@ -177,6 +284,45 @@ class AccountingReportsController extends Controller
         ));
     }
 
+    public function account_statement_print(Request $request)
+    {
+        $branchSelection = $this->branchSelection($request);
+        [$periodFrom, $periodTo] = $this->resolvePeriod(
+            $request,
+            Carbon::now()->startOfYear()->format('Y-m-d'),
+            Carbon::now()->endOfYear()->format('Y-m-d')
+        );
+
+        $filters = [
+            'period_from' => $periodFrom,
+            'period_to' => $periodTo,
+            'account_id' => (int) $request->input('account_id'),
+            'branch_ids' => $branchSelection['effective_branch_ids'],
+            'branch_scope_all' => $branchSelection['selects_all'],
+            'user_id' => $this->normalizeOptionalFilter($request->input('user_id')),
+            'invoice_number' => $this->normalizeOptionalFilter($request->input('invoice_number', $request->input('billNumber'))),
+            'source_type' => $this->normalizeOptionalFilter($request->input('source_type')),
+            'from_time' => $this->normalizeTime($request->input('from_time')),
+            'to_time' => $this->normalizeTime($request->input('to_time')),
+        ];
+
+        $account = Account::query()->findOrFail($filters['account_id']);
+        $openingBalance = $this->openingBalanceForAccountStatement($account, $filters);
+
+        $documents = $this->accountStatementDocumentsQuery($account, $filters)
+            ->orderBy('document_date')
+            ->orderBy('id')
+            ->get()
+            ->map(function (JournalEntryDocument $document) {
+                return $this->mapAccountStatementDocument($document);
+            })
+            ->values();
+
+        return view('admin.reports.account_statement.index', compact(
+            'periodFrom', 'periodTo', 'account', 'documents', 'openingBalance', 'branchSelection'
+        ));
+    }
+
     public function account_statement()
     {
         $accounts = Account::query()->orderBy('code')->orderBy('id')->get();
@@ -227,6 +373,56 @@ class AccountingReportsController extends Controller
             'documents',
             'openingBalance',
             'branchSelection'
+        ));
+    }
+
+    public function tax_declaration_print(Request $request)
+    {
+        $branchSelection = $this->branchSelection($request);
+        [$periodFrom, $periodTo] = $this->resolvePeriod($request, Carbon::now()->format('Y-m-d'), Carbon::now()->format('Y-m-d'));
+
+        $filters = [
+            'period_from' => $periodFrom,
+            'period_to' => $periodTo,
+            'branch_ids' => $branchSelection['effective_branch_ids'],
+            'branch_scope_all' => $branchSelection['selects_all'],
+            'user_id' => $this->normalizeOptionalFilter($request->input('user_id')),
+            'invoice_number' => $this->normalizeOptionalFilter($request->input('invoice_number', $request->input('billNumber'))),
+            'from_time' => $this->normalizeTime($request->input('from_time')),
+            'to_time' => $this->normalizeTime($request->input('to_time')),
+        ];
+
+        $saleTotal = $this->taxDeclarationTotals('sale', 15, $filters);
+        $saleReturnTotal = $this->taxDeclarationTotals('sale_return', 15, $filters);
+        $salesTaxTotal = $saleTotal->tax_total - $saleReturnTotal->tax_total;
+        $salesTotal = $saleTotal->total - $saleReturnTotal->total;
+
+        $saleZeroTotal = $this->taxDeclarationTotals('sale', 0, $filters);
+        $saleZeroReturnTotal = $this->taxDeclarationTotals('sale_return', 0, $filters);
+        $salesZeroTaxTotal = $saleZeroTotal->tax_total - $saleZeroReturnTotal->tax_total;
+        $salesZeroTotal = $saleZeroTotal->total - $saleZeroReturnTotal->total;
+        $salesFinalTaxTotal = $salesTaxTotal + $salesZeroTaxTotal;
+        $salesFinalTotal = $salesTotal + $salesZeroTotal;
+
+        $purchaseTotalAggregate = $this->taxDeclarationTotals('purchase', 15, $filters);
+        $purchaseReturnTotal = $this->taxDeclarationTotals('purchase_return', 15, $filters);
+        $purchaseTaxTotal = $purchaseTotalAggregate->tax_total - $purchaseReturnTotal->tax_total;
+        $purchaseTotal = $purchaseTotalAggregate->total - $purchaseReturnTotal->total;
+
+        $purchaseZeroTotalAggregate = $this->taxDeclarationTotals('purchase', 0, $filters);
+        $purchaseZeroReturnTotal = $this->taxDeclarationTotals('purchase_return', 0, $filters);
+        $purchaseZeroTaxTotal = $purchaseZeroTotalAggregate->tax_total - $purchaseZeroReturnTotal->tax_total;
+        $purchaseZeroTotal = $purchaseZeroTotalAggregate->total - $purchaseZeroReturnTotal->total;
+        $purchaseFinalTaxTotal = $purchaseTaxTotal + $purchaseZeroTaxTotal;
+        $purchaseFinalTotal = $purchaseTotal + $purchaseZeroTotal;
+        $fullTaxTotal = $salesFinalTaxTotal - $purchaseFinalTaxTotal;
+        $fullTotal = $salesFinalTotal - $purchaseFinalTotal;
+
+        return view('admin.reports.tax_declaration.index', compact(
+            'periodFrom', 'periodTo', 'salesTaxTotal', 'salesTotal', 'salesZeroTaxTotal', 'salesZeroTotal',
+            'salesFinalTaxTotal', 'salesFinalTotal', 'purchaseTaxTotal', 'purchaseTotal',
+            'purchaseZeroTaxTotal', 'purchaseZeroTotal', 'purchaseFinalTaxTotal', 'purchaseFinalTotal',
+            'fullTaxTotal', 'fullTotal', 'branchSelection'
         ));
     }
 

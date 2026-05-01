@@ -1,6 +1,7 @@
 @extends('admin.layouts.master')
 @section('content')
 @can('employee.initial_quantities.show')  
+    @include('admin.reports.partials.result_print_styles')
     @if (session('success'))
         <div class="alert alert-success  fade show">
             <button class="close" data-dismiss="alert" aria-label="Close">×</button>
@@ -45,7 +46,7 @@
                                             <th>{{__('التاريخ')}}</th> 
                                             <th> {{__('اجمالي الكميات')}} </th>
                                             <th> {{__('اجمالي المبلغ')}} </th>
-                                            <th>{{__('main.actions')}}</th>
+                                            <th class="no-print">{{__('main.actions')}}</th>
                                         </tr>
                                     </thead>
                                     <tbody></tbody>  
@@ -112,7 +113,6 @@
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 }
             });
- 
             var table = $('#SalesTable').DataTable({
                 processing: true,
                 serverSide: true,
@@ -143,6 +143,7 @@
                     {
                         data: 'action',
                         name: 'action',
+                        className: 'no-print',
                         orderable: false,
                         searchable: false
                     },
@@ -158,8 +159,10 @@
                         text: '<i title="export to excel" class="fa fa-file-excel"></i>',
                     }, 
                     {
-                        extend: 'print',
                         text: '<i title="print" class="fa fa-print"></i>',
+                        action: function () {
+                            window.ErpPrint.printCurrentPage();
+                        },
                     },
                     {
                         extend: 'colvis',
@@ -176,8 +179,7 @@
                 window.location = "{{route('initial_quantities.create')}}"; 
             });
         });
-</script> 
- 
- 
+</script>
+
+
 @endsection
- 

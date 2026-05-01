@@ -71,6 +71,9 @@ class SalesController extends Controller
                     $btn = '';
 
                     if (auth()->user()->canany(['employee.simplified_tax_invoices.show', 'employee.tax_invoices.show'])) {
+                        $printA4Url = e(route('sales.show', ['id' => $row->id, 'paper' => 'a4']));
+                        $printA5Url = e(route('sales.show', ['id' => $row->id, 'paper' => 'a5']));
+
                         $btn = '<a href=' . route('sales.show', $row->id) . ' class="btn btn-primary"
                                     value="' . $row->id . '" role="button" data-bs-toggle="button" target="_blank" >
                                     <i class="fa fa-eye"></i>معاينة</a>';
@@ -81,8 +84,8 @@ class SalesController extends Controller
                                         <i class="fa fa-print"></i> طباعة
                                     </button>
                                     <div class="dropdown-menu">
-                                        <a class="dropdown-item" target="_blank" href="' . route('sales.show', ['id' => $row->id, 'paper' => 'a4']) . '">طباعة A4</a>
-                                        <a class="dropdown-item" target="_blank" href="' . route('sales.show', ['id' => $row->id, 'paper' => 'a5']) . '">طباعة A5</a>
+                                        <button type="button" class="dropdown-item text-right" data-print-open data-print-target="_iframe" data-print-url="' . $printA4Url . '">طباعة A4</button>
+                                        <button type="button" class="dropdown-item text-right" data-print-open data-print-target="_iframe" data-print-url="' . $printA5Url . '">طباعة A5</button>
                                     </div>
                                 </div>';
                     }

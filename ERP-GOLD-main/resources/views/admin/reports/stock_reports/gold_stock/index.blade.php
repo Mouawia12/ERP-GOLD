@@ -33,7 +33,8 @@
     padding: 6px;
 }
 </style>
-    <div class="row row-sm">
+    @include('admin.reports.partials.result_print_styles')
+    <div class="row row-sm erp-print-report">
         <div class="col-xl-12"> 
                 
                 <div class="card shadow mb-4">
@@ -43,7 +44,7 @@
                                 <div class="row" style="direction: ltr;">
                                     <div class="col-4 text-left">   
                                         <br> 
-                                        <button type="button" class="btn btn-primary btnPrint" id="btnPrint"><i class="fa fa-print"></i></button>
+                                        <button type="button" class="btn btn-primary btnPrint no-print" id="btnPrint"><i class="fa fa-print"></i></button>
                                     </div>
                                     <div class="col-4 c"  id="card-header">
                                         <h4  class="alert alert-primary text-center"> 
@@ -194,7 +195,7 @@
 
 
     function printPage() {
-        window.print();
+        window.ErpPrint.printCurrentPage();
     }
 </script>
 @endsection 

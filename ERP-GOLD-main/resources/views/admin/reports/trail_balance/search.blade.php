@@ -23,7 +23,7 @@
 
                     <div class="card shadow mb-4"> 
                         <div class="card-body">
-                            <form   method="POST" action="{{ route('trail_balance.search') }}"
+                            <form id="trail-balance-form" method="POST" action="{{ route('trail_balance.search') }}"
                                     enctype="multipart/form-data" >
                                 @csrf
                                 <div class="row">
@@ -69,9 +69,36 @@
                                 </div>
 
                                 <div class="row">
-                                    <div class="col-6" style="display: block; margin: 20px auto; text-align: center;">
-                                        <button type="submit" class="btn btn-labeled btn-primary"  >
-                                            {{__('main.search_btn')}}</button>
+                                    <div class="col-12" style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 20px auto; text-align: center;">
+                                        <button
+                                            type="button"
+                                            class="btn btn-labeled btn-primary"
+                                            data-print-open
+                                            data-print-form="#trail-balance-form"
+                                            data-print-url="{{ route('trail_balance.print') }}"
+                                        >
+                                            عرض التقرير
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-labeled btn-success"
+                                            data-print-open
+                                            data-print-form="#trail-balance-form"
+                                            data-print-url="{{ route('trail_balance.print') }}"
+                                            data-auto-print="1"
+                                            data-print-target="_iframe"
+                                        >
+                                            طباعة
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-labeled btn-secondary"
+                                            data-print-open
+                                            data-print-form="#trail-balance-form"
+                                            data-print-url="{{ route('trail_balance.pdf') }}"
+                                        >
+                                            حفظ PDF
+                                        </button>
                                     </div>
                                 </div>
 
@@ -101,34 +128,39 @@
 </div>
 <!-- End of Page Wrapper -->
 @endsection
-<script src="{{asset('assets/js/jquery.min.js')}}"></script>
 
+@section('js')
 <script>
-    $(document).ready(function (){
-        var now = new Date();
+    document.addEventListener('DOMContentLoaded', function () {
+        var startToggle = document.getElementById('isStartDate');
+        var endToggle = document.getElementById('isEndDate');
+        var startDate = document.getElementById('StartDate');
+        var endDate = document.getElementById('EndDate');
 
-        var day = ("0" + now.getDate()).slice(-2);
-        var month = ("0" + (now.getMonth() + 1)).slice(-2);
-        var today = now.getFullYear()+"-"+(month)+"-"+(day) ;
-        $('#isStartDate').prop('checked', false);
-        $('#isEndDate').prop('checked', false);
-        $('#StartDate').prop('disabled', true);
-        $('#EndDate').prop('disabled', true);
-        $('#isStartDate').change(function (){
-            if(this.checked){
-                $('#StartDate').prop('disabled', false);
-            } else {
-                $('#StartDate').prop('disabled', true);
+        function syncDateToggle(toggle, field) {
+            if (!toggle || !field) {
+                return;
             }
-        }).trigger('change');
 
-        $('#isEndDate').change(function (){
-            if(this.checked){
-                $('#EndDate').prop('disabled', false);
-            } else {
-                $('#EndDate').prop('disabled', true);
-            }
-        }).trigger('change');
+            field.disabled = !toggle.checked;
+        }
+
+        if (startToggle) {
+            startToggle.checked = false;
+            startToggle.addEventListener('change', function () {
+                syncDateToggle(startToggle, startDate);
+            });
+        }
+
+        if (endToggle) {
+            endToggle.checked = false;
+            endToggle.addEventListener('change', function () {
+                syncDateToggle(endToggle, endDate);
+            });
+        }
+
+        syncDateToggle(startToggle, startDate);
+        syncDateToggle(endToggle, endDate);
     });
 </script>
- 
+@endsection

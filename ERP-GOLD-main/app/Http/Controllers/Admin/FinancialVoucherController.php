@@ -60,6 +60,15 @@ class FinancialVoucherController extends Controller
         return view('admin.financial_vouchers.index', compact('vouchers', 'type', 'branches', 'accounts', 'bankAccounts', 'bankAccountOptions'));
     }
 
+    public function printView(Request $request, $type, $id)
+    {
+        $voucher = FinancialVoucher::with(['fromAccount', 'toAccount', 'branch', 'bankAccount'])
+            ->where('type', $type)
+            ->findOrFail($id);
+
+        return view('admin.financial_vouchers.print', compact('voucher', 'type'));
+    }
+
     public function store(Request $request, $type)
     {
         $validator = Validator::make($request->all(), [

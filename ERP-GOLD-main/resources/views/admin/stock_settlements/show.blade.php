@@ -2,6 +2,7 @@
 
 @section('content')
 @can('employee.stock_settlements.show')
+    @include('admin.reports.partials.result_print_styles')
     <div class="row row-sm">
         <div class="col-xl-12">
             <div class="card">
@@ -15,8 +16,8 @@
                                 الفرع: <strong>{{ $invoice->branch?->name ?? '-' }}</strong>
                             </p>
                         </div>
-                        <div class="d-flex flex-wrap gap-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary no-print" id="print_saved_settlement_btn" onclick="window.print()">
+                        <div class="d-flex flex-wrap gap-2 no-print">
+                            <button type="button" class="btn btn-sm btn-outline-secondary no-print" id="print_saved_settlement_btn" onclick="window.ErpPrint.printCurrentPage()">
                                 <i class="fa fa-print ml-1"></i>
                                 طباعة
                             </button>

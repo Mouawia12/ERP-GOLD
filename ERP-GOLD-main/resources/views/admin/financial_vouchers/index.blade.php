@@ -1,5 +1,6 @@
 @extends('admin.layouts.master')
 @section('content')
+@include('admin.reports.partials.result_print_styles')
 @if (session('success'))
 <div class="alert alert-success  fade show">
     <button class="close" data-dismiss="alert" aria-label="Close">×</button>
@@ -29,7 +30,7 @@
 
                 </div>
             </div>
-            <div class="col-lg-12 margin-tb text-center">
+            <div class="col-lg-12 margin-tb text-center no-print">
                 <button type="button" class="btn btn-labeled btn-info " id="createButton">
                     <span class="btn-label" style="margin-right: 10px;">
                         <i class="fa fa-plus"></i></span>
@@ -51,7 +52,7 @@
                                         <th> {{__('main.to')}} </th>
                                         <th>قناة السند</th>
                                         <th> {{__('main.total_money')}} </th>
-                                        <th>{{__('main.actions')}}</th>
+                                        <th class="no-print">{{__('main.actions')}}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -63,9 +64,12 @@
                                         <td class="text-center">{{$voucher -> toAccount->name??'-' }}</td>
                                         <td class="text-center">{{$voucher -> payment_channel_label}}</td>
                                         <td class="text-center">{{$voucher -> total_amount}}</td>
-                                        <td class="text-center">
+                                        <td class="text-center no-print">
                                             <button type="button" class="btn btn-labeled btn-secondary editBtn" value="">
                                                 <span class="btn-label" style="margin-right: 10px;"><i class="fa fa-eye"></i></span>{{__('main.preview')}}</button>
+                                            <button type="button" class="btn btn-labeled btn-primary voucherPrintBtn"
+                                                data-id="{{ $voucher->id }}" data-type="{{ $type }}">
+                                                <span class="btn-label" style="margin-right: 10px;"><i class="fa fa-print"></i></span>طباعة</button>
                                         </td>
                                     </tr>
                                     @endforeach
@@ -320,12 +324,12 @@
             id = 0;
         });
 
-        $(document).on('click', '#printtBtn', function(event) {
-            let url = "";
-            let val = document.getElementById('id').value;
-            url = "";
-            url = url.replace(':id', val);
-            document.location.href = url;
+        $(document).on('click', '.voucherPrintBtn', function(event) {
+            const id = $(this).data('id');
+            const type = $(this).data('type');
+            let printUrl = '{{ route("financial_vouchers.print", ["type" => ":type", "id" => ":id"]) }}';
+            printUrl = printUrl.replace(':type', type).replace(':id', id) + '?auto_print=1';
+            window.ErpPrint.printInHiddenFrame(printUrl);
         });
 
     });

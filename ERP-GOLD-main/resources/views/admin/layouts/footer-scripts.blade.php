@@ -14,6 +14,7 @@
 <script src="{{URL::asset('assets/plugins/rating/jquery.rating-stars.js')}}"></script>
 <script src="{{URL::asset('assets/plugins/rating/jquery.barrating.js')}}"></script>
 <script src="{{URL::asset('assets/js/eva-icons.min.js')}}"></script>
+<script src="{{URL::asset('assets/js/erp-print.js')}}"></script>
 @yield('js')
 <!-- Sticky js -->
 <script src="{{URL::asset('assets/js/sticky.js')}}"></script>
@@ -424,8 +425,10 @@ $(document).ready( function () {
                         text: '<i title="export to excel" class="fa fa-file-excel"></i>',
                     }, 
                     {
-                        extend: 'print',
                         text: '<i title="print" class="fa fa-print"></i>',
+                        action: function () {
+                            window.ErpPrint.printCurrentPage();
+                        },
                     },
                     {
                         extend: 'colvis',
@@ -446,20 +449,47 @@ $(document).ready( function () {
             }); 
         });
 
-        // Before printing: show ALL rows in DataTable (override pagination)
+        // Before printing: show all loaded rows for client-side DataTables.
         window.addEventListener('beforeprint', function () {
-            if (typeof $.fn.DataTable !== 'undefined' && $.fn.DataTable.isDataTable('#example1')) {
-                var dt = $('#example1').DataTable();
-                window._dtPrintPageLen = dt.page.len();
-                dt.page.len(-1).draw(false);
+            if (typeof $.fn.DataTable === 'undefined') {
+                return;
             }
+
+            window._dtPrintPageLens = [];
+
+            $($.fn.dataTable.tables()).each(function () {
+                if (!$.fn.DataTable.isDataTable(this)) {
+                    return;
+                }
+
+                var dt = $(this).DataTable();
+                var settings = dt.settings()[0];
+
+                if (settings && settings.oFeatures && settings.oFeatures.bServerSide) {
+                    return;
+                }
+
+                window._dtPrintPageLens.push({
+                    table: this,
+                    length: dt.page.len(),
+                });
+
+                dt.page.len(-1).draw(false);
+            });
         });
 
-        // After printing: restore original page length
+        // After printing: restore original page lengths.
         window.addEventListener('afterprint', function () {
-            if (typeof $.fn.DataTable !== 'undefined' && $.fn.DataTable.isDataTable('#example1') && typeof window._dtPrintPageLen !== 'undefined') {
-                $('#example1').DataTable().page.len(window._dtPrintPageLen).draw(false);
-                window._dtPrintPageLen = undefined;
+            if (typeof $.fn.DataTable === 'undefined' || !Array.isArray(window._dtPrintPageLens)) {
+                return;
             }
+
+            window._dtPrintPageLens.forEach(function (entry) {
+                if ($.fn.DataTable.isDataTable(entry.table)) {
+                    $(entry.table).DataTable().page.len(entry.length).draw(false);
+                }
+            });
+
+            window._dtPrintPageLens = undefined;
         });
 </script>

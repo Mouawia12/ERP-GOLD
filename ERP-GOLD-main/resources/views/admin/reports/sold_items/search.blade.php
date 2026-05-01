@@ -148,11 +148,7 @@
                         </div>
                     </div>
 
-                    <div class="text-center mt-3">
-                        <button type="submit" class="btn btn-primary px-5">
-                            {{ __('main.search_btn') }}
-                        </button>
-                    </div>
+                    @include('admin.reports.stock_reports.partials.print_actions')
                 </form>
             </div>
         </div>

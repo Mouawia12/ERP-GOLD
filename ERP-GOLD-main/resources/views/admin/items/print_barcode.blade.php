@@ -46,8 +46,10 @@
     </div>
 </body>
 <script>
+  @if(request('auto_print') == '1')
   window.onload = function() {
     window.print();
   };
+  @endif
 </script>
 </html>

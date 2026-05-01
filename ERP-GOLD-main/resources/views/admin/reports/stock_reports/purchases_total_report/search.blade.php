@@ -25,13 +25,7 @@
                             'showNetMoney' => true,
                         ])
 
-                        <div class="row">
-                            <div class="col-6" style="display: block; margin: 20px auto; text-align: center;">
-                                <button type="submit" class="btn btn-labeled btn-primary">
-                                    {{ __('main.search_btn') }}
-                                </button>
-                            </div>
-                        </div>
+                        @include('admin.reports.stock_reports.partials.print_actions')
                     </form>
                 </div>
             </div>

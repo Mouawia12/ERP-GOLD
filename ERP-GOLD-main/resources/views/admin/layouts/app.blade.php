@@ -10,15 +10,40 @@
 
     <style type="text/css" media="print">
         @media print {
-            .app-content, .content {
-                margin-right: 0 !important;
-            }
-
+            html,
             body {
+                width: auto !important;
+                min-width: 0 !important;
+                height: auto !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                background: #fff !important;
                 -webkit-print-color-adjust: exact;
                 -moz-print-color-adjust: exact;
                 print-color-adjust: exact;
                 -o-print-color-adjust: exact;
+            }
+
+            .app-content,
+            .content,
+            .container-fluid {
+                width: 100% !important;
+                max-width: none !important;
+                min-width: 0 !important;
+                height: auto !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+            }
+
+            #global-loader,
+            .global-loader,
+            .loader-img {
+                display: none !important;
+                height: 0 !important;
             }
 
             .no-print {

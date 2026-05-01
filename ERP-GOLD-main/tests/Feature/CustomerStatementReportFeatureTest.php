@@ -417,7 +417,7 @@ class CustomerStatementReportFeatureTest extends TestCase
         $managementResponse->assertOk();
         $managementResponse->assertSee('العملاء');
         $managementResponse->assertSee('id="createButton"', false);
-        $managementResponse->assertDontSee(route('customers.report', ['id' => $customerId], false), false);
+        $managementResponse->assertSee(route('customers.report', ['id' => $customerId], false), false);
         $managementResponse->assertDontSee(route('customers.report.cash', ['id' => $customerId], false), false);
 
         $reportDirectoryResponse = $this
@@ -455,7 +455,7 @@ class CustomerStatementReportFeatureTest extends TestCase
         $managementResponse->assertOk();
         $managementResponse->assertSee('الموردين');
         $managementResponse->assertSee('id="createButton"', false);
-        $managementResponse->assertDontSee(route('customers.report', ['id' => $supplierId], false), false);
+        $managementResponse->assertSee(route('customers.report', ['id' => $supplierId], false), false);
         $managementResponse->assertDontSee(route('customers.report.cash', ['id' => $supplierId], false), false);
 
         $reportDirectoryResponse = $this

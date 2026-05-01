@@ -1,5 +1,9 @@
 @extends('admin.layouts.master')
 
+@section('css')
+    @include('admin.reports.partials.result_print_styles')
+@endsection
+
 @section('content')
 @can('employee.manufacturing_orders.show')
     @if (session('success'))
@@ -18,7 +22,7 @@
                     </div>
                 </div>
                 <div class="card-body px-0 pt-0 pb-2">
-                    <div class="px-4 pt-4">
+                    <div class="px-4 pt-4 no-print">
                         <div class="row mb-4">
                             <div class="col-md-3 col-6 mb-3">
                                 <div class="card border-0 shadow-sm h-100">
@@ -92,7 +96,7 @@
                                             <th>{{ __('main.manufacturing_remaining_weight') }}</th>
                                             <th>الحالة</th>
                                             <th>{{ __('main.total_cost') }}</th>
-                                            <th>{{ __('main.actions') }}</th>
+                                            <th class="no-print">{{ __('main.actions') }}</th>
                                         </tr>
                                     </thead>
                                     <tbody></tbody>
@@ -135,7 +139,7 @@
                 {data: 'remaining_weight', name: 'remaining_weight', orderable: false, searchable: false},
                 {data: 'status_badge', name: 'status_badge', orderable: false, searchable: false},
                 {data: 'net_total', name: 'net_total'},
-                {data: 'action', name: 'action', orderable: false, searchable: false},
+                {data: 'action', name: 'action', className: 'no-print', orderable: false, searchable: false},
             ],
             dom: 'lBfrtip',
             buttons: [
@@ -143,7 +147,12 @@
                     text: ' @can("employee.manufacturing_orders.add") <a href="{{ route('manufacturing_orders.create') }}" class="text-white"><i class="fa fa-plus"></i></a> @endcan ',
                 },
                 {extend: 'excel', text: '<i title="export to excel" class="fa fa-file-excel"></i>'},
-                {extend: 'print', text: '<i title="print" class="fa fa-print"></i>'},
+                {
+                    text: '<i title="print" class="fa fa-print"></i>',
+                    action: function () {
+                        window.ErpPrint.printCurrentPage();
+                    },
+                },
                 {extend: 'colvis', text: '<i title="column visibility" class="fa fa-eye"></i>'},
             ],
             lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],

@@ -23,7 +23,7 @@
 
                     <div class="card shadow mb-4"> 
                         <div class="card-body">
-                            <form   method="POST" action="{{ route('balance_sheet.search') }}"
+                            <form id="balance-sheet-form" method="POST" action="{{ route('balance_sheet.search') }}"
                                     enctype="multipart/form-data" >
                                 @csrf
                                 <div class="row">
@@ -54,9 +54,27 @@
                                 </div>
 
                                 <div class="row">
-                                    <div class="col-6" style="display: block; margin: 20px auto; text-align: center;">
-                                        <button type="submit" class="btn btn-labeled btn-primary"  >
-                                            {{__('main.search_btn')}}</button>
+                                    <div class="col-12" style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 20px auto; text-align: center;">
+                                        <button
+                                            type="button"
+                                            class="btn btn-labeled btn-primary"
+                                            data-print-open
+                                            data-print-form="#balance-sheet-form"
+                                            data-print-url="{{ route('balance_sheet.print') }}"
+                                        >
+                                            عرض التقرير
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-labeled btn-success"
+                                            data-print-open
+                                            data-print-form="#balance-sheet-form"
+                                            data-print-url="{{ route('balance_sheet.print') }}"
+                                            data-auto-print="1"
+                                            data-print-target="_iframe"
+                                        >
+                                            طباعة
+                                        </button>
                                     </div>
                                 </div>
                             </form>
@@ -79,34 +97,22 @@
 <!-- End of Page Wrapper -->
 
 @endsection
-<script src="{{asset('assets/js/jquery.min.js')}}"></script>  
-  
+@section('js')
 <script>
-    $(document).ready(function (){
-        var now = new Date();
-
-        var day = ("0" + now.getDate()).slice(-2);
-        var month = ("0" + (now.getMonth() + 1)).slice(-2);
-        var today = now.getFullYear()+"-"+(month)+"-"+(day) ;
+    $(document).ready(function () {
         $('#isStartDate').prop('checked', false);
         $('#isEndDate').prop('checked', false);
         $('#StartDate').prop('disabled', true);
         $('#EndDate').prop('disabled', true);
-        $('#isStartDate').change(function (){
-            if(this.checked){
-                $('#StartDate').prop('disabled', false);
-            } else {
-                $('#StartDate').prop('disabled', true);
-            }
+
+        $('#isStartDate').change(function () {
+            $('#StartDate').prop('disabled', !this.checked);
         }).trigger('change');
 
-        $('#isEndDate').change(function (){
-            if(this.checked){
-                $('#EndDate').prop('disabled', false);
-            } else {
-                $('#EndDate').prop('disabled', true);
-            }
+        $('#isEndDate').change(function () {
+            $('#EndDate').prop('disabled', !this.checked);
         }).trigger('change');
     });
 </script>
+@endsection
  

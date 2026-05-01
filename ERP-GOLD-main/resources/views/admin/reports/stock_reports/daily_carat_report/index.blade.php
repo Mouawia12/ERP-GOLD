@@ -38,11 +38,12 @@
         vertical-align: middle;
     }
 </style>
+@include('admin.reports.partials.result_print_styles')
 
-<div class="container-fluid daily-carat-report-page">
+<div class="container-fluid daily-carat-report-page erp-print-report">
     <div class="card shadow mb-4">
         <div class="card-header py-3 text-center">
-            <button type="button" class="btn btn-primary no-print float-left" onclick="window.print()">
+            <button type="button" class="btn btn-primary no-print float-left" onclick="window.ErpPrint.printCurrentPage()">
                 <i class="fa fa-print"></i> طباعة
             </button>
             <h4 class="alert alert-primary text-center mb-3">{{ $reportTitle ?? 'التقرير اليومي للمبيعات والمشتريات حسب العيار' }}</h4>

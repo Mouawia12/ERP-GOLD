@@ -159,6 +159,9 @@
     function printPage() {
         window.print();
     }
+    @if(request('auto_print') == '1')
+    window.addEventListener('load', function () { window.print(); });
+    @endif
 
 </script>
 @endsection

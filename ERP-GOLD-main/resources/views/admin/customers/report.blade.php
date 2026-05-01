@@ -3,6 +3,7 @@
 @section('content')
 @php
     $partyLabel  = $customer->type === 'customer' ? 'عميل' : 'مورد';
+    $statementTitle = $customer->type === 'customer' ? 'كشف العميل التفصيلي' : 'كشف المورد التفصيلي';
     $branch      = auth()->user()?->branch;
     $subscriber  = $branch?->subscriber;
     $fromDate    = $filters['from_date'] ?? null;
@@ -26,8 +27,9 @@
         .report-table th, .report-table td { font-size: 10px; }
     }
 </style>
+@include('admin.reports.partials.result_print_styles')
 
-<div class="row row-sm">
+<div class="row row-sm erp-print-report">
     <div class="col-12">
         <div class="card">
             <div class="card-body px-0 pt-0 pb-2">
@@ -101,7 +103,7 @@
                             </div>
                             {{-- Title --}}
                             <div class="col-6 text-center">
-                                <h4 class="alert alert-primary mb-1">تقرير حركة حساب تفصيلي</h4>
+                                <h4 class="alert alert-primary mb-1">{{ $statementTitle }}</h4>
                                 <h5>[ {{ $customer->name }} ]</h5>
                                 @if($branch)
                                     <h6>[ {{ $branch->name }} ]</h6>
@@ -121,7 +123,7 @@
                                     @endif
                                 </div>
                                 <div class="mt-2 no-print">
-                                    <button class="btn btn-primary btn-sm" onclick="window.print()">
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="window.ErpPrint.printCurrentPage()">
                                         <i class="fa fa-print"></i> طباعة
                                     </button>
                                     <a href="{{ route('customers', ['type' => $customer->type]) }}"
@@ -142,6 +144,7 @@
                                     <th rowspan="2">تاريخ العملية</th>
                                     <th rowspan="2">السند</th>
                                     <th rowspan="2">رقمه</th>
+                                    <th rowspan="2">طريقة الدفع / البيان</th>
                                     <th colspan="2">النقدية</th>
                                     @if($usedCarats->isNotEmpty())
                                     <th colspan="{{ $usedCarats->count() * 2 }}">الذهب</th>
@@ -172,6 +175,7 @@
                                     <td>--</td>
                                     <td>رصيد اول المدة</td>
                                     <td></td>
+                                    <td></td>
                                     <td>0</td>
                                     <td>0</td>
                                     @foreach($usedCarats as $carat)
@@ -193,6 +197,7 @@
                                         <td>{{ $transaction['date'] }}</td>
                                         <td>{{ $transaction['operation_label'] }}</td>
                                         <td>{{ $transaction['bill_number'] }}</td>
+                                        <td>{{ $transaction['payment_type_label'] ?? '-' }}</td>
                                         <td>{{ $moneyDebit > 0 ? number_format($moneyDebit, 2) : 0 }}</td>
                                         <td>{{ $moneyCredit > 0 ? number_format($moneyCredit, 2) : 0 }}</td>
                                         @foreach($usedCarats as $carat)
@@ -209,7 +214,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="{{ 6 + $usedCarats->count() * 2 }}" class="text-center text-muted">
+                                        <td colspan="{{ 7 + $usedCarats->count() * 2 }}" class="text-center text-muted">
                                             لا توجد حركات ضمن هذه الفترة.
                                         </td>
                                     </tr>
@@ -217,7 +222,7 @@
                             </tbody>
                             <tfoot>
                                 <tr style="background: antiquewhite; font-weight: bold;">
-                                    <td colspan="4" class="text-center">الإجمالي</td>
+                                    <td colspan="5" class="text-center">الإجمالي</td>
                                     <td>{{ number_format($total_money_debit, 2) }}</td>
                                     <td>{{ number_format($total_money_credit, 2) }}</td>
                                     @foreach($usedCarats as $carat)
@@ -226,7 +231,7 @@
                                     @endforeach
                                 </tr>
                                 <tr style="background: lightblue; font-weight: bold;">
-                                    <td colspan="4" class="text-center">الرصيد</td>
+                                    <td colspan="5" class="text-center">الرصيد</td>
                                     <td colspan="2">{{ number_format(abs($total_money_debit - $total_money_credit), 2) }}
                                         ({{ $total_money_debit >= $total_money_credit ? 'مدين' : 'دائن' }})
                                     </td>
@@ -251,6 +256,6 @@
 
 @section('js')
 <script>
-    document.title = "كشف {{ $partyLabel }} - {{ $customer->name }}";
+    document.title = "{{ $statementTitle }} - {{ $customer->name }}";
 </script>
 @endsection

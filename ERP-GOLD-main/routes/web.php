@@ -189,24 +189,33 @@ Route::group(
 
                     Route::get('/accounts/journals/{type}', [JournalEntryController::class, 'journals'])->name('accounts.journals.index');
                     Route::get('/accounts/journals/preview/{id}', [JournalEntryController::class, 'preview_journal'])->name('accounts.journals.preview');
+                    Route::get('/accounts/journals/print/{id}', [JournalEntryController::class, 'printView'])->name('accounts.journals.print');
                     Route::get('/accounts/journals/form/create', [JournalEntryController::class, 'create'])->name('accounts.journals.create');
                     Route::post('/accounts/journals/form/store', [JournalEntryController::class, 'store'])->name('accounts.journals.store');
                     Route::delete('/accounts/journals/delete/{id}', [JournalEntryController::class, 'delete'])->name('accounts.journals.delete');
 
                     Route::get('/reports/trail_balance', [AccountingReportsController::class, 'trail_balance'])->name('trail_balance.index');
                     Route::post('/reports/trail_balance', [AccountingReportsController::class, 'trail_balance_search'])->name('trail_balance.search');
+                    Route::get('/reports/trail_balance/print', [AccountingReportsController::class, 'trail_balance_print'])->name('trail_balance.print');
+                    Route::get('/reports/trail_balance/pdf', [AccountingReportsController::class, 'trail_balance_pdf'])->name('trail_balance.pdf');
+                    Route::get('/reports/trial-balance/print', [AccountingReportsController::class, 'reports_trial_balance_print'])->name('reports.trial_balance.print');
+                    Route::get('/reports/trial-balance/pdf', [AccountingReportsController::class, 'reports_trial_balance_pdf'])->name('reports.trial_balance.pdf');
 
                     Route::get('/reports/income_statement', [AccountingReportsController::class, 'income_statement'])->name('income_statement.index');
                     Route::post('/reports/income_statement', [AccountingReportsController::class, 'income_statement_search'])->name('income_statement.search');
+                    Route::get('/reports/income_statement/print', [AccountingReportsController::class, 'income_statement_print'])->name('income_statement.print');
 
                     Route::get('/reports/balance_sheet', [AccountingReportsController::class, 'balance_sheet'])->name('balance_sheet.index');
                     Route::post('/reports/balance_sheet', [AccountingReportsController::class, 'balance_sheet_search'])->name('balance_sheet.search');
+                    Route::get('/reports/balance_sheet/print', [AccountingReportsController::class, 'balance_sheet_print'])->name('balance_sheet.print');
 
                     Route::get('/reports/account_statement', [AccountingReportsController::class, 'account_statement'])->name('account_statement.index');
                     Route::post('/reports/account_statement', [AccountingReportsController::class, 'account_statement_search'])->name('account_statement.search');
+                    Route::get('/reports/account_statement/print', [AccountingReportsController::class, 'account_statement_print'])->name('account_statement.print');
 
                     Route::get('/reports/tax_declaration', [AccountingReportsController::class, 'tax_declaration'])->name('tax.declaration.index');
                     Route::post('/reports/tax_declaration', [AccountingReportsController::class, 'tax_declaration_search'])->name('tax.declaration.search');
+                    Route::get('/reports/tax_declaration/print', [AccountingReportsController::class, 'tax_declaration_print'])->name('tax.declaration.print');
 
                     Route::get('/reports/items/list', [ItemsReportsController::class, 'item_list_report'])->name('reports.items.list');
                     Route::post('/reports/items/list', [ItemsReportsController::class, 'item_list_report_search'])->name('reports.items.list.search');
@@ -369,6 +378,7 @@ Route::group(
 
                     Route::get('/financial_vouchers/{type}', [FinancialVoucherController::class, 'index'])->name('financial_vouchers');
                     Route::post('/financial_vouchers/{type}', [FinancialVoucherController::class, 'store'])->name('financial_vouchers.store');
+                    Route::get('/financial_vouchers/{type}/{id}/print', [FinancialVoucherController::class, 'printView'])->name('financial_vouchers.print');
                 });
 
                 Route::middleware('owner.only')->group(function () {

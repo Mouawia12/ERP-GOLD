@@ -31,7 +31,8 @@
             }
         }
     </style>
-<div class="row row-sm">
+    @include('admin.reports.partials.result_print_styles')
+<div class="row row-sm erp-print-report">
     <div class="col-xl-12">
           <div class="card"> 
             <div class="card-body px-0 pt-0 pb-2"> 
@@ -59,7 +60,7 @@
                             </div>
                             <div class="col-3 text-left">
                                 <img src="{{ $brandLogoUrl }}" id="profile-img-tag" width="70px" height="70px" class="profile-img"/>
-                                <button type="button" class="btn btn-primary no-print d-block mt-1" id="btnPrint" onclick="window.print()">
+                                <button type="button" class="btn btn-primary no-print d-block mt-1" id="btnPrint">
                                     <i class="fa fa-print"></i> طباعة
                                 </button>
                             </div>
@@ -136,7 +137,7 @@
 
     $(document).ready(function () {
         $(document).on('click', '#btnPrint', function (event) {
-            print();
+            window.ErpPrint.printCurrentPage();
 
         });
 

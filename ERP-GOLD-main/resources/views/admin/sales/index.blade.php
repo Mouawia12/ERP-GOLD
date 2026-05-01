@@ -196,9 +196,8 @@
             function printSalesTable(paperSize) {
                 var tableElement = document.getElementById('SalesTable');
                 var titleElement = document.querySelector('#head-right h4');
-                var tableWindow = window.open('', '_blank', 'width=1280,height=900');
 
-                if (!tableWindow || !tableElement) {
+                if (!tableElement) {
                     return;
                 }
 
@@ -207,8 +206,7 @@
                 var printFontSize = paperSize === 'a5' ? '11px' : '12px';
                 var tablePadding = paperSize === 'a5' ? '4px 6px' : '6px 8px';
 
-                tableWindow.document.open();
-                tableWindow.document.write(`
+                var printHtml = `
                     <!DOCTYPE html>
                     <html dir="rtl">
                     <head>
@@ -258,13 +256,9 @@
                         </div>
                     </body>
                     </html>
-                `);
-                tableWindow.document.close();
+                `;
 
-                setTimeout(function () {
-                    tableWindow.focus();
-                    tableWindow.print();
-                }, 250);
+                window.ErpPrint.printHtml(printHtml);
             }
 
             function appendPrintToolbar(buttonContainer) {

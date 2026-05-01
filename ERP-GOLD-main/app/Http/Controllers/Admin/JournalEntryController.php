@@ -41,13 +41,17 @@ class JournalEntryController extends Controller
                     return round($row->documents->sum('credit'), 2);
                 })
                 ->addColumn('action', function ($row) {
+                    $printUrl = route('accounts.journals.print', $row->id) . '?auto_print=1';
                     $btn = '<button type="button" class="btn btn-labeled btn-success" onclick="showPayments(' . $row->id . ')">
-                                    <i class="fa fa-eye"></i> 
+                                    <i class="fa fa-eye"></i>
                                  </button>  ';
+                    $btn .= '<button type="button" class="btn btn-labeled btn-primary" onclick="printJournal(\'' . $printUrl . '\')">
+                                    <i class="fa fa-print"></i>
+                                </button>  ';
 
                     if (is_null($row->journalable_type)) {
-                        $btn .= '<button type="button" class="btn btn-labeled btn-danger deleteBtn" id="' . $row->id . '"> 
-                                    <i class="fa fa-trash"></i> 
+                        $btn .= '<button type="button" class="btn btn-labeled btn-danger deleteBtn" id="' . $row->id . '">
+                                    <i class="fa fa-trash"></i>
                                 </button>';
                     }
                     return $btn;
@@ -69,6 +73,13 @@ class JournalEntryController extends Controller
         $html = view('admin.accounts.journal_entry.preview_journal', compact('journal'))->render();
 
         return $html;
+    }
+
+    public function printView($id)
+    {
+        $journal = JournalEntry::with(['documents.account', 'branch'])->findOrFail($id);
+
+        return view('admin.accounts.journal_entry.print', compact('journal'));
     }
 
     public function store(Request $request)

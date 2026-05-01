@@ -12,7 +12,7 @@
                 <div class="clearfix"></div>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ route('tax.declaration.search') }}">
+                <form id="tax-declaration-form" method="POST" action="{{ route('tax.declaration.search') }}">
                     @csrf
                     <div class="row">
                         <div class="col-lg-2 col-md-3">
@@ -70,8 +70,25 @@
                     </div>
 
                     <div class="text-center mt-3">
-                        <button type="submit" class="btn btn-primary px-5">
-                            {{ __('main.search_btn') }}
+                        <button
+                            type="button"
+                            class="btn btn-primary px-5"
+                            data-print-open
+                            data-print-form="#tax-declaration-form"
+                            data-print-url="{{ route('tax.declaration.print') }}"
+                        >
+                            عرض التقرير
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-success px-5"
+                            data-print-open
+                            data-print-form="#tax-declaration-form"
+                            data-print-url="{{ route('tax.declaration.print') }}"
+                            data-auto-print="1"
+                            data-print-target="_iframe"
+                        >
+                            طباعة
                         </button>
                     </div>
                 </form>
@@ -80,4 +97,3 @@
     </div>
 </div>
 @endsection
- 

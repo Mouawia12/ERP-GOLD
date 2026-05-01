@@ -14,7 +14,12 @@
         @media print {
 
             #main-header,
-            .main-header-spacer {
+            #main-footer,
+            #global-loader,
+            .main-header-spacer,
+            .main-footer,
+            .global-loader,
+            .loader-img {
                 display: none !important;
                 height: 0 !important;
             }
@@ -24,10 +29,31 @@
                 display: none !important;
             }
 
-            .app-content, .content {
+            html,
+            body {
+                width: auto !important;
+                min-width: 0 !important;
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible !important;
+                background: #fff !important;
+            }
+
+            .main-content.app-content,
+            .main-content.app-content > .container-fluid,
+            .app-content,
+            .content,
+            .side-app,
+            .container-fluid {
+                width: 100% !important;
+                max-width: none !important;
+                min-width: 0 !important;
+                height: auto !important;
+                min-height: 0 !important;
                 margin-right: 0 !important;
                 margin-left: 0 !important;
                 padding: 0 !important;
+                overflow: visible !important;
             }
 
             body {
@@ -48,6 +74,17 @@
 
             .text-nowrap {
                 white-space: normal !important;
+            }
+
+            .card,
+            .card-body,
+            .card-header,
+            .table-responsive,
+            .hoverable-table,
+            .dataTables_wrapper {
+                overflow: visible !important;
+                max-width: none !important;
+                box-shadow: none !important;
             }
 
             table.display.w-100.text-nowrap.table-bordered.dataTable.dtr-inline {

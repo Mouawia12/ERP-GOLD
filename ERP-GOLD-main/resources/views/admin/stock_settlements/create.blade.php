@@ -798,17 +798,7 @@
                 + '</tr>';
         }).join('');
 
-        var printWindow = window.open('', '_blank', 'width=1200,height=800');
-
-        if (!printWindow) {
-            if (typeof window.erpShowWarning === 'function') {
-                window.erpShowWarning('تعذر فتح نافذة الطباعة. تأكد من السماح بالنوافذ المنبثقة.');
-            }
-
-            return;
-        }
-
-        printWindow.document.write(`
+        var printHtml = `
             <!DOCTYPE html>
             <html dir="rtl" lang="ar">
             <head>
@@ -854,10 +844,9 @@
                 </div>
             </body>
             </html>
-        `);
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
+        `;
+
+        window.ErpPrint.printHtml(printHtml);
     }
 </script> 
 @endsection 

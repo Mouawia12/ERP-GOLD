@@ -12,7 +12,7 @@
                 <div class="clearfix"></div>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ route('account_statement.search') }}">
+                <form id="account-statement-form" method="POST" action="{{ route('account_statement.search') }}">
                     @csrf
                     <div class="row">
                         <div class="col-lg-4 col-md-6">
@@ -93,8 +93,25 @@
                     </div>
 
                     <div class="text-center mt-3">
-                        <button type="submit" class="btn btn-primary px-5">
-                            {{ __('main.search_btn') }}
+                        <button
+                            type="button"
+                            class="btn btn-primary px-5"
+                            data-print-open
+                            data-print-form="#account-statement-form"
+                            data-print-url="{{ route('account_statement.print') }}"
+                        >
+                            عرض التقرير
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-success px-5"
+                            data-print-open
+                            data-print-form="#account-statement-form"
+                            data-print-url="{{ route('account_statement.print') }}"
+                            data-auto-print="1"
+                            data-print-target="_iframe"
+                        >
+                            طباعة
                         </button>
                     </div>
                 </form>

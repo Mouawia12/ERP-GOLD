@@ -237,7 +237,7 @@
             var baseUrl = $(this).data('url');
             var paperProfile = $('#lost_barcode_paper_profile').val();
             var url = baseUrl + '?paper_profile=' + encodeURIComponent(paperProfile);
-            window.open(url, '_blank');
+            window.ErpPrint.printInHiddenFrame(url);
         });
     });
 </script>

@@ -57,81 +57,11 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive hoverable-table accounting-print-table-wrap" style="direction: rtl;">
-                        <table class="display w-100 table-bordered caption-top accounting-print-table accounting-wide-table" id="example1"
-                           style="text-align: center;direction: rtl;">
-                            <thead>
-                                <tr>
-                                    <th rowspan="2" data-dt-order="disable">{{__('main.account_name')}}</th>
-                                    <th rowspan="1" colspan="2" data-dt-order="disable">{{__('main.Before_Debit')}}</th>
-                                    <th rowspan="1" colspan="2" data-dt-order="disable">{{__('main.movement')}}</th>
-                                    <th rowspan="1" colspan="3" data-dt-order="disable"> {{__('الاغلاق')}}</th>
-                                </tr>
-                                <tr>
-                                    <th rowspan="1" >{{__('main.Debit')}}</th>
-                                    <th rowspan="1" >{{__('main.Credit')}}</th>
-                                    <th rowspan="1" >{{__('main.Debit')}}</th>
-                                    <th rowspan="1" >{{__('main.Credit')}}</th>
-                                    <th rowspan="1" >{{__('main.Debit')}}</th>
-                                    <th rowspan="1" >{{__('main.Credit')}}</th>
-                                    <th rowspan="1" >{{__('الرصيد')}}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            <?php
-                            $opening_debit = 0;
-                            $opening_credit = 0;
-                            $period_debit = 0;
-                            $period_credit = 0;
-                            $closing_debit = 0;
-                            $closing_credit = 0;
-                            $closing_balance = 0;
-                            ?>
-
-                            @foreach($accounts as $key => $account)
-                            <?php
-                            $metrics = $accountMetrics[$account->id] ?? [];
-                            $account_opening_debit = $metrics['opening_debit'] ?? 0;
-                            $account_opening_credit = $metrics['opening_credit'] ?? 0;
-                            $account_period_debit = $metrics['period_debit'] ?? 0;
-                            $account_period_credit = $metrics['period_credit'] ?? 0;
-                            $account_closing_debit = $metrics['closing_debit'] ?? 0;
-                            $account_closing_credit = $metrics['closing_credit'] ?? 0;
-                            $account_closing_balance = $metrics['closing_net'] ?? 0;
-                            ?>
-                                <tr>
-                                    <td>{{ $account->name . ' - ' . $account->code }}</td>
-                                    <td>{{ number_format(abs($account_opening_debit), 2) }}</td>
-                                    <td>{{ number_format(abs($account_opening_credit), 2) }}</td>
-                                    <td>{{ number_format(abs($account_period_debit), 2) }}</td>
-                                    <td>{{ number_format(abs($account_period_credit), 2) }}</td>
-                                    <td>{{ number_format(abs($account_closing_debit), 2) }}</td>
-                                    <td>{{ number_format(abs($account_closing_credit), 2) }}</td>
-                                    <td>{{ number_format(abs($account_closing_balance), 2) }} {{ $account_closing_balance != 0 ? ' / ' . ($account_closing_balance > 0 ? __('main.debit') : __('main.credit')) : '' }}</td>
-                                </tr>
-                                <?php
-                                $opening_debit += $account_opening_debit;
-                                $opening_credit += $account_opening_credit;
-                                $period_debit += $account_period_debit;
-                                $period_credit += $account_period_credit;
-                                $closing_debit += $account_closing_debit;
-                                $closing_credit += $account_closing_credit;
-                                $closing_balance += $account_closing_balance;
-                                ?>
-                            @endforeach
-                            </tbody>
-                            <tfoot>
-                                <tr class="bg-primary text-white">
-                                    <td class="text-center"> اجمالي الميزان  </td>
-                                    <td class="text-center">{{ number_format(abs($opening_debit), 2) }}</td>
-                                    <td class="text-center">{{ number_format(abs($opening_credit), 2) }}</td>
-                                    <td class="text-center">{{ number_format(abs($period_debit), 2) }}</td>
-                                    <td class="text-center">{{ number_format(abs($period_credit), 2) }}</td>
-                                    <td class="text-center">{{ number_format(abs($closing_debit), 2) }}</td>
-                                    <td class="text-center">{{ number_format(abs($closing_credit), 2) }}</td>
-                                    <td class="text-center">{{ number_format(abs($closing_balance), 2) }} {{ $closing_balance != 0 ? ' / ' . ($closing_balance > 0 ? __('main.debit') : __('main.credit')) : '' }}</td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                        @include('admin.reports.trail_balance.partials.table', [
+                            'tableId' => 'example1',
+                            'tableClass' => 'display w-100 table-bordered caption-top accounting-print-table accounting-wide-table',
+                            'footerClass' => 'bg-primary text-white',
+                        ])
                     </div>
                 </div>
             </div>
@@ -150,5 +80,8 @@
             window.print();
         });
     });
+    @if(request('auto_print') == '1')
+    window.addEventListener('load', function () { window.print(); });
+    @endif
 </script>
 @endsection

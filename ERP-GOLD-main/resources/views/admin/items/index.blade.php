@@ -1,6 +1,7 @@
 @extends('admin.layouts.master')
 @can('employee.items.show')
 @section('css')    
+    @include('admin.reports.partials.result_print_styles')
     <style>
         table.display.w-100.text-nowrap.table-bordered.dataTable.dtr-inline {
             direction: rtl;
@@ -56,7 +57,7 @@
                                             <th> {{__('المصنعية / جرام')}} </th> 
                                             <th> {{__('الفروع المنشورة')}} </th>
                                             <th> {{__('الحالة')}} </th>
-                                            <th> {{__('main.actions')}} </th>
+                                            <th class="no-print"> {{__('main.actions')}} </th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -251,6 +252,7 @@
                         @canany(['employee.items.edit','employee.items.delete'])
                             data: 'action',
                             name: 'action',
+                            className: 'no-print',
                             orderable: false,
                             searchable: false
                         @endcan
@@ -264,8 +266,10 @@
                         text: '<i title="export to excel" class="fa fa-file-excel"></i>',
                     }, 
                     {
-                        extend: 'print',
                         text: '<i title="print" class="fa fa-print"></i>',
+                        action: function () {
+                            window.ErpPrint.printCurrentPage();
+                        },
                     },
                     {
                         extend: 'colvis',

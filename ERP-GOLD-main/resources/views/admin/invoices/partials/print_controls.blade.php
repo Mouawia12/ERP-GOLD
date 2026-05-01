@@ -302,6 +302,10 @@
             });
         }
 
+        if (window.location.search.indexOf('auto_print=1') !== -1) {
+            window.addEventListener('load', function () { window.print(); });
+        }
+
         if (bgScaleSave) {
             bgScaleSave.addEventListener('click', function () {
                 var scale = bgScaleSlider ? bgScaleSlider.value : '1';

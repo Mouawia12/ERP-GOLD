@@ -1,6 +1,7 @@
 @extends('admin.layouts.master')
 @section('content')
 @can('employee.sales_returns.show')  
+    @include('admin.reports.partials.result_print_styles')
 
     @if (session('success'))
         <div class="alert alert-success  fade show">
@@ -47,7 +48,7 @@
                                             <th> {{__('قيمة الفاتورة')}} </th>
                                             <th> {{__('main.total_money')}} </th> 
                                             <th> {{__('main.total_tax')}} </th>
-                                            <th> {{__('main.actions')}} </th>
+                                            <th class="no-print"> {{__('main.actions')}} </th>
                                         </tr>
                                     </thead>
                                     <tbody></tbody> 
@@ -76,7 +77,6 @@
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 }
             });
- 
             var table = $('#SalesTable').DataTable({
                 processing: true,
                 //serverSide: true,
@@ -119,6 +119,7 @@
                     {
                         data: 'action',
                         name: 'action',
+                        className: 'no-print',
                         orderable: false,
                         searchable: false
                     },
@@ -134,8 +135,10 @@
                         text: '<i title="export to excel" class="fa fa-file-excel"></i>',
                     }, 
                     {
-                        extend: 'print',
                         text: '<i title="print" class="fa fa-print"></i>',
+                        action: function () {
+                            window.ErpPrint.printCurrentPage();
+                        },
                     },
                     {
                         extend: 'colvis',
@@ -148,6 +151,5 @@
 
             document.title = "{{__('main.return_sales')}}";
         });
-</script> 
-@endsection 
- 
+</script>
+@endsection

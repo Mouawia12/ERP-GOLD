@@ -1,12 +1,47 @@
 @extends('admin.layouts.master') 
 @section('content')
 @canany(['employee.customers.show','employee.suppliers.show' ]) 
+    @php
+        $isReportDirectory = $reportDirectory ?? false;
+        $isCashListing = $cashOnly ?? false;
+        $isCashDirectory = $cashDirectory ?? false;
+        $filterRouteName = $isReportDirectory
+            ? ($isCashDirectory ? 'customers.reports.cash' : 'customers.reports.index')
+            : ($isCashDirectory ? 'customers.cash' : 'customers');
+        $filterRouteParams = ['type' => $type];
+
+        if (! $isCashDirectory && $isCashListing && ! $isReportDirectory) {
+            $filterRouteParams['cash_only'] = 1;
+        }
+
+        if ($isReportDirectory) {
+            $directoryTitle = $type == 'customer' ? 'تقارير العملاء' : 'تقارير الموردين';
+            $directoryHint = 'اختر التقرير المطلوب، وسيتم فتح نافذة الطباعة مباشرة بدون الانتقال إلى صفحة أخرى.';
+        } elseif ($isCashListing) {
+            $directoryTitle = $type == 'customer' ? 'العملاء النقديون' : 'الموردون النقديون';
+            $directoryHint = 'هذه القائمة تعرض الأطراف النقدية فقط. هذه الصفحة تحفظ الطرف كنقدي تلقائيًا ليظهر في جدوله الصحيح.';
+        } else {
+            $directoryTitle = $type == 'customer' ? __('main.customers') : __('main.suppliers');
+            $directoryHint = null;
+        }
+
+        $branch = auth()->user()?->branch;
+        $subscriber = $branch?->subscriber;
+        $logoUrl = null;
+
+        try {
+            $logoUrl = app(\App\Services\Invoices\InvoicePrintSettingsService::class)->currentSettings()->logoUrl ?? null;
+        } catch (\Throwable $e) {
+            $logoUrl = null;
+        }
+    @endphp
     @if (session('success'))
-        <div class="alert alert-success  fade show">
+        <div class="alert alert-success fade show no-print">
             <button class="close" data-dismiss="alert" aria-label="Close">×</button>
             {{ session('success') }}
         </div>
     @endif
+    @include('admin.reports.partials.result_print_styles')
     <style>
         table.display.w-100.text-nowrap.table-bordered.dataTable.dtr-inline {
             direction: rtl;
@@ -34,24 +69,200 @@
     #createForm .invalid-feedback {
         text-align: right;
     }
+
+    .customer-directory-print-header {
+        display: none;
+    }
+
+    @media print {
+        @page {
+            size: A4 landscape;
+            margin: 8mm;
+        }
+
+        .customer-directory-page {
+            color: #172033 !important;
+        }
+
+        .customer-directory-screen-header,
+        .customer-directory-actions,
+        .customer-directory-actions *,
+        #createModal,
+        #deleteModal {
+            display: none !important;
+            visibility: hidden !important;
+        }
+
+        .customer-directory-print-header {
+            display: grid !important;
+            grid-template-columns: 1fr 2fr 1fr;
+            align-items: center;
+            gap: 8mm;
+            margin: 0 0 5mm !important;
+            padding: 4mm 5mm !important;
+            border: 1px solid #aeb8cc !important;
+            background: #fff !important;
+            break-after: avoid;
+            page-break-after: avoid;
+        }
+
+        .customer-directory-print-title {
+            margin: 0 0 1.5mm !important;
+            padding: 1.8mm 4mm !important;
+            background: #dfe8ff !important;
+            color: #243f78 !important;
+            font-size: 15px !important;
+            font-weight: 800 !important;
+            text-align: center !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .customer-directory-print-meta {
+            margin: 0.8mm 0 !important;
+            font-size: 10px !important;
+            line-height: 1.5 !important;
+            color: #334155 !important;
+        }
+
+        .customer-directory-print-logo {
+            max-width: 28mm !important;
+            max-height: 22mm !important;
+            object-fit: contain !important;
+        }
+
+        .customer-directory-page .card,
+        .customer-directory-page .card-body,
+        .customer-directory-page .table-responsive,
+        .customer-directory-page .dataTables_wrapper {
+            border: 0 !important;
+            box-shadow: none !important;
+            background: #fff !important;
+        }
+
+        .customer-directory-page .directory-table-card {
+            margin: 0 !important;
+        }
+
+        .customer-directory-page table#example1 {
+            table-layout: fixed !important;
+            border: 1px solid #94a3b8 !important;
+        }
+
+        .customer-directory-page table#example1 th,
+        .customer-directory-page table#example1 td {
+            padding: 2mm 1.6mm !important;
+            border: 1px solid #b8c2d4 !important;
+            font-size: 10px !important;
+            line-height: 1.45 !important;
+            color: #111827 !important;
+            background: #fff !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+            vertical-align: middle !important;
+        }
+
+        .customer-directory-page table#example1 thead th {
+            background: #edf3ff !important;
+            color: #1e3a6d !important;
+            font-weight: 800 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .customer-directory-page table#example1 thead th::before,
+        .customer-directory-page table#example1 thead th::after {
+            display: none !important;
+            content: "" !important;
+        }
+
+        .customer-directory-page table#example1 tbody tr:nth-child(even) td {
+            background: #f8fafc !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .customer-directory-page table#example1 th:nth-child(1),
+        .customer-directory-page table#example1 td:nth-child(1) {
+            width: 9mm !important;
+        }
+
+        .customer-directory-page table#example1 th:nth-child(2),
+        .customer-directory-page table#example1 td:nth-child(2) {
+            width: 38mm !important;
+            font-weight: 700 !important;
+        }
+
+        .customer-directory-page table#example1 th:nth-child(3),
+        .customer-directory-page table#example1 td:nth-child(3) {
+            width: 28mm !important;
+        }
+
+        .customer-directory-page table#example1 th:nth-child(4),
+        .customer-directory-page table#example1 td:nth-child(4) {
+            width: 20mm !important;
+        }
+
+        .customer-directory-page table#example1 th:nth-child(5),
+        .customer-directory-page table#example1 td:nth-child(5) {
+            width: 30mm !important;
+        }
+
+        .customer-directory-page table#example1 th:nth-child(6),
+        .customer-directory-page table#example1 td:nth-child(6) {
+            width: 44mm !important;
+        }
+
+        .customer-directory-page table#example1 th:nth-child(7),
+        .customer-directory-page table#example1 td:nth-child(7) {
+            width: 32mm !important;
+        }
+
+        .customer-directory-page table#example1 th:nth-child(8),
+        .customer-directory-page table#example1 td:nth-child(8) {
+            display: none !important;
+        }
+
+        .customer-directory-page .badge {
+            display: inline-block !important;
+            min-width: 14mm;
+            padding: 1mm 2mm !important;
+            border: 1px solid #c7d2fe !important;
+            border-radius: 3px !important;
+            background: #eef3ff !important;
+            color: #1f2a44 !important;
+            font-size: 9px !important;
+            font-weight: 800 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+    }
     </style>  
 
     <!-- row opened -->
-    <div class="row row-sm">
+    <div class="row row-sm customer-directory-page erp-print-report">
         <div class="col-xl-12">
             <div class="card">
-                <div class="card-header pb-0" id="head-right" >
+                <div class="card-header pb-0 customer-directory-screen-header no-print" id="head-right" >
                     <div class="col-lg-12 margin-tb text-center">
                         <h4 class="alert alert-primary text-center">
-                            [ {{ $type == 'customer' ? __('main.customers') : __('main.suppliers') }} ]
+                            [ {{ $directoryTitle }} ]
                         </h4>
+                        @if($directoryHint)
+                            <div class="alert alert-info py-2 mb-3">{{ $directoryHint }}</div>
+                        @endif
+                        @if(! $isReportDirectory)
                         @canany(['employee.customers.add','employee.suppliers.add'])
                             <button type="button" class="btn btn-labeled btn-info" id="createButton">
                                 <span class="btn-label" style="margin-right: 10px;"><i class="fa fa-plus"></i></span>
                                 {{__('main.add_new')}}
                             </button>
                         @endcanany
-                        <form method="GET" action="{{ route('customers', ['type' => $type]) }}" class="mt-3">
+                        @endif
+                        <form method="GET" action="{{ route($filterRouteName, $filterRouteParams) }}" class="mt-3">
+                            @if(! $isCashDirectory && $isCashListing && ! $isReportDirectory)
+                                <input type="hidden" name="cash_only" value="1">
+                            @endif
                             <div class="row justify-content-center">
                                 <div class="col-lg-4 col-md-6">
                                     <div class="input-group">
@@ -60,7 +271,7 @@
                                             value="{{ $identityNumber ?? '' }}">
                                         <div class="input-group-append">
                                             <button type="submit" class="btn btn-outline-primary">بحث</button>
-                                            <a href="{{ route('customers', ['type' => $type]) }}" class="btn btn-outline-secondary">مسح</a>
+                                            <a href="{{ route($filterRouteName, $filterRouteParams) }}" class="btn btn-outline-secondary">مسح</a>
                                         </div>
                                     </div>
                                     @if(!empty($identityNumber))
@@ -74,7 +285,34 @@
                 </div> 
                 <div class="card-body px-0 pt-0 pb-2">
 
-                    <div class="card shadow mb-4"> 
+                    <div class="customer-directory-print-header">
+                        <div class="text-right">
+                            @if($subscriber?->name)
+                                <p class="customer-directory-print-meta"><strong>{{ $subscriber->name }}</strong></p>
+                            @endif
+                            @if($branch?->name)
+                                <p class="customer-directory-print-meta">الفرع: {{ $branch->name }}</p>
+                            @endif
+                            @if($branch?->tax_number)
+                                <p class="customer-directory-print-meta">الرقم الضريبي: {{ $branch->tax_number }}</p>
+                            @endif
+                        </div>
+                        <div class="text-center">
+                            <h3 class="customer-directory-print-title">{{ $directoryTitle }}</h3>
+                            <p class="customer-directory-print-meta">عدد السجلات: {{ $customers?->count() ?? 0 }}</p>
+                            @if(!empty($identityNumber))
+                                <p class="customer-directory-print-meta">تصفية رقم الهوية: {{ $identityNumber }}</p>
+                            @endif
+                        </div>
+                        <div class="text-left">
+                            @if($logoUrl)
+                                <img src="{{ $logoUrl }}" class="customer-directory-print-logo" alt="logo">
+                            @endif
+                            <p class="customer-directory-print-meta">تاريخ الطباعة: {{ now()->format('Y-m-d H:i') }}</p>
+                        </div>
+                    </div>
+
+                    <div class="card shadow mb-4 directory-table-card">
                         <div class="card-body">
                             <div class="table-responsive">
                                 <table class="display w-100  text-nowrap table-bordered" id="example1" 
@@ -97,7 +335,7 @@
                                                 <td class="text-center">{{$loop -> index +1}}</td>
                                                 <td class="text-center">{{$customer -> name}}</td> 
                                                 <td class="text-center">{{$customer -> phone}}</td>
-                                                <td class="text-center">
+                                                <td class="text-center customer-directory-actions">
                                                     @if($customer->is_cash_party)
                                                         <span class="badge badge-success">نقدي</span>
                                                     @else
@@ -108,12 +346,31 @@
                                                 <td class="text-center">{{$customer -> email}}</td> 
                                                 <td class="text-center">{{$customer -> tax_number}}</td>
                                                 <td class="text-center">
-                                                    @can('employee.suppliers.show')
-                                                    <a href="{{ route('customers.report', $customer->id) }}"
-                                                        class="btn btn-success btn-sm">
+                                                    @can($type == 'customer' ? 'employee.customers.show' : 'employee.suppliers.show')
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-success btn-sm"
+                                                        data-print-open
+                                                        data-print-url="{{ route('customers.report', $customer->id) }}"
+                                                        data-print-target="_iframe"
+                                                    >
                                                         <i class="fa fa-chart-bar"></i> تقرير تفصيلي
-                                                    </a>
+                                                    </button>
                                                     @endcan
+                                                    @if($isReportDirectory)
+                                                    @can($type == 'customer' ? 'employee.customers.show' : 'employee.suppliers.show')
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-info btn-sm"
+                                                        data-print-open
+                                                        data-print-url="{{ route('customers.report.cash', $customer->id) }}"
+                                                        data-print-target="_iframe"
+                                                    >
+                                                        <i class="fa fa-money-bill"></i> تقرير نقدي
+                                                    </button>
+                                                    @endcan
+                                                    @endif
+                                                    @if(! $isReportDirectory)
                                                     @canany(['employee.customers.edit','employee.suppliers.edit'])
                                                     <button type="button" class="btn btn-labeled btn-info editBtn"
                                                         url="{{route('customers.get', $customer->id)}}">
@@ -126,6 +383,7 @@
                                                         <i class="fa fa-trash"></i>
                                                     </button>
                                                     @endcanany
+                                                    @endif
                                                 </td>
                                             </tr>
                                     @endforeach 
@@ -153,6 +411,9 @@
                 <form id="createForm"   method="POST" action="{{ route('customers.store' , $type) }}"
                         enctype="multipart/form-data" >
                     @csrf
+                    @if($isCashListing && ! $isReportDirectory)
+                        <input type="hidden" name="force_cash_party" value="1">
+                    @endif
 
                     <div class="row">
                         <div class="col-12">
@@ -344,7 +605,7 @@
         const editTitle = @json($type == 'customer' ? 'تعديل بيانات العميل' : 'تعديل بيانات المورد');
         const genericSaveError = @json($type == 'customer' ? 'تعذر حفظ العميل. حاول مرة أخرى.' : 'تعذر حفظ المورد. حاول مرة أخرى.');
         const genericLoadError = @json($type == 'customer' ? 'تعذر تحميل بيانات العميل.' : 'تعذر تحميل بيانات المورد.');
-        const isCashCreationDirectory = false;
+        const isCashCreationDirectory = @json($isCashListing && ! $isReportDirectory);
 
         $('.js-example-basic-single').select2({
             placeholder: "اختر مما يلى",
