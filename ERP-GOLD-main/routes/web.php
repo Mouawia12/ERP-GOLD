@@ -319,6 +319,8 @@ Route::group(
                         ->name('admin.system-settings.invoice-print.edit');
                     Route::patch('system-settings/invoice-print', [SystemSettingController::class, 'updateInvoicePrint'])
                         ->name('admin.system-settings.invoice-print.update');
+                    Route::post('system-settings/invoice-print/toggle-flag', [SystemSettingController::class, 'togglePrintFlag'])
+                        ->name('admin.system-settings.invoice-print.toggle-flag');
                     Route::get('system-settings/invoice-background', [SystemSettingController::class, 'editInvoiceBackground'])
                         ->name('admin.system-settings.invoice-background.edit');
                     Route::post('system-settings/invoice-background/upload', [SystemSettingController::class, 'uploadInvoiceBackground'])

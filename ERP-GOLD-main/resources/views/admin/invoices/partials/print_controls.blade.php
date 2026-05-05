@@ -2,6 +2,9 @@
     $availableOrientations = app(\App\Services\Invoices\InvoicePrintSettingsService::class)->availableOrientations();
     $showOrientationSelector = ($printSettings['format'] ?? 'a4') === 'a5';
     $previewNotice = trim((string) ($previewNotice ?? ''));
+    // Effective visibility: print setting AND not overridden by background "hide_*"
+    $printShowHeader = isset($showHeader) ? (bool) $showHeader : (bool) ($printSettings['show_header'] ?? true);
+    $printShowFooter = isset($showFooter) ? (bool) $showFooter : (bool) ($printSettings['show_footer'] ?? true);
 @endphp
 
 <style type="text/css">
@@ -166,6 +169,67 @@
         background: #374151;
     }
 
+    .print-toggle-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 130px;
+    }
+
+    .print-toggle-switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 32px;
+        padding: 0 10px;
+        border-radius: 8px;
+        background: #1f2937;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .print-toggle-switch input { display: none; }
+
+    .print-toggle-switch .switch-track {
+        width: 30px;
+        height: 16px;
+        border-radius: 999px;
+        background: #4b5563;
+        position: relative;
+        transition: background 0.18s ease;
+    }
+
+    .print-toggle-switch .switch-track::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #fff;
+        transition: transform 0.18s ease;
+    }
+
+    .print-toggle-switch input:checked + .switch-track {
+        background: #16a34a;
+    }
+
+    .print-toggle-switch input:checked + .switch-track::after {
+        transform: translateX(14px);
+    }
+
+    .print-toggle-switch .switch-text {
+        font-size: 12px;
+        color: #e5e7eb !important;
+        font-weight: 700;
+    }
+
+    .print-toggle-switch[data-busy="1"] {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+
     @media print {
         .no-print,
         .print-preview-notice,
@@ -223,6 +287,20 @@
         </button>
     </div>
     @endif
+
+    <div class="print-toggle-group">
+        <span class="print-control-label">عناصر الفاتورة</span>
+        <label class="print-toggle-switch" data-flag="show_header">
+            <input type="checkbox" {{ $printShowHeader ? 'checked' : '' }}>
+            <span class="switch-track"></span>
+            <span class="switch-text">الترويسة</span>
+        </label>
+        <label class="print-toggle-switch" data-flag="show_footer">
+            <input type="checkbox" {{ $printShowFooter ? 'checked' : '' }}>
+            <span class="switch-track"></span>
+            <span class="switch-text">التذييل</span>
+        </label>
+    </div>
 
     <button type="button" id="print-now-button" class="print-control-button">طباعة</button>
 
@@ -305,6 +383,38 @@
         if (window.location.search.indexOf('auto_print=1') !== -1) {
             window.addEventListener('load', function () { window.print(); });
         }
+
+        var toggleSwitches = document.querySelectorAll('.print-toggle-switch');
+        toggleSwitches.forEach(function (toggle) {
+            var input = toggle.querySelector('input[type="checkbox"]');
+            if (! input) return;
+
+            input.addEventListener('change', function () {
+                var flag = toggle.getAttribute('data-flag');
+                var enabled = input.checked ? 1 : 0;
+                toggle.setAttribute('data-busy', '1');
+
+                fetch('{{ route("admin.system-settings.invoice-print.toggle-flag") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({ flag: flag, enabled: enabled }),
+                }).then(function (response) {
+                    if (! response.ok) throw new Error('toggle failed');
+                    return response.json();
+                }).then(function () {
+                    window.location.reload();
+                }).catch(function () {
+                    input.checked = ! input.checked;
+                    toggle.removeAttribute('data-busy');
+                    alert('تعذّر حفظ الإعداد، حاول مرة أخرى.');
+                });
+            });
+        });
 
         if (bgScaleSave) {
             bgScaleSave.addEventListener('click', function () {

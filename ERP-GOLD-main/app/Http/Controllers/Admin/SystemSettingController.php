@@ -14,6 +14,7 @@ use App\Services\Invoices\InvoiceTermsService;
 use App\Services\Items\DefaultItemSettingsService;
 use App\Services\Purchases\DefaultPurchaseSupplierService;
 use App\Services\Shifts\SalesShiftModeService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -32,7 +33,7 @@ class SystemSettingController extends Controller
         private readonly InvoiceBackgroundService $invoiceBackgroundService,
     ) {
         $this->middleware('permission:employee.system_settings.show', ['only' => ['editLoginMode', 'editSalesShiftMode', 'editDefaultPurchaseSupplier', 'editInvoiceTerms', 'editInvoicePrint', 'editBranding', 'editDefaultItemSettings', 'editInvoiceBackground']]);
-        $this->middleware('permission:employee.system_settings.edit', ['only' => ['updateLoginMode', 'updateSalesShiftMode', 'updateDefaultPurchaseSupplier', 'updateInvoiceTerms', 'updateInvoicePrint', 'updateBranding', 'updateDefaultItemSettings', 'uploadInvoiceBackground', 'saveInvoiceBackgroundScale', 'toggleInvoiceBackground', 'deleteInvoiceBackground']]);
+        $this->middleware('permission:employee.system_settings.edit', ['only' => ['updateLoginMode', 'updateSalesShiftMode', 'updateDefaultPurchaseSupplier', 'updateInvoiceTerms', 'updateInvoicePrint', 'togglePrintFlag', 'updateBranding', 'updateDefaultItemSettings', 'uploadInvoiceBackground', 'saveInvoiceBackgroundScale', 'toggleInvoiceBackground', 'deleteInvoiceBackground']]);
     }
 
     public function editLoginMode(): View
@@ -174,17 +175,48 @@ class SystemSettingController extends Controller
             'orientation' => 'required|in:'.implode(',', array_keys($this->invoicePrintSettingsService->availableOrientations())),
         ]);
 
+        $showHeader = $request->boolean('show_header');
+        $showFooter = $request->boolean('show_footer');
+
         $this->invoicePrintSettingsService->setSettings(
             $validated['format'],
-            $request->boolean('show_header'),
-            $request->boolean('show_footer'),
+            $showHeader,
+            $showFooter,
             $validated['template'],
             $validated['orientation'],
         );
 
+        $bg = $this->invoiceBackgroundForRequest($request);
+        $bg->setHideHeader(! $showHeader);
+        $bg->setHideFooter(! $showFooter);
+
         return redirect()
             ->route('admin.system-settings.invoice-print.edit')
             ->with('success', 'تم تحديث إعدادات طباعة الفواتير بنجاح.');
+    }
+
+    public function togglePrintFlag(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'flag' => 'required|in:show_header,show_footer',
+            'enabled' => 'required|boolean',
+        ]);
+
+        $enabled = (bool) $validated['enabled'];
+
+        if ($validated['flag'] === 'show_header') {
+            $this->invoicePrintSettingsService->setShowHeader($enabled);
+            $this->invoiceBackgroundForRequest($request)->setHideHeader(! $enabled);
+        } else {
+            $this->invoicePrintSettingsService->setShowFooter($enabled);
+            $this->invoiceBackgroundForRequest($request)->setHideFooter(! $enabled);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'flag' => $validated['flag'],
+            'enabled' => $enabled,
+        ]);
     }
 
     public function editBranding(): View
@@ -349,10 +381,14 @@ class SystemSettingController extends Controller
             $invoiceBackgroundService->setFontScale((float) $validated['font_scale']);
         }
         if (array_key_exists('hide_header', $validated)) {
-            $invoiceBackgroundService->setHideHeader((bool) $validated['hide_header']);
+            $hideHeader = (bool) $validated['hide_header'];
+            $invoiceBackgroundService->setHideHeader($hideHeader);
+            $this->invoicePrintSettingsService->setShowHeader(! $hideHeader);
         }
         if (array_key_exists('hide_footer', $validated)) {
-            $invoiceBackgroundService->setHideFooter((bool) $validated['hide_footer']);
+            $hideFooter = (bool) $validated['hide_footer'];
+            $invoiceBackgroundService->setHideFooter($hideFooter);
+            $this->invoicePrintSettingsService->setShowFooter(! $hideFooter);
         }
         if (isset($validated['offset_x'])) {
             $invoiceBackgroundService->setOffsetX((float) $validated['offset_x']);

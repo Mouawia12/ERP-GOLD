@@ -114,6 +114,30 @@ class InvoicePrintSettingsService
         SystemSetting::putValue(self::ORIENTATION_KEY, $orientation);
     }
 
+    public function setShowHeader(bool $value): void
+    {
+        $current = $this->currentSettings(false);
+        $this->setSettings(
+            $current['format'],
+            $value,
+            $current['show_footer'],
+            $current['template'],
+            $current['orientation'],
+        );
+    }
+
+    public function setShowFooter(bool $value): void
+    {
+        $current = $this->currentSettings(false);
+        $this->setSettings(
+            $current['format'],
+            $current['show_header'],
+            $value,
+            $current['template'],
+            $current['orientation'],
+        );
+    }
+
     private function booleanSetting(string $key, bool $default): bool
     {
         $fallback = $default ? '1' : '0';

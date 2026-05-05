@@ -210,6 +210,31 @@ class Invoice extends Model
         return $this->bill_client_identity_number ?? $this->customer?->identity_number;
     }
 
+    public function getCustomerTaxNumberAttribute(): ?string
+    {
+        $value = $this->customer?->tax_number;
+        return filled($value) ? (string) $value : null;
+    }
+
+    public function getCustomerAddressAttribute(): ?string
+    {
+        $customer = $this->customer;
+        if (! $customer) {
+            return null;
+        }
+
+        $parts = array_filter([
+            $customer->building_number,
+            $customer->street_name,
+            $customer->district,
+            $customer->city,
+            $customer->region,
+            $customer->postal_code,
+        ], fn ($value) => filled($value));
+
+        return $parts ? implode('، ', $parts) : null;
+    }
+
     public function getCashPaidTotalAttribute(): float
     {
         return app(InvoicePaymentService::class)->totalsForInvoice($this)['cash'];

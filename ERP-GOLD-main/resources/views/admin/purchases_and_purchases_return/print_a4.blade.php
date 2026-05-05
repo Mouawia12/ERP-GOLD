@@ -102,14 +102,15 @@
         if ($bgHideFooter && $bgImageUrl) {
             $showFooter = false;
         }
+        $compactStandalonePrint = ! $showHeader && ! $showFooter;
     @endphp
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>{{ $documentTitle }} {{ $invoice->bill_number }}</title>
     <style>
         @page {
-            size: A4 portrait;
-            margin: 8mm 8mm 22mm 8mm;
+            size: A4 {{ ($printSettings['orientation'] ?? 'portrait') === 'landscape' ? 'landscape' : 'portrait' }};
+            margin: {{ $compactStandalonePrint ? '6mm 8mm 6mm 8mm' : '8mm 8mm 22mm 8mm' }};
         }
 
         @font-face {
@@ -383,6 +384,12 @@
             html, body { background: #fff; font-size: var(--invoice-print-font-size); }
             .page { width: auto; max-width: none; min-height: auto; padding: 2mm 2.5mm 3mm; box-shadow: none; }
         }
+
+        body.invoice-paper-ready .page-content { padding-bottom: 0; }
+        body.invoice-paper-ready .page-footer { display: none; }
+        @media screen {
+            body.invoice-paper-ready .page { padding: 6mm 8mm; min-height: auto; }
+        }
     </style>
 </head>
 <body
@@ -390,7 +397,7 @@
     data-print-template="{{ $printTemplate }}"
     data-show-header="{{ $showHeader ? '1' : '0' }}"
     data-show-footer="{{ $showFooter ? '1' : '0' }}"
-    class="invoice-print-format-a4 invoice-template-{{ $printTemplate }}"
+    class="invoice-print-format-a4 invoice-template-{{ $printTemplate }}{{ $compactStandalonePrint ? ' invoice-paper-ready' : '' }}"
 >
 @include('admin.invoices.partials.print_background', compact('bgImageUrl', 'bgScale', 'bgOffsetX', 'bgContentTop', 'bgContentBottom', 'bgContentWidth', 'bgContentScale', 'bgFontScale', 'bgHideHeader', 'bgHideFooter', 'bgPaperSize', 'bgPaperOrientation', 'bgRenderMode'))
     <div class="page">
