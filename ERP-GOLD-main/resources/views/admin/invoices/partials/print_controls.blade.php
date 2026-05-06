@@ -5,7 +5,19 @@
     // Effective visibility: print setting AND not overridden by background "hide_*"
     $printShowHeader = isset($showHeader) ? (bool) $showHeader : (bool) ($printSettings['show_header'] ?? true);
     $printShowFooter = isset($showFooter) ? (bool) $showFooter : (bool) ($printSettings['show_footer'] ?? true);
+    // When the page renders inside the background-settings preview iframe, the
+    // user already has the same controls in the outer panel — duplicates inside
+    // the iframe just clutter the preview and overlap the actual paper area.
+    $isBackgroundPreview = request()->boolean('bg_preview');
 @endphp
+
+@if($isBackgroundPreview)
+    <style>
+        .print-preview-notice,
+        .print-control-bar { display: none !important; }
+        html, body { overflow: auto !important; }
+    </style>
+@else
 
 <style type="text/css">
     .print-preview-notice {
@@ -467,3 +479,4 @@
         }
     })();
 </script>
+@endif

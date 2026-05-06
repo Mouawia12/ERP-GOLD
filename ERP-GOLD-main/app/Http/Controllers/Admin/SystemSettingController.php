@@ -386,6 +386,7 @@ class SystemSettingController extends Controller
             'orientation' => $paperOrientation,
             'bg_paper_size' => $paperSize,
             'bg_paper_orientation' => $paperOrientation,
+            'bg_preview' => 1,
         ]);
     }
 
