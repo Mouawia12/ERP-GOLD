@@ -16,7 +16,50 @@
         .print-preview-notice,
         .print-control-bar { display: none !important; }
         html, body { overflow: auto !important; }
+        @media screen {
+            html { background: #3f4550 !important; }
+            body { margin: 8px auto !important; }
+        }
     </style>
+    <script>
+        /* Auto-fit the paper preview to the iframe so it doesn't sit in
+           a sea of empty grey while still letting the user see what the
+           actual physical paper output looks like. */
+        (function () {
+            'use strict';
+            var fitting = false;
+            function autoFit() {
+                if (fitting) return;
+                fitting = true;
+                try {
+                    var bd = document.body;
+                    if (!bd) return;
+                    bd.style.zoom = '';
+                    var w = bd.scrollWidth || bd.offsetWidth;
+                    var h = bd.scrollHeight || bd.offsetHeight;
+                    if (!w || !h) return;
+                    var availW = (window.innerWidth || document.documentElement.clientWidth) - 16;
+                    var availH = (window.innerHeight || document.documentElement.clientHeight) - 16;
+                    var scale = Math.min(availW / w, availH / h);
+                    if (scale > 1.6) scale = 1.6;
+                    if (scale < 0.3) scale = 0.3;
+                    bd.style.zoom = scale;
+                } finally {
+                    fitting = false;
+                }
+            }
+            if (document.readyState === 'complete') {
+                autoFit();
+            } else {
+                window.addEventListener('load', autoFit);
+            }
+            var t = null;
+            window.addEventListener('resize', function () {
+                clearTimeout(t);
+                t = setTimeout(autoFit, 120);
+            });
+        })();
+    </script>
 @else
 
 <style type="text/css">
