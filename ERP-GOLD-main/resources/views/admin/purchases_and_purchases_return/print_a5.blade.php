@@ -91,7 +91,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>{{ $documentTitle }} {{ $invoice->bill_number }}</title>
     @include('admin.invoices.partials.print_a5_reference_styles')
-    @include('admin.invoices.partials.print_dimension_vars', ['printSettings' => $printSettings, 'dimensionFormat' => 'a5'])
+    @include('admin.invoices.partials.print_dimension_vars', [
+        'printSettings' => $printSettings,
+        'dimensionFormat' => 'a5',
+        'compactStandalonePrint' => $compactStandalonePrint ?? false,
+        'bgImageUrl' => $bgImageUrl ?? null,
+    ])
 </head>
 <body
     data-print-format="a5"

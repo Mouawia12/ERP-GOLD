@@ -112,7 +112,6 @@
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>{{ $documentTitle }} {{ $invoice->bill_number }}</title>
-    @include('admin.invoices.partials.print_dimension_vars', ['printSettings' => $printSettings, 'dimensionFormat' => 'a4'])
     <style>
         @page {
             size: A4 {{ ($printSettings['orientation'] ?? 'portrait') === 'landscape' ? 'landscape' : 'portrait' }};
@@ -410,6 +409,12 @@
             body.invoice-paper-ready .page { padding: 6mm 8mm; min-height: auto; }
         }
     </style>
+    @include('admin.invoices.partials.print_dimension_vars', [
+        'printSettings' => $printSettings,
+        'dimensionFormat' => 'a4',
+        'compactStandalonePrint' => $compactStandalonePrint ?? false,
+        'bgImageUrl' => $bgImageUrl ?? null,
+    ])
 </head>
 <body
     data-print-format="a4"
