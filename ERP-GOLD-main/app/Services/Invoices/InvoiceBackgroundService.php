@@ -44,9 +44,48 @@ class InvoiceBackgroundService
 
     public const SETTING_ORIENTATION = 'invoice_bg_orientation';   // 'portrait' | 'landscape'
 
+    /**
+     * Invoice context types — used to scope settings per-document so each
+     * document type can have its own alignment on the same letterhead paper.
+     */
+    public const TYPE_SALES_STANDARD = 'sales_standard';
+    public const TYPE_SALES_SIMPLIFIED = 'sales_simplified';
+    public const TYPE_SALES_RETURN_STANDARD = 'sales_return_standard';
+    public const TYPE_SALES_RETURN_SIMPLIFIED = 'sales_return_simplified';
+    public const TYPE_PURCHASE = 'purchase';
+    public const TYPE_PURCHASE_RETURN = 'purchase_return';
+
+    public const FORMAT_A4 = 'a4';
+    public const FORMAT_A5 = 'a5';
+
+    /**
+     * Settings whose value depends on (invoice_type, format) — these get the
+     * full scope chain (branch:type:format → branch → global).
+     * Other settings (image path, mime, dimensions, render mode, enabled)
+     * stay at branch level only — one letterhead per branch.
+     */
+    private const CONTEXT_SCOPED_KEYS = [
+        self::SETTING_SCALE,
+        self::SETTING_PAPER_SIZE,
+        self::SETTING_ORIENTATION,
+        self::SETTING_CONTENT_TOP,
+        self::SETTING_CONTENT_BOTTOM,
+        self::SETTING_CONTENT_WIDTH,
+        self::SETTING_CONTENT_SCALE,
+        self::SETTING_FONT_SCALE,
+        self::SETTING_OFFSET_X,
+        self::SETTING_OFFSET_Y,
+        self::SETTING_HIDE_HEADER,
+        self::SETTING_HIDE_FOOTER,
+    ];
+
     private ?string $lastConversionError = null;
 
     private ?int $branchId = null;
+
+    private ?string $invoiceType = null;
+
+    private ?string $format = null;
 
     public function forBranch(?int $branchId): self
     {
@@ -54,6 +93,77 @@ class InvoiceBackgroundService
         $service->branchId = $branchId && $branchId > 0 ? $branchId : null;
 
         return $service;
+    }
+
+    public function forContext(?string $invoiceType, ?string $format = null): self
+    {
+        $service = clone $this;
+        $service->invoiceType = self::normalizeInvoiceType($invoiceType);
+        $service->format = self::normalizeFormat($format);
+
+        return $service;
+    }
+
+    public static function availableInvoiceTypes(): array
+    {
+        return [
+            self::TYPE_SALES_STANDARD => 'فاتورة مبيعات (ضريبية)',
+            self::TYPE_SALES_SIMPLIFIED => 'فاتورة مبيعات (مبسطة)',
+            self::TYPE_SALES_RETURN_STANDARD => 'مرتجع مبيعات (ضريبية)',
+            self::TYPE_SALES_RETURN_SIMPLIFIED => 'مرتجع مبيعات (مبسطة)',
+            self::TYPE_PURCHASE => 'فاتورة مشتريات',
+            self::TYPE_PURCHASE_RETURN => 'مرتجع مشتريات',
+        ];
+    }
+
+    public static function detectInvoiceTypeFromInvoice(?\App\Models\Invoice $invoice): ?string
+    {
+        if (! $invoice) {
+            return null;
+        }
+
+        $type = (string) $invoice->type;
+        $saleType = (string) ($invoice->sale_type ?: 'standard');
+
+        return match ($type) {
+            'sale' => $saleType === 'simplified'
+                ? self::TYPE_SALES_SIMPLIFIED
+                : self::TYPE_SALES_STANDARD,
+            'sale_return' => $saleType === 'simplified'
+                ? self::TYPE_SALES_RETURN_SIMPLIFIED
+                : self::TYPE_SALES_RETURN_STANDARD,
+            'purchase' => self::TYPE_PURCHASE,
+            'purchase_return' => self::TYPE_PURCHASE_RETURN,
+            default => null,
+        };
+    }
+
+    public static function normalizeInvoiceType(?string $type): ?string
+    {
+        if ($type === null || $type === '') {
+            return null;
+        }
+
+        return array_key_exists($type, self::availableInvoiceTypes()) ? $type : null;
+    }
+
+    public static function normalizeFormat(?string $format): ?string
+    {
+        if ($format === null || $format === '') {
+            return null;
+        }
+
+        return in_array($format, [self::FORMAT_A4, self::FORMAT_A5], true) ? $format : null;
+    }
+
+    public function currentInvoiceType(): ?string
+    {
+        return $this->invoiceType;
+    }
+
+    public function currentFormat(): ?string
+    {
+        return $this->format;
     }
 
     /* ──────────────────── image URL ──────────────────── */
@@ -455,17 +565,15 @@ class InvoiceBackgroundService
 
     private function settingValue(string $key, ?string $default = null): ?string
     {
-        $scopedKey = $this->scopedKey($key);
+        foreach ($this->scopedKeyChain($key) as $candidateKey) {
+            $value = SystemSetting::getValue($candidateKey);
 
-        if ($scopedKey !== $key) {
-            $scopedValue = SystemSetting::getValue($scopedKey);
-
-            if ($scopedValue !== null) {
-                return $scopedValue;
+            if ($value !== null) {
+                return $value;
             }
         }
 
-        return SystemSetting::getValue($key, $default);
+        return $default;
     }
 
     private function putSettingValue(string $key, string $value): void
@@ -478,11 +586,62 @@ class InvoiceBackgroundService
         return SystemSetting::getValue($this->scopedKey($key)) !== null;
     }
 
+    /**
+     * Most-specific key for writes.
+     *
+     * Branch + type + format → context-scoped keys when both type and format
+     * are set; otherwise just branch-scoped (the existing behaviour).
+     */
     private function scopedKey(string $key): string
     {
         $branchId = $this->resolvedBranchId();
+        $base = $branchId ? $key.':branch:'.$branchId : $key;
 
-        return $branchId ? $key.':branch:'.$branchId : $key;
+        if ($this->shouldScopeByContext($key)) {
+            return $base.':type:'.$this->invoiceType.':format:'.$this->format;
+        }
+
+        return $base;
+    }
+
+    /**
+     * Lookup chain for reads — most specific first, then progressively less so.
+     *
+     * Read order for a context-scoped key on branch=5, type=sales_standard, format=a4:
+     *   1. invoice_bg_scale:branch:5:type:sales_standard:format:a4
+     *   2. invoice_bg_scale:branch:5
+     *   3. invoice_bg_scale
+     *
+     * For non-context keys (image path, render mode, etc.):
+     *   1. invoice_bg_image_path:branch:5
+     *   2. invoice_bg_image_path
+     *
+     * @return array<int, string>
+     */
+    private function scopedKeyChain(string $key): array
+    {
+        $branchId = $this->resolvedBranchId();
+        $chain = [];
+
+        if ($this->shouldScopeByContext($key)) {
+            $branchPart = $branchId ? $key.':branch:'.$branchId : $key;
+            $chain[] = $branchPart.':type:'.$this->invoiceType.':format:'.$this->format;
+        }
+
+        if ($branchId) {
+            $chain[] = $key.':branch:'.$branchId;
+        }
+
+        $chain[] = $key;
+
+        return array_values(array_unique($chain));
+    }
+
+    private function shouldScopeByContext(string $key): bool
+    {
+        return $this->invoiceType !== null
+            && $this->format !== null
+            && in_array($key, self::CONTEXT_SCOPED_KEYS, true);
     }
 
     private function resolvedBranchId(): ?int

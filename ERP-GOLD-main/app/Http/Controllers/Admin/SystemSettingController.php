@@ -169,11 +169,22 @@ class SystemSettingController extends Controller
 
     public function updateInvoicePrint(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
+        $dimensionRules = [];
+        foreach (['a4', 'a5'] as $format) {
+            foreach (['margin_top', 'margin_right', 'margin_bottom', 'margin_left'] as $key) {
+                $dimensionRules["dimensions.$format.$key"] = 'nullable|numeric|min:0|max:30';
+            }
+            $dimensionRules["dimensions.$format.header_height"] = 'nullable|numeric|min:0|max:80';
+            $dimensionRules["dimensions.$format.footer_height"] = 'nullable|numeric|min:0|max:60';
+            $dimensionRules["dimensions.$format.content_offset_top"] = 'nullable|numeric|min:0|max:80';
+        }
+        $dimensionRules['dimensions.font_scale'] = 'nullable|numeric|min:0.7|max:1.6';
+
+        $validated = $request->validate(array_merge([
             'format' => 'required|in:'.implode(',', $this->invoicePrintSettingsService->availableFormats()),
             'template' => 'required|in:'.implode(',', array_keys($this->invoicePrintSettingsService->availableTemplates())),
             'orientation' => 'required|in:'.implode(',', array_keys($this->invoicePrintSettingsService->availableOrientations())),
-        ]);
+        ], $dimensionRules));
 
         $showHeader = $request->boolean('show_header');
         $showFooter = $request->boolean('show_footer');
@@ -184,6 +195,7 @@ class SystemSettingController extends Controller
             $showFooter,
             $validated['template'],
             $validated['orientation'],
+            $validated['dimensions'] ?? null,
         );
 
         $bg = $this->invoiceBackgroundForRequest($request);
@@ -275,45 +287,105 @@ class SystemSettingController extends Controller
 
     public function editInvoiceBackground(Request $request): View
     {
-        $invoiceBackgroundService = $this->invoiceBackgroundForRequest($request);
         $branchId = $request->user('admin-web')?->branch_id;
-        $sampleInvoiceQuery = \App\Models\Invoice::query()->latest();
+        $availableTypes = InvoiceBackgroundService::availableInvoiceTypes();
+        $selectedType = InvoiceBackgroundService::normalizeInvoiceType($request->query('invoice_type'))
+            ?? InvoiceBackgroundService::TYPE_SALES_STANDARD;
+        $selectedFormat = InvoiceBackgroundService::normalizeFormat($request->query('format'))
+            ?? InvoiceBackgroundService::FORMAT_A4;
 
-        if ($branchId) {
-            $sampleInvoiceQuery->where('branch_id', $branchId);
-        }
+        // Service for context-scoped reads (slider values, paper config).
+        $contextService = $this->invoiceBackgroundForRequest($request)
+            ->forContext($selectedType, $selectedFormat);
 
-        $sampleInvoice = $sampleInvoiceQuery->first();
+        // Service for branch-level reads (image path, enabled, image info, render mode).
+        $branchService = $this->invoiceBackgroundForRequest($request);
 
-        $paperSize = $invoiceBackgroundService->currentPaperSize(false);
-        $paperOrientation = $invoiceBackgroundService->currentPaperOrientation(false);
+        $sampleInvoice = $this->findSampleInvoiceForType($selectedType, $branchId);
+
+        $paperSize = $contextService->currentPaperSize(false) ?: $selectedFormat;
+        $paperOrientation = $contextService->currentPaperOrientation(false);
         $previewUrl = $sampleInvoice
-            ? route('sales.show', [
-                'id' => $sampleInvoice->id,
-                'paper' => $paperSize,
-                'orientation' => $paperOrientation,
-                'bg_paper_size' => $paperSize,
-                'bg_paper_orientation' => $paperOrientation,
-            ])
+            ? $this->buildPreviewUrl($sampleInvoice, $selectedFormat, $paperOrientation)
             : null;
 
         return view('admin.settings.invoice_background', [
-            'hasTemplate' => $invoiceBackgroundService->hasTemplate(),
-            'isEnabled' => $invoiceBackgroundService->isEnabled(),
-            'scale' => $invoiceBackgroundService->currentScale(false),
+            'hasTemplate' => $branchService->hasTemplate(),
+            'isEnabled' => $branchService->isEnabled(),
+            'scale' => $contextService->currentScale(false),
             'paperSize' => $paperSize,
             'paperOrientation' => $paperOrientation,
-            'imageInfo' => $invoiceBackgroundService->currentImageInfo(),
-            'contentTop' => $invoiceBackgroundService->currentContentTop(false),
-            'contentBottom' => $invoiceBackgroundService->currentContentBottom(false),
-            'contentWidth' => $invoiceBackgroundService->currentContentWidth(false),
-            'contentScale' => $invoiceBackgroundService->currentContentScale(false),
-            'fontScale' => $invoiceBackgroundService->currentFontScale(false),
-            'offsetX' => $invoiceBackgroundService->currentOffsetX(false),
-            'hideHeader' => $invoiceBackgroundService->isHideHeader(false),
-            'hideFooter' => $invoiceBackgroundService->isHideFooter(false),
+            'imageInfo' => $branchService->currentImageInfo(),
+            'contentTop' => $contextService->currentContentTop(false),
+            'contentBottom' => $contextService->currentContentBottom(false),
+            'contentWidth' => $contextService->currentContentWidth(false),
+            'contentScale' => $contextService->currentContentScale(false),
+            'fontScale' => $contextService->currentFontScale(false),
+            'offsetX' => $contextService->currentOffsetX(false),
+            'hideHeader' => $contextService->isHideHeader(false),
+            'hideFooter' => $contextService->isHideFooter(false),
             'sampleInvoice' => $sampleInvoice,
             'previewUrl' => $previewUrl,
+            'availableInvoiceTypes' => $availableTypes,
+            'selectedInvoiceType' => $selectedType,
+            'selectedFormat' => $selectedFormat,
+        ]);
+    }
+
+    /**
+     * Find a sample invoice that matches the selected document type so the
+     * preview iframe shows the actual layout the user is configuring.
+     */
+    private function findSampleInvoiceForType(string $invoiceType, ?int $branchId): ?\App\Models\Invoice
+    {
+        $constraints = match ($invoiceType) {
+            InvoiceBackgroundService::TYPE_SALES_STANDARD => ['type' => 'sale', 'sale_type' => 'standard'],
+            InvoiceBackgroundService::TYPE_SALES_SIMPLIFIED => ['type' => 'sale', 'sale_type' => 'simplified'],
+            InvoiceBackgroundService::TYPE_SALES_RETURN_STANDARD => ['type' => 'sale_return', 'sale_type' => 'standard'],
+            InvoiceBackgroundService::TYPE_SALES_RETURN_SIMPLIFIED => ['type' => 'sale_return', 'sale_type' => 'simplified'],
+            InvoiceBackgroundService::TYPE_PURCHASE => ['type' => 'purchase'],
+            InvoiceBackgroundService::TYPE_PURCHASE_RETURN => ['type' => 'purchase_return'],
+            default => [],
+        };
+
+        $primary = \App\Models\Invoice::query()->latest();
+        foreach ($constraints as $column => $value) {
+            $primary->where($column, $value);
+        }
+        if ($branchId) {
+            $primary->where('branch_id', $branchId);
+        }
+
+        $invoice = $primary->first();
+
+        if ($invoice) {
+            return $invoice;
+        }
+
+        // Fallback: any invoice (so the preview pane is never blank when at
+        // least one invoice exists in the system).
+        $fallback = \App\Models\Invoice::query()->latest();
+        if ($branchId) {
+            $fallback->where('branch_id', $branchId);
+        }
+
+        return $fallback->first();
+    }
+
+    private function buildPreviewUrl(\App\Models\Invoice $invoice, string $paperSize, string $paperOrientation): string
+    {
+        $route = match ($invoice->type) {
+            'purchase' => 'purchases.show',
+            'purchase_return' => 'purchase_return.show',
+            default => 'sales.show',
+        };
+
+        return route($route, [
+            'id' => $invoice->id,
+            'paper' => $paperSize,
+            'orientation' => $paperOrientation,
+            'bg_paper_size' => $paperSize,
+            'bg_paper_orientation' => $paperOrientation,
         ]);
     }
 
@@ -338,6 +410,8 @@ class SystemSettingController extends Controller
 
     public function saveInvoiceBackgroundScale(Request $request): \Illuminate\Http\JsonResponse
     {
+        $validTypes = array_keys(InvoiceBackgroundService::availableInvoiceTypes());
+
         $validated = $request->validate([
             'scale' => 'required|numeric|min:0.3|max:2.0',
             'print_format' => 'nullable|in:'.implode(',', $this->invoicePrintSettingsService->availableFormats()),
@@ -353,9 +427,15 @@ class SystemSettingController extends Controller
             'hide_footer' => 'nullable|boolean',
             'offset_x' => 'nullable|numeric|min:-50|max:50',
             'offset_y' => 'nullable|numeric|min:-50|max:50',
+            'invoice_type' => 'nullable|in:'.implode(',', $validTypes),
+            'format' => 'nullable|in:a4,a5',
         ]);
 
-        $invoiceBackgroundService = $this->invoiceBackgroundForRequest($request);
+        $invoiceBackgroundService = $this->invoiceBackgroundForRequest($request)
+            ->forContext(
+                $validated['invoice_type'] ?? null,
+                $validated['format'] ?? ($validated['paper_size'] ?? null)
+            );
 
         $invoiceBackgroundService->setScale((float) $validated['scale']);
 
@@ -380,15 +460,24 @@ class SystemSettingController extends Controller
         if (isset($validated['font_scale'])) {
             $invoiceBackgroundService->setFontScale((float) $validated['font_scale']);
         }
+        $hasContext = ! empty($validated['invoice_type']) && ! empty($validated['format']);
+
         if (array_key_exists('hide_header', $validated)) {
             $hideHeader = (bool) $validated['hide_header'];
             $invoiceBackgroundService->setHideHeader($hideHeader);
-            $this->invoicePrintSettingsService->setShowHeader(! $hideHeader);
+            // Only update the global digital-header preference when no per-context
+            // scope is selected — otherwise the user would unexpectedly affect
+            // every other invoice type they configure.
+            if (! $hasContext) {
+                $this->invoicePrintSettingsService->setShowHeader(! $hideHeader);
+            }
         }
         if (array_key_exists('hide_footer', $validated)) {
             $hideFooter = (bool) $validated['hide_footer'];
             $invoiceBackgroundService->setHideFooter($hideFooter);
-            $this->invoicePrintSettingsService->setShowFooter(! $hideFooter);
+            if (! $hasContext) {
+                $this->invoicePrintSettingsService->setShowFooter(! $hideFooter);
+            }
         }
         if (isset($validated['offset_x'])) {
             $invoiceBackgroundService->setOffsetX((float) $validated['offset_x']);

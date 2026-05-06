@@ -97,7 +97,12 @@
         $whatsappUrl = ! empty($invoice->client_phone)
             ? route('send.invoice.whatsapp', $invoice->id)
             : null;
-        $bgService  = app(\App\Services\Invoices\InvoiceBackgroundService::class)->forBranch((int) $invoice->branch_id);
+        $bgService  = app(\App\Services\Invoices\InvoiceBackgroundService::class)
+            ->forBranch((int) $invoice->branch_id)
+            ->forContext(
+                \App\Services\Invoices\InvoiceBackgroundService::detectInvoiceTypeFromInvoice($invoice),
+                \App\Services\Invoices\InvoiceBackgroundService::FORMAT_A4
+            );
         $bgImageUrl = $bgService->currentImageUrl();
         $bgScale      = $bgService->currentScale();
         $bgOffsetX    = $bgService->currentOffsetX();
@@ -122,10 +127,11 @@
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>{{ $documentTitle }} {{ $invoice->bill_number }}</title>
+    @include('admin.invoices.partials.print_dimension_vars', ['printSettings' => $printSettings, 'dimensionFormat' => 'a4'])
     <style>
         @page {
             size: A4 {{ ($printSettings['orientation'] ?? 'portrait') === 'landscape' ? 'landscape' : 'portrait' }};
-            margin: {{ $compactStandalonePrint ? '6mm 8mm 6mm 8mm' : '8mm 8mm 22mm 8mm' }};
+            margin: {{ $compactStandalonePrint ? '6mm 8mm' : '8mm' }};
         }
 
         @font-face {
@@ -134,7 +140,6 @@
         }
 
         html, body {
-            height: 100%;
             margin: 0;
             padding: 0;
         }
@@ -149,9 +154,13 @@
         body {
             direction: rtl;
             font-size: 12px;
-            color: #000;
+            color: #111;
             background: #fff;
             line-height: 1.5;
+            font-weight: 700;
+            --line-color: #d5d9df;
+            --line-strong: #9aa0a6;
+            --head-bg: #f1f4f8;
         }
 
         table, th, td { direction: rtl; }
@@ -177,23 +186,30 @@
         .header-table .company-name { font-weight: bold; }
 
         .meta-table, .items-table, .summary-table, .payment-table, .carat-table {
-            border: 1px solid #999;
+            border: 1px solid var(--line-color);
         }
         .meta-table th, .meta-table td,
         .items-table th, .items-table td,
         .summary-table th, .summary-table td,
         .payment-table th, .payment-table td,
         .carat-table th, .carat-table td {
-            border: 1px solid #999;
+            border: 1px solid var(--line-color);
             padding: 4px;
         }
         .items-table th,
         .summary-table th,
         .payment-table th,
         .carat-table th {
-            background: #e0e0e0;
-            font-weight: bold;
+            background: var(--head-bg);
+            font-weight: 700;
         }
+        .items-table th .head-main,
+        .items-table th .head-sub {
+            display: block;
+            line-height: 1.15;
+        }
+        .items-table th .head-main { font-size: 11px; font-weight: 700; }
+        .items-table th .head-sub  { margin-top: 1px; font-size: 9px; color: #6b7280; direction: ltr; font-weight: 600; }
 
         .items-table td { text-align: center; }
         .items-table td.description-cell { text-align: right; overflow-wrap: anywhere; }
@@ -226,16 +242,13 @@
         .section-gap { margin-top: 8px; }
         .section-gap-sm { margin-top: 2px; }
 
-        .page { min-height: 100%; }
-        .page-content { padding-bottom: 26mm; }
+        .page { display: flex; flex-direction: column; }
+        .page-content { flex: 1 1 auto; }
 
         .footer {
             border-top: 1px solid #555;
             padding: 6px 0 0;
-            position: fixed;
-            left: 8mm;
-            right: 8mm;
-            bottom: 8mm;
+            margin-top: 10px;
             background: #fff;
             font-size: 11px;
         }
@@ -263,9 +276,11 @@
         }
 
         .return-row td,
-        .return-row th { color: #c0392b; font-weight: bold; }
+        .return-row th { color: #c0392b; font-weight: 700; }
         .net-after-return-row td,
-        .net-after-return-row th { color: #27ae60; font-weight: bold; border-top: 2px solid #27ae60; }
+        .net-after-return-row th { color: #27ae60; font-weight: 700; border-top: 2px solid #27ae60; }
+        .footer { border-top: 1px solid var(--line-color); }
+        .hr { border-top: 1px solid var(--line-strong); }
 
         .no-print { display: none !important; }
 
@@ -279,18 +294,22 @@
                 margin: 0 auto;
                 background: #fff;
                 box-shadow: 0 0 0 1px #d4d4d8;
-                padding: 8mm 8mm 26mm;
+                padding: 8mm;
                 min-height: 290mm;
             }
-            .footer {
-                position: static;
-                margin: 12px 0 0;
-            }
-            .page-content { padding-bottom: 0; }
         }
 
         @media print {
             html, body { background: #fff; font-size: 11px; }
+            html, body { height: auto; }
+            .page { min-height: 0; }
+            .page-content { page-break-inside: auto; }
+            .items-table tr,
+            .summary-table tr,
+            .payment-table tr,
+            .carat-table tr { page-break-inside: avoid; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
         }
 
         body.invoice-template-compact { font-size: 11px; }
@@ -318,7 +337,6 @@
         body.invoice-template-modern .subtitle,
         body.invoice-template-modern .header-table .company-name { color: #0f172a; }
 
-        body.invoice-paper-ready .page-content { padding-bottom: 0; }
         body.invoice-paper-ready .footer { display: none; }
         @media screen {
             body.invoice-paper-ready .page { padding: 6mm 8mm; min-height: auto; }
@@ -441,17 +459,17 @@
     </colgroup>
     <thead>
         <tr>
-            <th>مسلسل</th>
-            <th>الوصف</th>
-            <th>العيار</th>
-            <th>الوزن</th>
-            <th>ما خلا المعدن</th>
-            <th>سعر الجرام</th>
-            <th>العدد</th>
-            <th>الإجمالي</th>
-            <th>VAT</th>
-            <th>نسبة الضريبة</th>
-            <th>الإجمالي شامل الضريبة</th>
+            <th><span class="head-main">م</span><span class="head-sub">(No.)</span></th>
+            <th><span class="head-main">الوصف</span><span class="head-sub">(Item)</span></th>
+            <th><span class="head-main">العيار</span><span class="head-sub">(Karat)</span></th>
+            <th><span class="head-main">الوزن</span><span class="head-sub">(Weight)</span></th>
+            <th><span class="head-main">ما خلا المعدن</span><span class="head-sub">(Non Metal)</span></th>
+            <th><span class="head-main">سعر الجرام</span><span class="head-sub">(Gram Price)</span></th>
+            <th><span class="head-main">العدد</span><span class="head-sub">(Count)</span></th>
+            <th><span class="head-main">الإجمالي</span><span class="head-sub">(Total)</span></th>
+            <th><span class="head-main">الضريبة</span><span class="head-sub">(VAT)</span></th>
+            <th><span class="head-main">نسبة الضريبة</span><span class="head-sub">(VAT %)</span></th>
+            <th><span class="head-main">الإجمالي شامل الضريبة</span><span class="head-sub">(Total With VAT)</span></th>
         </tr>
     </thead>
     <tbody>
@@ -554,7 +572,18 @@
     </div>
 @endif
 
-<div class="seller-line">البائع: {{ $invoice->user?->name ?: '---' }}</div>
+<table style="width: 100%; border: 0; margin-top: 14px;">
+    <tr>
+        <td style="width: 50%; text-align: center; border: 0; padding: 0 10px;">
+            <div style="font-weight: 700; margin-bottom: 4px;">اسم البائع</div>
+            <div style="border-top: 1px solid var(--line-strong); padding-top: 6px; min-height: 22px;">{{ $invoice->user?->name ?: '------' }}</div>
+        </td>
+        <td style="width: 50%; text-align: center; border: 0; padding: 0 10px;">
+            <div style="font-weight: 700; margin-bottom: 4px;">مدير الفرع</div>
+            <div style="border-top: 1px solid var(--line-strong); padding-top: 6px; min-height: 22px;">------</div>
+        </td>
+    </tr>
+</table>
 
 </div>
 @if($showFooter)

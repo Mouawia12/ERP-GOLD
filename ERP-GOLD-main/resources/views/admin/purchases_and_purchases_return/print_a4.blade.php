@@ -82,7 +82,12 @@
         $whatsappUrl = ! empty($invoice->client_phone)
             ? route('send.invoice.whatsapp', $invoice->id)
             : null;
-        $bgService  = app(\App\Services\Invoices\InvoiceBackgroundService::class)->forBranch((int) $invoice->branch_id);
+        $bgService  = app(\App\Services\Invoices\InvoiceBackgroundService::class)
+            ->forBranch((int) $invoice->branch_id)
+            ->forContext(
+                \App\Services\Invoices\InvoiceBackgroundService::detectInvoiceTypeFromInvoice($invoice),
+                \App\Services\Invoices\InvoiceBackgroundService::FORMAT_A4
+            );
         $bgImageUrl = $bgService->currentImageUrl();
         $bgScale      = $bgService->currentScale();
         $bgOffsetX    = $bgService->currentOffsetX();
@@ -107,10 +112,11 @@
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>{{ $documentTitle }} {{ $invoice->bill_number }}</title>
+    @include('admin.invoices.partials.print_dimension_vars', ['printSettings' => $printSettings, 'dimensionFormat' => 'a4'])
     <style>
         @page {
             size: A4 {{ ($printSettings['orientation'] ?? 'portrait') === 'landscape' ? 'landscape' : 'portrait' }};
-            margin: {{ $compactStandalonePrint ? '6mm 8mm 6mm 8mm' : '8mm 8mm 22mm 8mm' }};
+            margin: {{ $compactStandalonePrint ? '6mm 8mm' : '8mm' }};
         }
 
         @font-face {
@@ -137,7 +143,9 @@
         body {
             --invoice-accent: #555;
             --sheet-background: #fff;
-            --table-header-bg: #e0e0e0;
+            --table-header-bg: #f1f4f8;
+            --line-color: #d5d9df;
+            --line-strong: #9aa0a6;
             --screen-background: #f3f4f6;
             --screen-outline: #d4d4d8;
             --invoice-screen-font-size: 13px;
@@ -195,10 +203,9 @@
             flex-direction: column;
             background: var(--sheet-background);
             padding: var(--page-padding-block-start) var(--page-padding-inline) var(--page-padding-block-end);
-            overflow: hidden;
         }
 
-        .page-content { flex: 1; min-width: 0; }
+        .page-content { flex: 1 1 auto; min-width: 0; }
 
         .ltr { direction: ltr; unicode-bidi: embed; display: inline-block; }
 
@@ -270,7 +277,7 @@
         .totals-table td, .totals-table th,
         .payment-table td, .payment-table th,
         .carat-table td, .carat-table th {
-            border: 1px solid #999;
+            border: 1px solid var(--line-color);
             padding: var(--table-cell-padding);
             vertical-align: middle;
         }
@@ -279,6 +286,13 @@
             background: var(--table-header-bg);
             font-weight: 700;
         }
+        .items-table th .head-main,
+        .items-table th .head-sub {
+            display: block;
+            line-height: 1.15;
+        }
+        .items-table th .head-main { font-size: 11px; font-weight: 700; }
+        .items-table th .head-sub  { margin-top: 1px; font-size: 9px; color: #6b7280; direction: ltr; font-weight: 600; }
 
         .invoice-meta-list {
             direction: rtl;
@@ -381,11 +395,16 @@
         }
 
         @media print {
-            html, body { background: #fff; font-size: var(--invoice-print-font-size); }
-            .page { width: auto; max-width: none; min-height: auto; padding: 2mm 2.5mm 3mm; box-shadow: none; }
+            html, body { background: #fff; font-size: var(--invoice-print-font-size); height: auto; }
+            .page { width: auto; max-width: none; min-height: 0; padding: 0; box-shadow: none; overflow: visible; }
+            .items-table tr,
+            .totals-table tr,
+            .payment-table tr,
+            .carat-table tr { page-break-inside: avoid; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
         }
 
-        body.invoice-paper-ready .page-content { padding-bottom: 0; }
         body.invoice-paper-ready .page-footer { display: none; }
         @media screen {
             body.invoice-paper-ready .page { padding: 6mm 8mm; min-height: auto; }
@@ -493,17 +512,17 @@
             <table class="items-table">
                 <thead>
                     <tr>
-                        <th style="width: 5%;">م</th>
-                        <th style="width: 18%;">الوصف</th>
-                        <th style="width: 7%;">العيار</th>
-                        <th style="width: 7%;">الوزن</th>
-                        <th style="width: 7%;">ما خلا المعدن</th>
-                        <th style="width: 8%;">سعر الجرام</th>
-                        <th style="width: 6%;">العدد</th>
-                        <th style="width: 10%;">الإجمالي</th>
-                        <th style="width: 7%;">VAT</th>
-                        <th style="width: 7%;">نسبة الضريبة</th>
-                        <th style="width: 8%;">الإجمالي شامل الضريبة</th>
+                        <th style="width: 5%;"><span class="head-main">م</span><span class="head-sub">(No.)</span></th>
+                        <th style="width: 18%;"><span class="head-main">الوصف</span><span class="head-sub">(Item)</span></th>
+                        <th style="width: 7%;"><span class="head-main">العيار</span><span class="head-sub">(Karat)</span></th>
+                        <th style="width: 7%;"><span class="head-main">الوزن</span><span class="head-sub">(Weight)</span></th>
+                        <th style="width: 7%;"><span class="head-main">ما خلا المعدن</span><span class="head-sub">(Non Metal)</span></th>
+                        <th style="width: 8%;"><span class="head-main">سعر الجرام</span><span class="head-sub">(Gram Price)</span></th>
+                        <th style="width: 6%;"><span class="head-main">العدد</span><span class="head-sub">(Count)</span></th>
+                        <th style="width: 10%;"><span class="head-main">الإجمالي</span><span class="head-sub">(Total)</span></th>
+                        <th style="width: 7%;"><span class="head-main">الضريبة</span><span class="head-sub">(VAT)</span></th>
+                        <th style="width: 7%;"><span class="head-main">نسبة الضريبة</span><span class="head-sub">(VAT %)</span></th>
+                        <th style="width: 8%;"><span class="head-main">الإجمالي شامل الضريبة</span><span class="head-sub">(Total With VAT)</span></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -600,7 +619,18 @@
                 </section>
             @endif
 
-            <p class="seller-line">الموظف: {{ $invoice->user->name ?: '---' }}</p>
+            <table style="width: 100%; border: 0; margin-top: 14px;">
+                <tr>
+                    <td style="width: 50%; text-align: center; border: 0; padding: 0 10px;">
+                        <div style="font-weight: 700; margin-bottom: 4px;">اسم الموظف</div>
+                        <div style="border-top: 1px solid var(--line-strong); padding-top: 6px; min-height: 22px;">{{ $invoice->user->name ?: '------' }}</div>
+                    </td>
+                    <td style="width: 50%; text-align: center; border: 0; padding: 0 10px;">
+                        <div style="font-weight: 700; margin-bottom: 4px;">مدير الفرع</div>
+                        <div style="border-top: 1px solid var(--line-strong); padding-top: 6px; min-height: 22px;">------</div>
+                    </td>
+                </tr>
+            </table>
         </div>
 
         @if($showFooter)

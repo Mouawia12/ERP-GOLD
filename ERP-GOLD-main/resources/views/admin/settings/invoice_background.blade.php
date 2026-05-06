@@ -150,6 +150,35 @@
     {{-- ══════════ LEFT PANEL ══════════ --}}
     <div class="bg-panel-left">
 
+        {{-- محدد سياق الإعدادات --}}
+        <div class="bg-section" style="background:#fff;">
+            <div class="bg-section-title">السياق المحفوظ له</div>
+            <small class="text-muted d-block mb-2">
+                كل تركيبة (نوع فاتورة + مقاس) لها إعدادات منفصلة. التصميم نفسه يبقى موحّداً للفرع.
+            </small>
+
+            <div class="ctrl">
+                <label>نوع الفاتورة</label>
+                <select id="ctx-invoice-type" class="form-control form-control-sm">
+                    @foreach($availableInvoiceTypes as $key => $label)
+                        <option value="{{ $key }}" {{ $selectedInvoiceType === $key ? 'selected' : '' }}>
+                            {{ $label }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="ctrl">
+                <label>المقاس</label>
+                <div class="paper-btn-group">
+                    <button type="button" class="paper-btn {{ $selectedFormat === 'a4' ? 'active' : '' }}"
+                            id="ctx-a4">A4 &nbsp;<small>210×297</small></button>
+                    <button type="button" class="paper-btn {{ $selectedFormat === 'a5' ? 'active' : '' }}"
+                            id="ctx-a5">A5 &nbsp;<small>148×210</small></button>
+                </div>
+            </div>
+        </div>
+
         {{-- رفع تصميم --}}
         <div class="bg-section">
             <div class="bg-section-title">ورق الشركة (التصميم الجاهز)</div>
@@ -341,6 +370,10 @@
     var BASE_URL = '{{ $previewUrl }}';
     var SAVE_URL = '{{ route("admin.system-settings.invoice-background.scale") }}';
     var CSRF     = '{{ csrf_token() }}';
+    var CTX = {
+        invoiceType: '{{ $selectedInvoiceType }}',
+        format: '{{ $selectedFormat }}',
+    };
 
     /* ── build iframe URL from state ── */
     function iframeUrl() {
@@ -446,6 +479,8 @@
                     offset_y:       0,
                     hide_header:    S.hideHeader ? 1 : 0,
                     hide_footer:    S.hideFooter ? 1 : 0,
+                    invoice_type:   CTX.invoiceType,
+                    format:         CTX.format,
                 }),
             }).then(function(r){ return r.json(); })
               .then(function(){
@@ -462,6 +497,29 @@
               });
         });
     }
+
+    /* ── context selector (invoice type + format) ── */
+    function reloadWithContext(invoiceType, format) {
+        var u = new URL(window.location.href);
+        u.searchParams.set('invoice_type', invoiceType);
+        u.searchParams.set('format', format);
+        window.location.href = u.toString();
+    }
+
+    var ctxTypeSel = document.getElementById('ctx-invoice-type');
+    if (ctxTypeSel) {
+        ctxTypeSel.addEventListener('change', function () {
+            reloadWithContext(this.value, CTX.format);
+        });
+    }
+    var ctxA4 = document.getElementById('ctx-a4');
+    var ctxA5 = document.getElementById('ctx-a5');
+    if (ctxA4) ctxA4.addEventListener('click', function () {
+        if (CTX.format !== 'a4') reloadWithContext(CTX.invoiceType, 'a4');
+    });
+    if (ctxA5) ctxA5.addEventListener('click', function () {
+        if (CTX.format !== 'a5') reloadWithContext(CTX.invoiceType, 'a5');
+    });
 
     /* ── reset ── */
     var resetBtn = document.getElementById('reset-btn');

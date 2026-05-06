@@ -60,7 +60,12 @@
             ? route('send.invoice.whatsapp', $invoice->id)
             : null;
         $branchAddressAr = $branch->short_address ?: $branch->full_address ?: '---';
-        $bgService  = app(\App\Services\Invoices\InvoiceBackgroundService::class)->forBranch((int) $invoice->branch_id);
+        $bgService  = app(\App\Services\Invoices\InvoiceBackgroundService::class)
+            ->forBranch((int) $invoice->branch_id)
+            ->forContext(
+                \App\Services\Invoices\InvoiceBackgroundService::detectInvoiceTypeFromInvoice($invoice),
+                \App\Services\Invoices\InvoiceBackgroundService::FORMAT_A5
+            );
         $bgImageUrl = $bgService->currentImageUrl();
         $bgScale      = $bgService->currentScale();
         $bgOffsetX    = $bgService->currentOffsetX();
@@ -86,6 +91,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>{{ $documentTitle }} {{ $invoice->bill_number }}</title>
     @include('admin.invoices.partials.print_a5_reference_styles')
+    @include('admin.invoices.partials.print_dimension_vars', ['printSettings' => $printSettings, 'dimensionFormat' => 'a5'])
 </head>
 <body
     data-print-format="a5"

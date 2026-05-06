@@ -101,7 +101,7 @@
         --page-min-height: 148mm;
         --safe-print-width: 184mm;
         --safe-print-height: 106mm;
-        --safe-print-offset-top: 18mm;
+        --safe-print-offset-top: 0mm;
         --shell-width: 178mm;
         --qr-size: 21mm;
         --meta-width: 54mm;
@@ -119,7 +119,7 @@
     }
 
     body.invoice-paper-ready .page {
-        justify-content: flex-start;
+        justify-content: center;
     }
 
     body.invoice-template-modern {
@@ -155,7 +155,8 @@
         width: min(100%, var(--safe-print-width));
         max-width: var(--safe-print-width);
         min-height: var(--safe-print-height);
-        margin: var(--safe-print-offset-top) auto 0;
+        margin: 0 auto;
+        padding-top: var(--safe-print-offset-top);
         display: flex;
         align-items: center;
         justify-content: center;
