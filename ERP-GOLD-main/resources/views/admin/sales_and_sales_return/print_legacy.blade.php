@@ -16,6 +16,7 @@
         $printFontSize = $printFormat === 'a5' ? '10px' : '11px';
         $headerHeight = $printFormat === 'a5' ? '2.4cm' : '3cm';
         $qrWidth = $printFormat === 'a5' ? '110px' : '140px';
+        $invoiceLogoUrl = optional($invoice->branch?->subscriber)->invoiceLogoUrl($brandLogoUrl ?? null) ?? ($brandLogoUrl ?? null);
     @endphp
     <title>
          فاتورة ضريبية مبسطة رقم  {{$invoice -> bill_number}}
@@ -300,7 +301,7 @@
                     <p class="branch-meta-line">تليفون : {{$invoice->branch->phone ?: '---'}}</p>
                 </div>
                 <div class="header-block center">
-                    <img src="{{ $brandLogoUrl }}" class="print-brand-logo">
+                    <img src="{{ $invoiceLogoUrl }}" class="print-brand-logo">
                 </div>
                 <div class="header-block left">
                 </div>

@@ -331,10 +331,12 @@ Route::group(
                         ->name('admin.system-settings.invoice-background.toggle');
                     Route::delete('system-settings/invoice-background', [SystemSettingController::class, 'deleteInvoiceBackground'])
                         ->name('admin.system-settings.invoice-background.delete');
-                    Route::get('system-settings/branding', [SystemSettingController::class, 'editBranding'])
-                        ->name('admin.system-settings.branding.edit');
-                    Route::patch('system-settings/branding', [SystemSettingController::class, 'updateBranding'])
-                        ->name('admin.system-settings.branding.update');
+                    Route::get('system-settings/company', [SystemSettingController::class, 'editCompany'])
+                        ->name('admin.system-settings.company.edit');
+                    Route::patch('system-settings/company', [SystemSettingController::class, 'updateCompany'])
+                        ->name('admin.system-settings.company.update');
+                    Route::delete('system-settings/company/logo', [SystemSettingController::class, 'deleteCompanyLogo'])
+                        ->name('admin.system-settings.company.logo.delete');
                     Route::get('system-settings/default-item-settings', [SystemSettingController::class, 'editDefaultItemSettings'])
                         ->name('admin.system-settings.default-item-settings.edit');
                     Route::patch('system-settings/default-item-settings', [SystemSettingController::class, 'updateDefaultItemSettings'])
@@ -384,6 +386,11 @@ Route::group(
                 });
 
                 Route::middleware('owner.only')->group(function () {
+                    Route::get('system-settings/branding', [SystemSettingController::class, 'editBranding'])
+                        ->name('admin.system-settings.branding.edit');
+                    Route::patch('system-settings/branding', [SystemSettingController::class, 'updateBranding'])
+                        ->name('admin.system-settings.branding.update');
+
                     Route::resource('subscribers', SubscribersController::class)->names([
                         'index' => 'admin.subscribers.index',
                         'create' => 'admin.subscribers.create',

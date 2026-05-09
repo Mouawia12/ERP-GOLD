@@ -42,6 +42,20 @@ class AdminSidebarBuilder
                     ],
                 ],
             ],
+            [
+                'icon' => 'fa fa-cogs',
+                'label' => 'إعدادات المالك',
+                'active_patterns' => [
+                    'admin.system-settings.branding.*',
+                ],
+                'items' => [
+                    [
+                        'label' => 'الشعار الرئيسي للتطبيق',
+                        'route' => 'admin.system-settings.branding.edit',
+                        'active_patterns' => ['admin.system-settings.branding.*'],
+                    ],
+                ],
+            ],
         ]);
     }
 
@@ -143,10 +157,10 @@ class AdminSidebarBuilder
                         'active_patterns' => ['admin.system-settings.invoice-background.*'],
                     ],
                     [
-                        'label' => 'الشعار الرئيسي',
-                        'route' => 'admin.system-settings.branding.edit',
+                        'label' => 'إعدادات الشركة والشعار',
+                        'route' => 'admin.system-settings.company.edit',
                         'permission' => 'employee.system_settings.show',
-                        'active_patterns' => ['admin.system-settings.branding.*'],
+                        'active_patterns' => ['admin.system-settings.company.*'],
                     ],
                     [
                         'label' => 'الإعدادات الافتراضية للأصناف',

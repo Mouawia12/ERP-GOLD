@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class Subscriber extends Model
 {
@@ -61,5 +62,16 @@ class Subscriber extends Model
     public function activeBranchesCount(): int
     {
         return $this->branches()->where('status', true)->count();
+    }
+
+    public function invoiceLogoUrl(?string $fallback = null): ?string
+    {
+        $path = $this->invoice_logo_path;
+
+        if ($path && Storage::disk('public')->exists($path)) {
+            return Storage::disk('public')->url($path);
+        }
+
+        return $fallback;
     }
 }

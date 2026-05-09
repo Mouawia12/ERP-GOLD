@@ -13,6 +13,7 @@
         $documentTitleEn = $invoice->sale_type === 'standard'
             ? ($isSale ? 'Tax Invoice' : 'Tax Invoice Return')
             : ($isSale ? 'Simplified Tax Invoice' : 'Simplified Tax Invoice Return');
+        $invoiceLogoUrl = $subscriber?->invoiceLogoUrl($brandLogoUrl ?? null) ?? ($brandLogoUrl ?? null);
         $companyNameAr = $subscriber?->name ?: (method_exists($branch, 'getTranslation') ? $branch->getTranslation('name', 'ar') : $branch->name);
         $companyNameEn = method_exists($branch, 'getTranslation')
             ? ($branch->getTranslation('name', 'en') ?: $companyNameAr)
@@ -375,8 +376,8 @@
             </td>
             <td class="text-center" style="width: 34%;">
                 <div class="logo">
-                    @if(!empty($brandLogoUrl))
-                        <img src="{{ $brandLogoUrl }}" alt="Logo">
+                    @if(!empty($invoiceLogoUrl))
+                        <img src="{{ $invoiceLogoUrl }}" alt="Logo">
                     @endif
                 </div>
                 <div class="title">{{ $documentTitle }}</div>

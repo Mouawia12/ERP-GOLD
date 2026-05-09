@@ -8,6 +8,7 @@ use App\Models\GoldCaratType;
 use App\Models\Item;
 use App\Services\Auth\LoginModeService;
 use App\Services\Branding\BrandLogoService;
+use App\Services\Branding\SubscriberInvoiceLogoService;
 use App\Services\Invoices\InvoiceBackgroundService;
 use App\Services\Invoices\InvoicePrintSettingsService;
 use App\Services\Invoices\InvoiceTermsService;
@@ -31,9 +32,10 @@ class SystemSettingController extends Controller
         private readonly SalesShiftModeService $salesShiftModeService,
         private readonly DefaultItemSettingsService $defaultItemSettingsService,
         private readonly InvoiceBackgroundService $invoiceBackgroundService,
+        private readonly SubscriberInvoiceLogoService $subscriberInvoiceLogoService,
     ) {
-        $this->middleware('permission:employee.system_settings.show', ['only' => ['editLoginMode', 'editSalesShiftMode', 'editDefaultPurchaseSupplier', 'editInvoiceTerms', 'editInvoicePrint', 'editBranding', 'editDefaultItemSettings', 'editInvoiceBackground']]);
-        $this->middleware('permission:employee.system_settings.edit', ['only' => ['updateLoginMode', 'updateSalesShiftMode', 'updateDefaultPurchaseSupplier', 'updateInvoiceTerms', 'updateInvoicePrint', 'togglePrintFlag', 'updateBranding', 'updateDefaultItemSettings', 'uploadInvoiceBackground', 'saveInvoiceBackgroundScale', 'toggleInvoiceBackground', 'deleteInvoiceBackground']]);
+        $this->middleware('permission:employee.system_settings.show', ['only' => ['editLoginMode', 'editSalesShiftMode', 'editDefaultPurchaseSupplier', 'editInvoiceTerms', 'editInvoicePrint', 'editDefaultItemSettings', 'editInvoiceBackground', 'editCompany']]);
+        $this->middleware('permission:employee.system_settings.edit', ['only' => ['updateLoginMode', 'updateSalesShiftMode', 'updateDefaultPurchaseSupplier', 'updateInvoiceTerms', 'updateInvoicePrint', 'togglePrintFlag', 'updateDefaultItemSettings', 'uploadInvoiceBackground', 'saveInvoiceBackgroundScale', 'toggleInvoiceBackground', 'deleteInvoiceBackground', 'updateCompany', 'deleteCompanyLogo']]);
     }
 
     public function editLoginMode(): View
@@ -283,6 +285,64 @@ class SystemSettingController extends Controller
         return redirect()
             ->route('admin.system-settings.branding.edit')
             ->with('success', 'تم تحديث الشعار الرئيسي بنجاح.');
+    }
+
+    public function editCompany(Request $request): View
+    {
+        $subscriber = $this->currentSubscriberOrFail($request);
+
+        return view('admin.settings.company', [
+            'subscriber' => $subscriber,
+            'companyLogoUrl' => $this->subscriberInvoiceLogoService->logoUrl($subscriber),
+            'fallbackLogoUrl' => $this->brandLogoService->logoUrl(),
+        ]);
+    }
+
+    public function updateCompany(Request $request): RedirectResponse
+    {
+        $subscriber = $this->currentSubscriberOrFail($request);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'contact_email' => 'nullable|email|max:255',
+            'contact_phone' => 'nullable|string|max:50',
+            'invoice_logo' => 'nullable|image|max:2048',
+        ]);
+
+        $subscriber->forceFill([
+            'name' => $validated['name'],
+            'contact_email' => $validated['contact_email'] ?? null,
+            'contact_phone' => $validated['contact_phone'] ?? null,
+        ])->save();
+
+        if ($request->hasFile('invoice_logo')) {
+            $this->subscriberInvoiceLogoService->storeUploadedLogo($subscriber, $request->file('invoice_logo'));
+        }
+
+        return redirect()
+            ->route('admin.system-settings.company.edit')
+            ->with('success', 'تم تحديث إعدادات الشركة بنجاح.');
+    }
+
+    public function deleteCompanyLogo(Request $request): RedirectResponse
+    {
+        $subscriber = $this->currentSubscriberOrFail($request);
+
+        $this->subscriberInvoiceLogoService->deleteLogo($subscriber);
+
+        return redirect()
+            ->route('admin.system-settings.company.edit')
+            ->with('success', 'تم حذف شعار الشركة. سيتم استخدام الشعار الرئيسي للتطبيق على الفواتير حتى يتم رفع شعار جديد.');
+    }
+
+    private function currentSubscriberOrFail(Request $request): \App\Models\Subscriber
+    {
+        $user = $request->user('admin-web');
+        $subscriber = $user?->subscriber;
+
+        abort_unless($subscriber instanceof \App\Models\Subscriber, 404, 'لا يوجد مشترك مرتبط بهذا الحساب.');
+
+        return $subscriber;
     }
 
     public function editInvoiceBackground(Request $request): View

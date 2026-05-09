@@ -8,6 +8,7 @@
         $subscriber = $branch->subscriber;
         $isPurchase = $invoice->type === 'purchase';
         $documentTitle = $isPurchase ? __('main.purchase_invoice') : __('main.purchase_return_invoice');
+        $invoiceLogoUrl = $subscriber?->invoiceLogoUrl($brandLogoUrl ?? null) ?? ($brandLogoUrl ?? null);
         $companyNameAr = $subscriber?->name ?: (method_exists($branch, 'getTranslation') ? $branch->getTranslation('name', 'ar') : $branch->name);
         $companyNameEn = method_exists($branch, 'getTranslation')
             ? ($branch->getTranslation('name', 'en') ?: $companyNameAr)
@@ -440,7 +441,7 @@
 
                     <section class="header-center">
                         <div class="brand-logo-wrap">
-                            <img src="{{ $brandLogoUrl }}" alt="Logo" class="brand-logo print-brand-logo">
+                            <img src="{{ $invoiceLogoUrl }}" alt="Logo" class="brand-logo print-brand-logo">
                         </div>
                         <h1 class="invoice-title">{{ $documentTitle }}</h1>
                         <p class="invoice-title-en">{{ $isPurchase ? 'Purchase Invoice' : 'Purchase Return Invoice' }}</p>
