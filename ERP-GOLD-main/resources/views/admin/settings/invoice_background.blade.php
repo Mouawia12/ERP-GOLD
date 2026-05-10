@@ -39,12 +39,23 @@
     background: #3f4550;
     position: relative;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
 }
 .bg-preview-iframe {
-    width: 100%;
-    height: 100%;
+    /* Iframe takes the paper's aspect ratio so the preview never sits in
+       grey bands. JS updates --paper-aspect on size/orientation changes. */
+    aspect-ratio: var(--paper-aspect, 210 / 297);
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
     border: none;
     display: block;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 .bg-no-template {
     display: flex;
@@ -120,6 +131,31 @@
     z-index: 10;
 }
 .iframe-loading.hidden { opacity: 0; pointer-events: none; }
+
+/* ── floating print button (overlays the iframe so the user can always
+      print the current preview without depending on iframe internals) ── */
+.bg-preview-print-btn {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    z-index: 20;
+    height: 36px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 10px;
+    background: #0ea5e9;
+    color: #fff !important;
+    font-family: 'Almarai', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.28);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.bg-preview-print-btn:hover { background: #0284c7; }
+.bg-preview-print-btn[disabled] { opacity: .5; cursor: wait; }
 
 /* ── paper size buttons ── */
 .paper-btn-group { display: flex; gap: 6px; }
@@ -332,6 +368,10 @@
                 src="{{ $previewUrl }}"
                 onload="document.getElementById('iframe-loading').classList.add('hidden')"
             ></iframe>
+            <button type="button" id="bg-preview-print-btn" class="bg-preview-print-btn" title="طباعة المعاينة الحالية">
+                <i class="fa fa-print"></i>
+                <span>طباعة المعاينة</span>
+            </button>
         @elseif($hasTemplate && !$sampleInvoice)
             <div class="bg-no-template">
                 <i class="fa fa-file-invoice fa-2x mb-2"></i>
@@ -375,6 +415,16 @@
         format: '{{ $selectedFormat }}',
     };
 
+    /* ── paper aspect (drives iframe shape so the preview never sits in grey bands) ── */
+    function applyPaperAspect() {
+        var w, h;
+        if (S.paperSize === 'a5') { w = 148; h = 210; }
+        else                      { w = 210; h = 297; }
+        if (S.paperOrientation === 'landscape') { var t = w; w = h; h = t; }
+        document.documentElement.style.setProperty('--paper-aspect', w + ' / ' + h);
+    }
+    applyPaperAspect();
+
     /* ── build iframe URL from state ── */
     function iframeUrl() {
         var u = new URL(BASE_URL, window.location.origin);
@@ -387,10 +437,16 @@
         u.searchParams.set('bg_offset_x',       S.offsetX);
         u.searchParams.set('bg_paper_size',     S.paperSize);
         u.searchParams.set('bg_paper_orientation', S.paperOrientation);
-        u.searchParams.set('paper',             S.paperSize);
+        // 'paper' picks which blade template loads (print_a4 vs print_a5) —
+        // it must stay anchored to the SAVED CONTEXT format so the layout
+        // doesn't silently switch templates on every slider edit. The bg
+        // paper size (which the user adjusts via btn-a4/btn-a5) only
+        // affects the letterhead dimensions via bg_paper_size above.
+        u.searchParams.set('paper',             CTX.format);
         u.searchParams.set('orientation',       S.paperOrientation);
         u.searchParams.set('bg_hide_header',    S.hideHeader ? '1' : '0');
         u.searchParams.set('bg_hide_footer',    S.hideFooter ? '1' : '0');
+        u.searchParams.set('bg_preview',        '1');
         return u.toString();
     }
 
@@ -446,6 +502,7 @@
         S.paperSize = size;
         document.getElementById('btn-a4').classList.toggle('active', size === 'a4');
         document.getElementById('btn-a5').classList.toggle('active', size === 'a5');
+        applyPaperAspect();
         scheduleReload(400);
     };
 
@@ -453,6 +510,7 @@
         S.paperOrientation = orientation;
         document.getElementById('btn-portrait').classList.toggle('active', orientation === 'portrait');
         document.getElementById('btn-landscape').classList.toggle('active', orientation === 'landscape');
+        applyPaperAspect();
         scheduleReload(400);
     };
 
@@ -551,6 +609,28 @@
             document.getElementById('v-content-scale').textContent = '100%';
             document.getElementById('v-font-scale').textContent = '100%';
             scheduleReload(200);
+        });
+    }
+
+    /* ── print button (overlay over iframe) ── */
+    var printPreviewBtn = document.getElementById('bg-preview-print-btn');
+    if (printPreviewBtn) {
+        printPreviewBtn.addEventListener('click', function () {
+            var iframe = document.getElementById('preview-iframe');
+            if (!iframe || !iframe.contentWindow) return;
+            printPreviewBtn.setAttribute('disabled', 'disabled');
+            try {
+                /* Reset the auto-fit zoom inside the iframe so the printed
+                   output uses the actual paper size, not the on-screen scale. */
+                if (typeof iframe.contentWindow.__bgPreviewResetZoom === 'function') {
+                    iframe.contentWindow.__bgPreviewResetZoom();
+                }
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            } catch (e) {
+                window.print();
+            }
+            setTimeout(function () { printPreviewBtn.removeAttribute('disabled'); }, 1200);
         });
     }
 })();

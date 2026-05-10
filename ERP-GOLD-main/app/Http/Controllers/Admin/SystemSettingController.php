@@ -366,7 +366,7 @@ class SystemSettingController extends Controller
         $paperSize = $contextService->currentPaperSize(false) ?: $selectedFormat;
         $paperOrientation = $contextService->currentPaperOrientation(false);
         $previewUrl = $sampleInvoice
-            ? $this->buildPreviewUrl($sampleInvoice, $selectedFormat, $paperOrientation)
+            ? $this->buildPreviewUrl($sampleInvoice, $selectedFormat, $paperOrientation, $paperSize)
             : null;
 
         return view('admin.settings.invoice_background', [
@@ -432,8 +432,12 @@ class SystemSettingController extends Controller
         return $fallback->first();
     }
 
-    private function buildPreviewUrl(\App\Models\Invoice $invoice, string $paperSize, string $paperOrientation): string
-    {
+    private function buildPreviewUrl(
+        \App\Models\Invoice $invoice,
+        string $printFormat,
+        string $paperOrientation,
+        ?string $bgPaperSize = null,
+    ): string {
         $route = match ($invoice->type) {
             'purchase' => 'purchases.show',
             'purchase_return' => 'purchase_return.show',
@@ -442,9 +446,13 @@ class SystemSettingController extends Controller
 
         return route($route, [
             'id' => $invoice->id,
-            'paper' => $paperSize,
+            // 'paper' picks the blade template (print_a4 vs print_a5) — must
+            // stay anchored to the context's print format so the layout
+            // doesn't switch templates between live preview and refresh.
+            'paper' => $printFormat,
             'orientation' => $paperOrientation,
-            'bg_paper_size' => $paperSize,
+            // 'bg_paper_size' controls the letterhead dimensions only.
+            'bg_paper_size' => $bgPaperSize ?? $printFormat,
             'bg_paper_orientation' => $paperOrientation,
             'bg_preview' => 1,
         ]);

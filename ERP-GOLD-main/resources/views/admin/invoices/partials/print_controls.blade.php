@@ -16,49 +16,52 @@
         .print-preview-notice,
         .print-control-bar { display: none !important; }
         @media screen {
-            html { background: #3f4550 !important; overflow: auto !important; }
-            body {
-                margin: 8px auto !important;
-                /* Clip anything wider than the paper so tables/headers
-                   that overflow the physical page boundary don't leak
-                   into the iframe surrounding area. */
-                overflow: hidden !important;
-            }
-            /* Defensive: keep .page and tables strictly within paper width. */
-            .page { max-width: 100% !important; overflow: hidden !important; }
-            .items-table, .reference-table, .summary-table,
-            .totals-table, .payment-table, .carat-table {
-                max-width: 100% !important;
-                table-layout: fixed !important;
-            }
+            html { background: #fff !important; }
+            body { margin: 0 !important; box-shadow: none !important; }
         }
     </style>
     <script>
-        /* Auto-fit the paper preview to the iframe so the page fills
-           the visible area without sitting in a sea of empty grey, and
-           so the user can still see the actual paper proportions.
-           Runs at multiple stages because the iframe reloads on every
-           slider change and the layout settles asynchronously. */
+        /* Auto-fit the paper preview to the iframe.
+
+           CRUCIAL: we compute the scale purely from the paper size in the
+           URL (bg_paper_size + bg_paper_orientation) — NOT from any DOM
+           measurement. The paper's pixel dimensions at 96 DPI are constant
+           per paper-size+orientation pair, so the same URL always yields
+           the exact same scale. This removes every source of "scale drift
+           on slider edits": no race with stylesheet application, no
+           dependency on body padding/box-sizing, no scrollHeight feedback,
+           no zoom-affected measurement. Touching content_top, content_scale,
+           font_scale, etc. cannot change the fit anymore. */
         (function () {
             'use strict';
+
+            var MM_TO_PX = 96 / 25.4;
+
+            function paperPx() {
+                var params;
+                try { params = new URLSearchParams(window.location.search); }
+                catch (e) { params = null; }
+                var size = (params && params.get('bg_paper_size')) || 'a4';
+                var orient = (params && params.get('bg_paper_orientation')) || 'portrait';
+                var w_mm, h_mm;
+                if (size === 'a5') { w_mm = 148; h_mm = 210; }
+                else                { w_mm = 210; h_mm = 297; }
+                if (orient === 'landscape') { var t = w_mm; w_mm = h_mm; h_mm = t; }
+                return { w: w_mm * MM_TO_PX, h: h_mm * MM_TO_PX };
+            }
 
             function applyFit() {
                 var bd = document.body;
                 if (!bd) return;
-                bd.style.zoom = '';
-                var raf = window.requestAnimationFrame || function (cb) { return setTimeout(cb, 16); };
-                raf(function () {
-                    var w = bd.scrollWidth || bd.offsetWidth;
-                    var h = bd.scrollHeight || bd.offsetHeight;
-                    if (!w || !h) return;
-                    var availW = (window.innerWidth || document.documentElement.clientWidth) - 12;
-                    var availH = (window.innerHeight || document.documentElement.clientHeight) - 12;
-                    if (availW <= 0 || availH <= 0) return;
-                    var scale = Math.min(availW / w, availH / h);
-                    if (scale > 1.6) scale = 1.6;
-                    if (scale < 0.3) scale = 0.3;
-                    bd.style.zoom = scale;
-                });
+                var paper = paperPx();
+                if (!paper.w || !paper.h) return;
+                var availW = window.innerWidth || document.documentElement.clientWidth;
+                var availH = window.innerHeight || document.documentElement.clientHeight;
+                if (availW <= 0 || availH <= 0) return;
+                var scale = Math.min(availW / paper.w, availH / paper.h);
+                if (scale > 2.0) scale = 2.0;
+                if (scale < 0.2) scale = 0.2;
+                bd.style.zoom = scale;
             }
 
             function fireFit() {
@@ -74,15 +77,16 @@
                 fireFit();
             }
             window.addEventListener('load', fireFit);
-            // Re-fit after fonts/images finish loading or layout shifts.
-            if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
-                document.fonts.ready.then(applyFit);
-            }
             var resizeT = null;
             window.addEventListener('resize', function () {
                 clearTimeout(resizeT);
                 resizeT = setTimeout(applyFit, 120);
             });
+
+            window.__bgPreviewResetZoom = function () {
+                if (document.body) document.body.style.zoom = '';
+            };
+            window.addEventListener('afterprint', applyFit);
         })();
     </script>
 @else
