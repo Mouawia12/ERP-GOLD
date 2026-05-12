@@ -336,6 +336,7 @@
             request()->routeIs('items.*', 'initial_quantities.*')
                 || in_array($currentRouteName, ['categories', 'storeCategory', 'getCategory', 'deleteCategory'], true) => 'items',
             request()->routeIs('manufacturing_orders.*', 'manufacturing_receipts.*', 'manufacturing_returns.*', 'manufacturing_loss_settlements.*') => 'manufacturing',
+            request()->routeIs('branch_karat_transfers.*') => 'branch-karat-transfers',
             request()->routeIs('reports.gold_stock.*') => 'gold-stock',
             request()->routeIs('prices', 'gold.stock.market.prices', 'gold.prices.live', 'updatePrices', 'updatePricesManual') => 'gold-prices',
             request()->routeIs('admin.simplified_debit.*', 'admin.standard_debit.*') => 'invoice-debits',
@@ -362,7 +363,7 @@
                 && $currentCustomerType === 'customer'
             ) => 'customer-reports',
             request()->routeIs('money_exit_list', 'money_entry_list') => 'cash-books',
-            request()->routeIs('financial_vouchers', 'financial_vouchers.store', 'admin.shifts.*') => 'financial-vouchers',
+            request()->routeIs('financial_vouchers', 'financial_vouchers.store') => 'financial-vouchers',
             default => null,
         };
     @endphp
@@ -601,6 +602,38 @@
                     </ul>
                 </li>
             @endcanany
+            @canany(['employee.branch_karat_transfers.show', 'employee.branch_karat_transfers.add'])
+                <li class="slide {{ $currentSidebarSection === 'branch-karat-transfers' ? 'is-expanded active' : '' }}">
+                    <a class="side-menu__item {{ $currentSidebarSection === 'branch-karat-transfers' ? 'active' : '' }}" data-toggle="slide" href="#">
+                        <i class="fas fa-exchange-alt side-menu__icon"></i>
+                        <span class="side-menu__label">
+                        تحويل بين الفروع
+                        </span>
+                        <i class="angle fe fe-chevron-down"></i>
+                    </a>
+                    <ul class="slide-menu">
+                        @can('employee.branch_karat_transfers.add')
+                        <li>
+                            <a class="slide-item" href="{{ route('branch_karat_transfers.create') }}">
+                            تحويل جديد
+                            </a>
+                        </li>
+                        @endcan
+                        @can('employee.branch_karat_transfers.show')
+                        <li>
+                            <a class="slide-item" href="{{ route('branch_karat_transfers.index') }}">
+                            سجل التحويلات
+                            </a>
+                        </li>
+                        <li>
+                            <a class="slide-item" href="{{ route('branch_karat_transfers.report') }}">
+                            تقرير التحويلات
+                            </a>
+                        </li>
+                        @endcan
+                    </ul>
+                </li>
+            @endcanany
             @can('employee.stock.show')
                 <li class="slide {{ $currentSidebarSection === 'gold-stock' ? 'is-expanded active' : '' }}">
                     <a class="side-menu__item {{ $currentSidebarSection === 'gold-stock' ? 'active' : '' }}" data-toggle="slide" href="#">
@@ -749,14 +782,9 @@
                         <a class="slide-item" href="{{route('financial_vouchers' , 'payment')}}">
                         {{__('main.payments')}}
                         </a>
-                    </li>                             
-                    <li>
-                        <a class="slide-item" href="{{ route('admin.shifts.index') }}">
-                        {{ __('الشفتات') }}
-                        </a>
                     </li>
                 </ul>
-            </li>  
+            </li>
             @canany(['employee.accounts.add','employee.accounts.show','employee.accounts.edit','employee.accounts.delete'])                 
                 @php
                     $accountingSectionActive = request()->routeIs(

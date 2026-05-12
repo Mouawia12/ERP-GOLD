@@ -23,7 +23,7 @@ class PermissionMatrixService
             'الادارة' => ['users', 'user_permissions', 'branches', 'system_settings'],
             'المبيعات' => ['tax_invoices', 'simplified_tax_invoices', 'sales_returns', 'receipt_vouchers', 'cash_in_entries'],
             'المشتريات' => ['purchase_invoices', 'expense_vouchers', 'cash_out_entries'],
-            'المخزون والتشغيل' => ['items', 'initial_quantities', 'stock_entries', 'warehouses', 'stock', 'inventory_list', 'stock_settlements', 'manufacturing_orders', 'workbook', 'breakbook', 'convert_work_to_break'],
+            'المخزون والتشغيل' => ['items', 'initial_quantities', 'stock_entries', 'warehouses', 'stock', 'inventory_list', 'stock_settlements', 'manufacturing_orders', 'workbook', 'breakbook', 'convert_work_to_break', 'branch_karat_transfers'],
             'العملاء والموردون' => ['customers', 'suppliers'],
             'المحاسبة' => ['accounts', 'journal_entries'],
             'التقارير' => ['inventory_reports', 'accounting_reports', 'gold_balance_sheet'],

@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AccountingReportsController;
 use App\Http\Controllers\Admin\AccountsController;
 use App\Http\Controllers\Admin\AccountSettingController;
 use App\Http\Controllers\Admin\BranchController;
+use App\Http\Controllers\Admin\BranchKaratTransferController;
 use App\Http\Controllers\Admin\BankAccountController;
 use App\Http\Controllers\Admin\CaratController;
 use App\Http\Controllers\Admin\CategoryController;
@@ -123,6 +124,14 @@ Route::group(
                     Route::get('/manufacturing_loss_settlements/create/{orderId}', [ManufacturingLossSettlementController::class, 'create'])->name('manufacturing_loss_settlements.create');
                     Route::post('/manufacturing_loss_settlements/store/{orderId}', [ManufacturingLossSettlementController::class, 'store'])->name('manufacturing_loss_settlements.store');
                     Route::get('/manufacturing_loss_settlements/show/{id}', [ManufacturingLossSettlementController::class, 'show'])->name('manufacturing_loss_settlements.show');
+
+                    Route::get('/branch_karat_transfers', [BranchKaratTransferController::class, 'index'])->name('branch_karat_transfers.index');
+                    Route::get('/branch_karat_transfers/create', [BranchKaratTransferController::class, 'create'])->name('branch_karat_transfers.create');
+                    Route::post('/branch_karat_transfers/store', [BranchKaratTransferController::class, 'store'])->name('branch_karat_transfers.store');
+                    Route::get('/branch_karat_transfers/show/{id}', [BranchKaratTransferController::class, 'show'])->name('branch_karat_transfers.show');
+                    Route::delete('/branch_karat_transfers/delete/{id}', [BranchKaratTransferController::class, 'destroy'])->name('branch_karat_transfers.destroy');
+                    Route::get('/branch_karat_transfers/report', [BranchKaratTransferController::class, 'report'])->name('branch_karat_transfers.report');
+                    Route::post('/branch_karat_transfers/report', [BranchKaratTransferController::class, 'report'])->name('branch_karat_transfers.report.search');
 
                     Route::get('/sales/{type}', [SalesController::class, 'index'])->name('sales.index');
                     Route::get('/sales/{type}/create', [SalesController::class, 'create'])->name('sales.create');

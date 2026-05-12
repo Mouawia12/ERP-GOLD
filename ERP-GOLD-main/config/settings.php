@@ -43,7 +43,8 @@ return [
         'journal_entries',
         'gold_balance_sheet',
         'stock_settlements',
-        'manufacturing_orders'
+        'manufacturing_orders',
+        'branch_karat_transfers'
     ],
     'accounts_types' => [
         'not_have',

@@ -118,8 +118,14 @@ class AdminSidebarBuilder
                 'label' => 'إعدادات الإدارة',
                 'active_patterns' => [
                     'admin.system-settings.*',
+                    'admin.shifts.*',
                 ],
                 'items' => [
+                    [
+                        'label' => 'الشفتات',
+                        'route' => 'admin.shifts.index',
+                        'active_patterns' => ['admin.shifts.*'],
+                    ],
                     [
                         'label' => 'إعدادات تسجيل الدخول',
                         'route' => 'admin.system-settings.login-mode.edit',

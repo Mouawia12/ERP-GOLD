@@ -108,5 +108,6 @@ return [
         'gold_balance_sheet' => 'ميزان الذهب',
         'stock_settlements' => 'جرد المخزون',
         'manufacturing_orders' => 'أوامر التصنيع',
+        'branch_karat_transfers' => 'تحويل بين الفروع',
     ],
 ];
