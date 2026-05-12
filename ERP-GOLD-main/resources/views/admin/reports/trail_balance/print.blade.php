@@ -64,7 +64,7 @@
             <h1 class="print-report-title">{{ __('main.balance_report') }}</h1>
             <div>[ {{ $periodFrom }} - {{ $periodTo }} ]</div>
             <div>الفرع: {{ $branchLabel ?? ($branch?->name ?: 'جميع الفروع') }}</div>
-            <div>المستوى: {{ $accountLevel ? 'مستوى ' . $accountLevel : 'تفصيلي (آخر مستوى)' }}</div>
+            <div>المستوى: {{ $accountLevel ? 'حتى مستوى ' . $accountLevel : 'تفصيلي (آخر مستوى)' }}</div>
         </div>
 
         <div class="print-generated-at">

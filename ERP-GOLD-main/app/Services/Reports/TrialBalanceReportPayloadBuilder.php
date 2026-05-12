@@ -65,7 +65,7 @@ class TrialBalanceReportPayloadBuilder
 
         $accountQuery = Account::query()->orderBy('code')->orderBy('id');
         if ($accountLevel !== null) {
-            $accountQuery->where('level', $accountLevel);
+            $accountQuery->where('level', '<=', $accountLevel);
         } else {
             $accountQuery->whereDoesntHave('childrens');
         }

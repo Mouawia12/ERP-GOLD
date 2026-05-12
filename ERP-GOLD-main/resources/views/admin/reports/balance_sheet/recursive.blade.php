@@ -2,6 +2,8 @@
     $metrics = $accountMetrics[$account->id] ?? null;
     $balance = $metrics['closing_net'] ?? $account->closingBalance($periodFrom, $periodTo);
     $font_percentage = 130 - (($account->level - 1) * 10);
+    $accountLevel = $accountLevel ?? null;
+    $shouldDescend = $accountLevel === null || $account->level < $accountLevel;
 @endphp
 
 <tr>
@@ -17,8 +19,8 @@
     </td>
 </tr>
 
-@if ($account->childrens && $account->childrens->count())
+@if ($shouldDescend && $account->childrens && $account->childrens->count())
     @foreach ($account->childrens as $child)
-        @include('admin.reports.balance_sheet.recursive', ['account' => $child])
+        @include('admin.reports.balance_sheet.recursive', ['account' => $child, 'accountLevel' => $accountLevel])
     @endforeach
 @endif

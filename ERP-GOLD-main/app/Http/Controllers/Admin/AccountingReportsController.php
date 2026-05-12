@@ -203,6 +203,8 @@ class AccountingReportsController extends Controller
             'branch_scope_all' => $branchSelection['selects_all'],
         ];
 
+        $accountLevel = $request->input('account_level') ? (int) $request->input('account_level') : null;
+
         $assetsAccount = Account::where('parent_account_id', null)->where('account_type', 'assets')->where('transfer_side', 'budget')->first();
         $equityAccount = Account::where('parent_account_id', null)->where('account_type', 'equity')->where('transfer_side', 'budget')->first();
         $liabilitiesAccount = Account::where('parent_account_id', null)->where('account_type', 'liabilities')->where('transfer_side', 'budget')->first();
@@ -225,7 +227,7 @@ class AccountingReportsController extends Controller
 
         return view('admin.reports.balance_sheet.index', compact(
             'periodFrom', 'periodTo', 'assetsAccount', 'equityAccount', 'liabilitiesAccount',
-            'profitTotal', 'accountMetrics', 'branch', 'branchLabel'
+            'profitTotal', 'accountMetrics', 'branch', 'branchLabel', 'accountLevel'
         ));
     }
 
@@ -248,6 +250,8 @@ class AccountingReportsController extends Controller
             'branch_ids' => $branchSelection['effective_branch_ids'],
             'branch_scope_all' => $branchSelection['selects_all'],
         ];
+
+        $accountLevel = $request->input('account_level') ? (int) $request->input('account_level') : null;
 
         $assetsAccount = Account::where('parent_account_id', null)->where('account_type', 'assets')->where('transfer_side', 'budget')->first();
         $equityAccount = Account::where('parent_account_id', null)->where('account_type', 'equity')->where('transfer_side', 'budget')->first();
@@ -280,7 +284,8 @@ class AccountingReportsController extends Controller
             'profitTotal',
             'accountMetrics',
             'branch',
-            'branchLabel'
+            'branchLabel',
+            'accountLevel'
         ));
     }
 

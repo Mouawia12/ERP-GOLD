@@ -87,6 +87,7 @@
                                             <div class="print-report__meta accounting-print-meta">
                                                 <div>{{$periodFrom}} - {{$periodTo}}</div>
                                                 <div>الفرع: {{ $branchLabel ?? ($branch?->name ?: 'جميع الفروع') }}</div>
+                                                <div>المستوى: {{ ($accountLevel ?? null) ? 'حتى مستوى ' . $accountLevel : 'تفصيلي (كل المستويات)' }}</div>
                                             </div>
                                         </div>
                                         <div class="col-4 c print-report__company accounting-print-company">
@@ -114,15 +115,15 @@
                             </thead>
                             <tbody>
                                 @foreach ([$assetsAccount] ?? [] as $account)
-                                    @include('admin.reports.balance_sheet.recursive', ['account' => $account])
+                                    @include('admin.reports.balance_sheet.recursive', ['account' => $account, 'accountLevel' => $accountLevel ?? null])
                                 @endforeach
 
                                 @foreach ([$equityAccount] ?? [] as $account)
-                                    @include('admin.reports.balance_sheet.recursive', ['account' => $account])
+                                    @include('admin.reports.balance_sheet.recursive', ['account' => $account, 'accountLevel' => $accountLevel ?? null])
                                 @endforeach
 
                                 @foreach ([$liabilitiesAccount] ?? [] as $account)
-                                    @include('admin.reports.balance_sheet.recursive', ['account' => $account])
+                                    @include('admin.reports.balance_sheet.recursive', ['account' => $account, 'accountLevel' => $accountLevel ?? null])
                                 @endforeach
 
                                 <tr>

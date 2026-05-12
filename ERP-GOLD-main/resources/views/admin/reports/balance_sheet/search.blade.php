@@ -53,6 +53,20 @@
                                     </div>
                                 </div>
 
+                                <div class="row mt-2">
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label>مستوى الحساب</label>
+                                            <select name="account_level" class="form-control">
+                                                <option value="">تفصيلي (كل المستويات)</option>
+                                                @foreach($availableLevels ?? [] as $lvl)
+                                                    <option value="{{ $lvl }}">حتى مستوى {{ $lvl }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="row">
                                     <div class="col-12" style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 20px auto; text-align: center;">
                                         <button

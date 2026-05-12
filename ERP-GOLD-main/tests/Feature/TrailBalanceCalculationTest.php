@@ -398,10 +398,10 @@ class TrailBalanceCalculationTest extends TestCase
     }
 
     /**
-     * When account_level is specified, only accounts at that level are shown.
-     * A level-2 account must not appear when filtering by level 1.
+     * When account_level is specified, accounts at that level AND all levels above it are shown.
+     * Selecting level 3 displays levels 1, 2 and 3 so the user sees the full hierarchy up to the chosen depth.
      */
-    public function test_account_level_filter_shows_only_accounts_at_given_level(): void
+    public function test_account_level_filter_shows_accounts_up_to_given_level(): void
     {
         $admin = $this->createAdminUser(['employee.accounting_reports.show']);
         $fyId = $this->createFinancialYear();
@@ -431,7 +431,7 @@ class TrailBalanceCalculationTest extends TestCase
         $j2 = $this->insertJournalEntry(['serial' => 'JLVL-002', 'financial_year' => $fyId, 'branch_id' => $admin->branch_id]);
         $this->insertJournalEntryDocument(['journal_id' => $j2, 'account_id' => $childId, 'document_date' => '2026-03-06', 'debit' => 250]);
 
-        // Filter by level 1 → only parent appears
+        // Filter by level 1 → only parent (level 1) appears
         $responseLevel1 = $this->actingAs($admin, 'admin-web')
             ->post(route('trail_balance.search', [], false), [
                 'date_from' => '2026-03-01',
@@ -444,7 +444,7 @@ class TrailBalanceCalculationTest extends TestCase
         $responseLevel1->assertSee('حساب المستوى الأول');
         $responseLevel1->assertDontSee('حساب المستوى الثاني');
 
-        // Filter by level 2 → only child appears
+        // Filter by level 2 → both parent (level 1) and child (level 2) appear
         $responseLevel2 = $this->actingAs($admin, 'admin-web')
             ->post(route('trail_balance.search', [], false), [
                 'date_from' => '2026-03-01',
@@ -454,7 +454,7 @@ class TrailBalanceCalculationTest extends TestCase
             ]);
 
         $responseLevel2->assertOk();
-        $responseLevel2->assertDontSee('حساب المستوى الأول');
+        $responseLevel2->assertSee('حساب المستوى الأول');
         $responseLevel2->assertSee('حساب المستوى الثاني');
     }
 
