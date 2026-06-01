@@ -1,15 +1,16 @@
 <style>
     /*
-       A5 أفقي بنموذج المناطق الثابتة (Fixed-Zone):
-       الصفحة = منطقة ترويسة ثابتة (36مم) + محتوى مرن + منطقة تذييل ثابتة (20مم).
-       المناطق محجوزة دائماً بنفس الارتفاع سواء مملوءة (ورق عادي) أو فارغة (ورق
-       مطبوع مسبقاً) — فموضع الجدول لا يتغيّر إطلاقاً بين "مع ترويسة" و"بدون".
-       --invoice-print-scale : مُضاعِف موحّد لكل الخطوط (يُقلَّص تلقائياً عبر autofit
-       إن تجاوز المحتوى منطقة الوسط). كل أحجام الخطوط = calc(floor * scale).
+       A5 أفقي بنموذج هوامش @page الثابتة (نفس منطق A4):
+       هامش @page يحجز 36مم علوي و20مم سفلي على كل صفحة (مطبوعة أو لا)، فينساب
+       المحتوى في الشريط الأوسط (~92مم) وينتقل لصفحة جديدة تلقائياً عند الطول — بلا
+       صفحة فارغة زائدة وبلا قص. الترويسة/التذييل عند "مع" تُرسم في المناطق عبر
+       position:fixed فتتكرر في كل صفحة؛ عند "بدون" تبقى المناطق فارغة فينطبق المحتوى
+       على الفراغ الأوسط من الورق المطبوع مسبقاً.
+       --invoice-print-scale : مُضاعِف موحّد لكل الخطوط (افتراضي 1).
     */
     @page {
         size: A5 landscape;
-        margin: 0;
+        margin: 36mm 7mm 20mm;
     }
 
     @font-face {
@@ -45,8 +46,6 @@
         /* ── المناطق الثابتة (A5) ── */
         --zone-header: 36mm;
         --zone-footer: 20mm;
-        --page-w: 210mm;
-        --page-h: 148mm;
         --side-pad: 7mm;
 
         /* ── الخطوط (أرضيات مقروءة × المقياس) ── */
@@ -89,41 +88,29 @@
     }
 
     /* ─────────────────────────────────────────────────────────
-       الإطار: صفحة A5 أفقية كاملة الارتفاع، ثلاث مناطق عمودية
+       الإطار: المحتوى ينساب في شريط @page؛ المناطق تُموضَع بـ fixed
     ───────────────────────────────────────────────────────── */
     .page {
-        width: var(--page-w);
-        min-height: var(--page-h);
-        margin: 0 auto;
-        display: flex;
-        flex-direction: column;
+        position: relative;
         background: var(--page-bg);
     }
 
+    .page-content {
+        min-width: 0;
+    }
+
     .zone-header {
-        flex: 0 0 var(--zone-header);
+        box-sizing: border-box;
+        width: 100%;
         height: var(--zone-header);
         overflow: hidden;
-        padding: 2.5mm var(--side-pad) 0;
     }
 
     .zone-footer {
-        flex: 0 0 var(--zone-footer);
+        box-sizing: border-box;
+        width: 100%;
         height: var(--zone-footer);
         overflow: hidden;
-        padding: 0 var(--side-pad) 2.5mm;
-        display: flex;
-        align-items: flex-end;
-    }
-
-    .page-content {
-        flex: 1 1 auto;
-        min-height: 0;
-        overflow: hidden;
-        padding: 1.5mm var(--side-pad);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
     }
 
     .invoice-shell {
@@ -431,7 +418,7 @@
     }
 
     /* ─────────────────────────────────────────────────────────
-       شاشة: إظهار الورقة كاملة (مع حدود المناطق كمرجع بصري)
+       شاشة: محاكاة الورقة بالهوامش (المناطق absolute داخل .page)
     ───────────────────────────────────────────────────────── */
     @media screen {
         body {
@@ -440,19 +427,36 @@
         }
 
         .page {
+            width: 210mm;
+            min-height: 148mm;
+            margin: 0 auto 18px;
+            padding: var(--zone-header) var(--side-pad) var(--zone-footer);
+            background: #fff;
             box-shadow: 0 6px 30px rgba(0, 0, 0, 0.45);
         }
 
-        /* خط مرجعي خفيف يوضّح حدّ منطقتي الترويسة والتذييل في المعاينة */
         .zone-header {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            width: auto;
+            padding: 2.5mm var(--side-pad) 0;
             border-bottom: 1px dashed rgba(239, 68, 68, 0.35);
         }
 
         .zone-footer {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            width: auto;
+            padding: 0 var(--side-pad) 2.5mm;
             border-top: 1px dashed rgba(239, 68, 68, 0.35);
+            display: flex;
+            align-items: flex-end;
         }
     }
 
+    /* ─────────────────────────────────────────────────────────
+       طباعة: هوامش @page تحجز المناطق؛ الترويسة/التذييل fixed تتكرر
+    ───────────────────────────────────────────────────────── */
     @media print {
         html,
         body {
@@ -460,15 +464,21 @@
         }
 
         .page {
-            width: auto;
-            min-height: var(--page-h);
-            box-shadow: none;
+            padding: 0;
         }
 
-        /* لا حدود مرجعية في الطباعة */
-        .zone-header,
+        .zone-header {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            padding: 2.5mm var(--side-pad) 0;
+        }
+
         .zone-footer {
-            border: 0 !important;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            padding: 0 var(--side-pad) 2.5mm;
+            display: flex;
+            align-items: flex-end;
         }
     }
 </style>

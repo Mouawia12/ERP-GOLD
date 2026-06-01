@@ -285,7 +285,6 @@
 
     @foreach($continuationChunks as $chunkIndex => $chunk)
     <div class="page" style="page-break-before: always;">
-        <div class="zone-header"></div>
         <div class="page-content">
             <div class="invoice-shell">
                 <div style="font-size:calc(9px * var(--invoice-print-scale, 1)); margin-bottom:2mm; padding-bottom:1.5mm; border-bottom:1px solid #d5d9df; display:flex; justify-content:space-between;">
@@ -338,11 +337,8 @@
                 </table>
             </div>
         </div>
-        <div class="zone-footer"></div>
     </div>
     @endforeach
-
-    @include('admin.invoices.partials.print_autofit')
 
     @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice'))
 </body>
