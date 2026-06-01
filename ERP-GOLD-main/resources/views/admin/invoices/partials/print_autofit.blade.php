@@ -1,22 +1,19 @@
-{{-- shrink-to-fit لفواتير A5: يضمن بقاء كل صفحة ضمن حدود A5. يقلّص
-     --invoice-print-scale فقط عند الفيض (بأرضية 0.85) ولا يكبّر أبداً، فالتكبير
-     اليدوي (font_scale) يبقى آمناً. يُترك مسار letterhead لضبطه الخاص فلا يعمل معه. --}}
-@if(empty($bgImageUrl))
+{{-- shrink-to-fit: يضمن بقاء كل صفحة ضمن ارتفاع الورقة (مع المناطق الثابتة).
+     يقلّص --invoice-print-scale فقط عند الفيض (بأرضية 0.75) ولا يكبّر أبداً، فالتكبير
+     اليدوي (font_scale) يبقى آمناً ولا ينزل المحتوى لصفحة ثانية أو يتداخل مع المناطق. --}}
 <script>
 (function () {
     'use strict';
-    var FLOOR = 0.85;
+    var FLOOR = 0.75;
     var MM_TO_PX = 96 / 25.4;
     var root = document.documentElement;
     var baseScale = parseFloat(getComputedStyle(root).getPropertyValue('--invoice-print-scale')) || 1;
 
-    function targetHeightPx() {
+    function pageHeightPx() {
         var b = document.body;
-        var ready = b.classList.contains('invoice-paper-ready');
-        var landscape = ready || b.classList.contains('invoice-orientation-landscape');
-        var hMm = landscape ? 148 : 210;
-        var marginMm = ready ? 0 : 5; /* @page margin أعلى+أسفل */
-        return (hMm - 2 * marginMm) * MM_TO_PX;
+        // A5 أفقي = ارتفاع 148مم، A4 طولي = ارتفاع 297مم
+        var hMm = b.classList.contains('invoice-print-format-a4') ? 297 : 148;
+        return hMm * MM_TO_PX;
     }
 
     function fit() {
@@ -24,7 +21,7 @@
         if (!pages.length) return;
         /* القياس دائماً من المقياس الأساسي (إعداد المستخدم) لتجنّب التراكم */
         root.style.setProperty('--invoice-print-scale', baseScale);
-        var target = targetHeightPx();
+        var target = pageHeightPx();
         var worst = 1;
         pages.forEach(function (p) {
             var h = p.scrollHeight;
@@ -58,4 +55,3 @@
     });
 })();
 </script>
-@endif

@@ -1,14 +1,15 @@
 <style>
     /*
-       --invoice-print-scale : مُضاعِف موحّد لكل أحجام الخطوط (افتراضي 1).
-       يُغذّى من إعداد المستخدم font_scale عبر print_dimension_vars، ويُقلَّص
-       تلقائياً عبر سكربت auto-fit إن تجاوز المحتوى صفحة A5 واحدة. تكبيره يُعيد
-       تدفّق الجدول (reflow) بدل تكبير الصورة (zoom) فلا يفيض أفقياً.
-       كل أحجام الخطوط أدناه مكتوبة كـ calc(<أرضية مقروءة> * var(--invoice-print-scale, 1)).
+       A5 أفقي بنموذج المناطق الثابتة (Fixed-Zone):
+       الصفحة = منطقة ترويسة ثابتة (36مم) + محتوى مرن + منطقة تذييل ثابتة (20مم).
+       المناطق محجوزة دائماً بنفس الارتفاع سواء مملوءة (ورق عادي) أو فارغة (ورق
+       مطبوع مسبقاً) — فموضع الجدول لا يتغيّر إطلاقاً بين "مع ترويسة" و"بدون".
+       --invoice-print-scale : مُضاعِف موحّد لكل الخطوط (يُقلَّص تلقائياً عبر autofit
+       إن تجاوز المحتوى منطقة الوسط). كل أحجام الخطوط = calc(floor * scale).
     */
     @page {
-        size: A5 {{ $printOrientation ?? 'portrait' }};
-        margin: {{ !empty($compactStandalonePrint) ? '0' : '5mm' }};
+        size: A5 landscape;
+        margin: 0;
     }
 
     @font-face {
@@ -29,7 +30,7 @@
         color: #111;
         background: #fff;
         font-family: 'Almarai', 'DejaVu Sans', sans-serif;
-        font-size: var(--invoice-screen-font-size);
+        font-size: var(--invoice-print-font-size);
         font-weight: 700;
         line-height: 1.3;
     }
@@ -39,104 +40,46 @@
         --line-strong: #9aa0a6;
         --head-bg: #f1f4f8;
         --page-bg: #fff;
-        --screen-bg: #eef1f5;
-        --screen-outline: #d8dce2;
-        --invoice-screen-font-size: calc(13px * var(--invoice-print-scale, 1));
+        --screen-bg: #3f4550;
+
+        /* ── المناطق الثابتة (A5) ── */
+        --zone-header: 36mm;
+        --zone-footer: 20mm;
+        --page-w: 210mm;
+        --page-h: 148mm;
+        --side-pad: 7mm;
+
+        /* ── الخطوط (أرضيات مقروءة × المقياس) ── */
         --invoice-print-font-size: calc(11px * var(--invoice-print-scale, 1));
         --item-font-size: calc(10px * var(--invoice-print-scale, 1));
         --summary-font-size: calc(10px * var(--invoice-print-scale, 1));
         --invoice-title-font-size: calc(17px * var(--invoice-print-scale, 1));
         --invoice-title-sub-font-size: calc(8.5px * var(--invoice-print-scale, 1));
         --invoice-meta-font-size: calc(10.5px * var(--invoice-print-scale, 1));
-        --page-width: 138mm;
-        --page-min-height: 198mm;
-        --shell-width: 112mm;
-        --qr-size: 20mm;
-        --meta-width: 43mm;
-        --safe-print-width: auto;
-        --safe-print-height: auto;
-        --safe-print-offset-top: 0;
-        --terms-max-height: 13mm;
-        --page-padding-top: 6mm;
-        --page-padding-inline: 6mm;
-        --page-padding-bottom: 7mm;
+
+        --qr-size: 21mm;
+        --meta-width: 56mm;
         --head-gap: 4mm;
-        --head-margin-bottom: 3mm;
-        --table-cell-padding-block: 1.3mm;
-        --table-cell-padding-inline: 1mm;
+        --head-margin-bottom: 2.4mm;
+        --table-cell-padding-block: 1mm;
+        --table-cell-padding-inline: 0.9mm;
         --summary-gap: 2mm;
         --signature-gap: 8mm;
-        --signature-margin-top: 3mm;
+        --signature-margin-top: 2.4mm;
     }
 
     body.invoice-template-compact {
         --invoice-title-font-size: calc(15.5px * var(--invoice-print-scale, 1));
         --invoice-title-sub-font-size: calc(8px * var(--invoice-print-scale, 1));
         --invoice-meta-font-size: calc(9.8px * var(--invoice-print-scale, 1));
-        --shell-width: 109mm;
-        --qr-size: 18mm;
-        --meta-width: 41mm;
-        --terms-max-height: 11mm;
-    }
-
-    body.invoice-orientation-landscape {
-        --page-width: 200mm;
-        --page-min-height: 138mm;
-        --invoice-title-font-size: calc(17px * var(--invoice-print-scale, 1));
-        --invoice-title-sub-font-size: calc(8.5px * var(--invoice-print-scale, 1));
-        --invoice-meta-font-size: calc(10.5px * var(--invoice-print-scale, 1));
-        --item-font-size: calc(10.5px * var(--invoice-print-scale, 1));
-        --summary-font-size: calc(10.5px * var(--invoice-print-scale, 1));
-        --shell-width: 172mm;
-        --qr-size: 20mm;
-        --meta-width: 54mm;
-        --page-padding-top: 5mm;
-        --page-padding-inline: 5mm;
-        --page-padding-bottom: 5mm;
-        --head-gap: 3.2mm;
-        --head-margin-bottom: 2mm;
-        --summary-gap: 1.5mm;
-        --signature-gap: 6.5mm;
-        --signature-margin-top: 2mm;
-    }
-
-    body.invoice-paper-ready {
-        --invoice-title-font-size: calc(17px * var(--invoice-print-scale, 1));
-        --invoice-title-sub-font-size: calc(8.5px * var(--invoice-print-scale, 1));
-        --invoice-meta-font-size: calc(10.5px * var(--invoice-print-scale, 1));
-        --item-font-size: calc(10px * var(--invoice-print-scale, 1));
-        --summary-font-size: calc(10px * var(--invoice-print-scale, 1));
-        --page-width: 210mm;
-        --page-min-height: 148mm;
-        --safe-print-width: 184mm;
-        --safe-print-height: 106mm;
-        --safe-print-offset-top: 0mm;
-        --shell-width: 178mm;
-        --qr-size: 21mm;
-        --meta-width: 54mm;
-        --terms-max-height: 12.5mm;
-        --page-padding-top: 0;
-        --page-padding-inline: 0;
-        --page-padding-bottom: 0;
-        --head-gap: 3.1mm;
-        --head-margin-bottom: 2.4mm;
-        --table-cell-padding-block: 0.92mm;
-        --table-cell-padding-inline: 0.88mm;
-        --summary-gap: 1.85mm;
-        --signature-gap: 8mm;
-        --signature-margin-top: 2.2mm;
-    }
-
-    body.invoice-paper-ready .page {
-        justify-content: center;
+        --qr-size: 19mm;
+        --meta-width: 52mm;
     }
 
     body.invoice-template-modern {
         --line-color: #cbd5e1;
         --line-strong: #64748b;
         --head-bg: #e8eef7;
-        --screen-bg: #e9eef8;
-        --screen-outline: #cbd5e1;
     }
 
     table,
@@ -145,35 +88,46 @@
         font-size: inherit;
     }
 
+    /* ─────────────────────────────────────────────────────────
+       الإطار: صفحة A5 أفقية كاملة الارتفاع، ثلاث مناطق عمودية
+    ───────────────────────────────────────────────────────── */
     .page {
-        width: var(--page-width);
-        min-height: var(--page-min-height);
+        width: var(--page-w);
+        min-height: var(--page-h);
         margin: 0 auto;
         display: flex;
         flex-direction: column;
         background: var(--page-bg);
-        padding: var(--page-padding-top) var(--page-padding-inline) var(--page-padding-bottom);
+    }
+
+    .zone-header {
+        flex: 0 0 var(--zone-header);
+        height: var(--zone-header);
+        overflow: hidden;
+        padding: 2.5mm var(--side-pad) 0;
+    }
+
+    .zone-footer {
+        flex: 0 0 var(--zone-footer);
+        height: var(--zone-footer);
+        overflow: hidden;
+        padding: 0 var(--side-pad) 2.5mm;
+        display: flex;
+        align-items: flex-end;
     }
 
     .page-content {
-        flex: 1;
-    }
-
-    body.invoice-paper-ready .page-content {
-        flex: 0 0 auto;
-        width: min(100%, var(--safe-print-width));
-        max-width: var(--safe-print-width);
-        min-height: var(--safe-print-height);
-        margin: 0 auto;
-        padding-top: var(--safe-print-offset-top);
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+        padding: 1.5mm var(--side-pad);
         display: flex;
-        align-items: center;
+        flex-direction: column;
         justify-content: center;
     }
 
     .invoice-shell {
         width: 100%;
-        max-width: var(--shell-width);
         margin: 0 auto;
     }
 
@@ -183,28 +137,28 @@
         display: inline-block;
     }
 
+    /* ── منطقة الترويسة (بيانات الشركة عند "مع ترويسة") ── */
     .micro-header {
         display: flex;
         justify-content: space-between;
         gap: 6mm;
-        margin-bottom: 3mm;
-        padding-bottom: 2mm;
-        border-bottom: 1px solid var(--line-color);
-        font-size: calc(9px * var(--invoice-print-scale, 1));
-        line-height: 1.38;
+        font-size: calc(9.5px * var(--invoice-print-scale, 1));
+        line-height: 1.45;
     }
 
     .micro-header-block {
         display: flex;
         flex-direction: column;
-        gap: 0.4mm;
+        gap: 0.5mm;
         min-width: 0;
     }
 
     .micro-header-title {
         font-weight: 700;
+        font-size: calc(11.5px * var(--invoice-print-scale, 1));
     }
 
+    /* ── شريط الرأس (QR + العنوان + بيانات العميل) ── */
     .compact-head {
         display: grid;
         grid-template-columns: var(--qr-size) minmax(0, 1fr) var(--meta-width);
@@ -255,7 +209,7 @@
     .compact-title {
         margin: 0;
         font-size: var(--invoice-title-font-size);
-        line-height: 1.18;
+        line-height: 1.12;
         font-weight: 700;
     }
 
@@ -269,7 +223,7 @@
     .compact-meta {
         direction: rtl;
         font-size: var(--invoice-meta-font-size);
-        line-height: 1.42;
+        line-height: 1.32;
         font-weight: 700;
     }
 
@@ -291,6 +245,7 @@
         word-break: break-word;
     }
 
+    /* ── الجداول ── */
     .reference-table,
     .summary-table {
         width: 100%;
@@ -299,18 +254,12 @@
 
     .reference-table {
         table-layout: fixed;
-    }
-
-    .summary-table {
-        table-layout: auto;
-    }
-
-    .reference-table {
         margin-bottom: 2.2mm;
         font-size: var(--item-font-size);
     }
 
     .summary-table {
+        table-layout: auto;
         font-size: var(--summary-font-size);
     }
 
@@ -433,7 +382,6 @@
         font-size: calc(8.5px * var(--invoice-print-scale, 1));
         line-height: 1.28;
         white-space: normal;
-        max-height: none;
         overflow: visible;
         overflow-wrap: anywhere;
     }
@@ -460,122 +408,16 @@
         display: flex;
         align-items: flex-end;
         justify-content: center;
-        min-height: 5.9mm;
-        padding-top: 2.1mm;
+        min-height: 5.5mm;
+        padding-top: 2mm;
         border-top: 1px solid var(--line-strong);
         overflow-wrap: anywhere;
     }
 
-    body.invoice-paper-ready .compact-title-block {
-        padding-top: 1mm;
-    }
-
-    body.invoice-paper-ready .compact-title {
-        line-height: 1.08;
-    }
-
-    body.invoice-paper-ready .compact-subtitle {
-        margin-top: 0.45mm;
-    }
-
-    body.invoice-paper-ready .compact-meta {
-        line-height: 1.28;
-        font-weight: 700;
-        color: #000;
-    }
-
-    body.invoice-paper-ready .reference-table {
-        margin-bottom: 2.1mm;
-    }
-
-    body.invoice-paper-ready .description-main {
-        font-size: calc(10.5px * var(--invoice-print-scale, 1));
-        line-height: 1.1;
-        font-weight: 700;
-    }
-
-    body.invoice-paper-ready .description-sub {
-        margin-top: 0.25mm;
-        font-size: calc(8px * var(--invoice-print-scale, 1));
-        line-height: 1.08;
-        font-weight: 600;
-        color: #000;
-    }
-
-    body.invoice-paper-ready .summary-grid {
-        grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
-        margin-bottom: 1.9mm;
-    }
-
-    body.invoice-paper-ready .summary-table th,
-    body.invoice-paper-ready .summary-table td {
-        line-height: 1.12;
-    }
-
-    body.invoice-paper-ready .reference-table td,
-    body.invoice-paper-ready .summary-table td,
-    body.invoice-paper-ready .summary-label,
-    body.invoice-paper-ready .summary-value,
-    body.invoice-paper-ready .terms-content,
-    body.invoice-paper-ready .signature-line {
-        font-weight: 700;
-        color: #000;
-    }
-
-    body.invoice-paper-ready .payment-table .summary-label {
-        width: 52%;
-        font-size: calc(9px * var(--invoice-print-scale, 1));
-    }
-
-    body.invoice-paper-ready .payment-table .summary-value {
-        width: 48%;
-    }
-
-    body.invoice-paper-ready .invoice-summary-table .summary-label {
-        width: 81%;
-    }
-
-    body.invoice-paper-ready .invoice-summary-table .summary-value {
-        width: 19%;
-    }
-
-    body.invoice-paper-ready .invoice-summary-table .summary-sub {
-        margin-inline-start: 0.4mm;
-        font-size: calc(7.2px * var(--invoice-print-scale, 1));
-    }
-
-    body.invoice-paper-ready .terms-box {
-        margin-bottom: 1.75mm;
-        padding: 1.05mm 1.35mm;
-    }
-
-    body.invoice-paper-ready .terms-title {
-        margin-bottom: 0.3mm;
-        font-size: calc(9px * var(--invoice-print-scale, 1));
-    }
-
-    body.invoice-paper-ready .terms-content {
-        font-size: calc(8.5px * var(--invoice-print-scale, 1));
-        line-height: 1.24;
-        overflow-wrap: anywhere;
-    }
-
-    body.invoice-paper-ready .signatures {
-        font-size: calc(9.5px * var(--invoice-print-scale, 1));
-    }
-
-    body.invoice-paper-ready .signature-label {
-        margin-bottom: 1.15mm;
-    }
-
-    body.invoice-paper-ready .signature-line {
-        min-height: 6.1mm;
-        padding-top: 2mm;
-    }
-
+    /* ── منطقة التذييل (العنوان/الهاتف عند "مع تذييل") ── */
     .micro-footer {
-        margin-top: auto;
-        padding-top: 2.5mm;
+        width: 100%;
+        padding-top: 1.5mm;
         border-top: 1px solid var(--line-color);
         display: flex;
         justify-content: space-between;
@@ -588,38 +430,45 @@
         display: none !important;
     }
 
+    /* ─────────────────────────────────────────────────────────
+       شاشة: إظهار الورقة كاملة (مع حدود المناطق كمرجع بصري)
+    ───────────────────────────────────────────────────────── */
     @media screen {
         body {
-            padding: 8px 0 20px;
+            padding: 18px 0 40px;
             background: var(--screen-bg);
         }
 
         .page {
-            padding: 7mm;
-            box-shadow: 0 0 0 1px var(--screen-outline);
+            box-shadow: 0 6px 30px rgba(0, 0, 0, 0.45);
         }
 
-        body.invoice-paper-ready .page {
-            padding: 0;
+        /* خط مرجعي خفيف يوضّح حدّ منطقتي الترويسة والتذييل في المعاينة */
+        .zone-header {
+            border-bottom: 1px dashed rgba(239, 68, 68, 0.35);
+        }
+
+        .zone-footer {
+            border-top: 1px dashed rgba(239, 68, 68, 0.35);
         }
     }
 
     @media print {
         html,
         body {
-            font-size: var(--invoice-print-font-size);
             background: #fff;
         }
 
         .page {
             width: auto;
-            min-height: auto;
-            padding: 0;
+            min-height: var(--page-h);
             box-shadow: none;
         }
 
-        body.invoice-paper-ready .page {
-            padding: 0;
+        /* لا حدود مرجعية في الطباعة */
+        .zone-header,
+        .zone-footer {
+            border: 0 !important;
         }
     }
 </style>
