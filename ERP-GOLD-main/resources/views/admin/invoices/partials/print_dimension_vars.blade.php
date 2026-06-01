@@ -17,6 +17,9 @@
     // content area down enough to spill onto a second physical page. Skip the
     // @page override in that mode and let the host template's rule win.
     $skipPageMargin = ! empty($bgImageUrl) || ! empty($compactStandalonePrint);
+    // A5 يكبّر الخط بإعادة تدفّق عبر --invoice-print-scale (لا يفيض أفقياً).
+    // A4 يبقى على آلية zoom القديمة لتقليل المخاطرة.
+    $isA5 = $dimensionFormat === 'a5';
 @endphp
 <style>
     :root {
@@ -28,6 +31,9 @@
         --invoice-footer-height: {{ $footerHeight }}mm;
         --invoice-content-offset-top: {{ $contentOffsetTop }}mm;
         --invoice-user-font-scale: {{ number_format($fontScale, 2) }};
+        @if($isA5)
+        --invoice-print-scale: {{ number_format($fontScale, 2) }};
+        @endif
     }
 
     @if(! $skipPageMargin)
@@ -36,7 +42,7 @@
     }
     @endif
 
-    @if(abs($fontScale - 1.0) > 0.001)
+    @if(! $isA5 && abs($fontScale - 1.0) > 0.001)
         .page-content { zoom: var(--invoice-user-font-scale); }
     @endif
 

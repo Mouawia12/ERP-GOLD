@@ -419,6 +419,8 @@
     </div>
     @endforeach
 
+    @include('admin.invoices.partials.print_autofit', ['bgImageUrl' => $bgImageUrl ?? null])
+
     @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice', 'bgImageUrl', 'bgScale'))
 </body>
 </html>

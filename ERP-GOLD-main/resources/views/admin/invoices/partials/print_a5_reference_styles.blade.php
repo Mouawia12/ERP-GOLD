@@ -1,4 +1,11 @@
 <style>
+    /*
+       --invoice-print-scale : مُضاعِف موحّد لكل أحجام الخطوط (افتراضي 1).
+       يُغذّى من إعداد المستخدم font_scale عبر print_dimension_vars، ويُقلَّص
+       تلقائياً عبر سكربت auto-fit إن تجاوز المحتوى صفحة A5 واحدة. تكبيره يُعيد
+       تدفّق الجدول (reflow) بدل تكبير الصورة (zoom) فلا يفيض أفقياً.
+       كل أحجام الخطوط أدناه مكتوبة كـ calc(<أرضية مقروءة> * var(--invoice-print-scale, 1)).
+    */
     @page {
         size: A5 {{ $printOrientation ?? 'portrait' }};
         margin: {{ !empty($compactStandalonePrint) ? '0' : '5mm' }};
@@ -34,13 +41,13 @@
         --page-bg: #fff;
         --screen-bg: #eef1f5;
         --screen-outline: #d8dce2;
-        --invoice-screen-font-size: 13px;
-        --invoice-print-font-size: 10px;
-        --item-font-size: 7.85px;
-        --summary-font-size: 7.85px;
-        --invoice-title-font-size: 14.4px;
-        --invoice-title-sub-font-size: 7.1px;
-        --invoice-meta-font-size: 8.4px;
+        --invoice-screen-font-size: calc(13px * var(--invoice-print-scale, 1));
+        --invoice-print-font-size: calc(11px * var(--invoice-print-scale, 1));
+        --item-font-size: calc(10px * var(--invoice-print-scale, 1));
+        --summary-font-size: calc(10px * var(--invoice-print-scale, 1));
+        --invoice-title-font-size: calc(17px * var(--invoice-print-scale, 1));
+        --invoice-title-sub-font-size: calc(8.5px * var(--invoice-print-scale, 1));
+        --invoice-meta-font-size: calc(10.5px * var(--invoice-print-scale, 1));
         --page-width: 138mm;
         --page-min-height: 198mm;
         --shell-width: 112mm;
@@ -63,9 +70,9 @@
     }
 
     body.invoice-template-compact {
-        --invoice-title-font-size: 13.2px;
-        --invoice-title-sub-font-size: 6.8px;
-        --invoice-meta-font-size: 7.8px;
+        --invoice-title-font-size: calc(15.5px * var(--invoice-print-scale, 1));
+        --invoice-title-sub-font-size: calc(8px * var(--invoice-print-scale, 1));
+        --invoice-meta-font-size: calc(9.8px * var(--invoice-print-scale, 1));
         --shell-width: 109mm;
         --qr-size: 18mm;
         --meta-width: 41mm;
@@ -75,9 +82,11 @@
     body.invoice-orientation-landscape {
         --page-width: 200mm;
         --page-min-height: 138mm;
-        --invoice-title-font-size: 14.2px;
-        --invoice-title-sub-font-size: 7px;
-        --invoice-meta-font-size: 8.3px;
+        --invoice-title-font-size: calc(17px * var(--invoice-print-scale, 1));
+        --invoice-title-sub-font-size: calc(8.5px * var(--invoice-print-scale, 1));
+        --invoice-meta-font-size: calc(10.5px * var(--invoice-print-scale, 1));
+        --item-font-size: calc(10.5px * var(--invoice-print-scale, 1));
+        --summary-font-size: calc(10.5px * var(--invoice-print-scale, 1));
         --shell-width: 172mm;
         --qr-size: 20mm;
         --meta-width: 54mm;
@@ -92,11 +101,11 @@
     }
 
     body.invoice-paper-ready {
-        --invoice-title-font-size: 15.2px;
-        --invoice-title-sub-font-size: 7.1px;
-        --invoice-meta-font-size: 8.8px;
-        --item-font-size: 8.45px;
-        --summary-font-size: 8.45px;
+        --invoice-title-font-size: calc(17px * var(--invoice-print-scale, 1));
+        --invoice-title-sub-font-size: calc(8.5px * var(--invoice-print-scale, 1));
+        --invoice-meta-font-size: calc(10.5px * var(--invoice-print-scale, 1));
+        --item-font-size: calc(10px * var(--invoice-print-scale, 1));
+        --summary-font-size: calc(10px * var(--invoice-print-scale, 1));
         --page-width: 210mm;
         --page-min-height: 148mm;
         --safe-print-width: 184mm;
@@ -181,7 +190,7 @@
         margin-bottom: 3mm;
         padding-bottom: 2mm;
         border-bottom: 1px solid var(--line-color);
-        font-size: 7.7px;
+        font-size: calc(9px * var(--invoice-print-scale, 1));
         line-height: 1.38;
     }
 
@@ -233,7 +242,7 @@
     }
 
     .qr-placeholder {
-        font-size: 6.2px;
+        font-size: calc(6.2px * var(--invoice-print-scale, 1));
         color: #666;
     }
 
@@ -334,13 +343,13 @@
     }
 
     .head-main {
-        font-size: 7.75px;
+        font-size: calc(9.5px * var(--invoice-print-scale, 1));
         font-weight: 700;
     }
 
     .head-sub {
         margin-top: 0.4mm;
-        font-size: 6.15px;
+        font-size: calc(7.5px * var(--invoice-print-scale, 1));
         color: #6b7280;
         direction: ltr;
     }
@@ -351,7 +360,7 @@
 
     .description-main {
         display: block;
-        font-size: 8.1px;
+        font-size: calc(10.5px * var(--invoice-print-scale, 1));
         font-weight: 700;
         line-height: 1.14;
     }
@@ -359,7 +368,7 @@
     .description-sub {
         display: block;
         margin-top: 0.4mm;
-        font-size: 6.35px;
+        font-size: calc(8px * var(--invoice-print-scale, 1));
         line-height: 1.08;
     }
 
@@ -378,7 +387,7 @@
     .summary-sub {
         display: inline;
         margin-inline-start: 0.45mm;
-        font-size: 5.9px;
+        font-size: calc(7.2px * var(--invoice-print-scale, 1));
         line-height: 1;
         color: #6b7280;
         direction: ltr;
@@ -393,7 +402,7 @@
 
     .payment-table .summary-label {
         width: 56%;
-        font-size: 7.2px;
+        font-size: calc(9px * var(--invoice-print-scale, 1));
     }
 
     .payment-table .summary-value {
@@ -416,12 +425,12 @@
 
     .terms-title {
         margin-bottom: 0.35mm;
-        font-size: 7.45px;
+        font-size: calc(9px * var(--invoice-print-scale, 1));
         font-weight: 700;
     }
 
     .terms-content {
-        font-size: 6.8px;
+        font-size: calc(8.5px * var(--invoice-print-scale, 1));
         line-height: 1.28;
         white-space: normal;
         max-height: none;
@@ -434,7 +443,7 @@
         grid-template-columns: 1fr 1fr;
         gap: var(--signature-gap);
         margin-top: var(--signature-margin-top);
-        font-size: 7.7px;
+        font-size: calc(9.5px * var(--invoice-print-scale, 1));
     }
 
     .signature-box {
@@ -480,14 +489,14 @@
     }
 
     body.invoice-paper-ready .description-main {
-        font-size: 8.6px;
+        font-size: calc(10.5px * var(--invoice-print-scale, 1));
         line-height: 1.1;
         font-weight: 700;
     }
 
     body.invoice-paper-ready .description-sub {
         margin-top: 0.25mm;
-        font-size: 6.65px;
+        font-size: calc(8px * var(--invoice-print-scale, 1));
         line-height: 1.08;
         font-weight: 600;
         color: #000;
@@ -515,7 +524,7 @@
 
     body.invoice-paper-ready .payment-table .summary-label {
         width: 52%;
-        font-size: 7.75px;
+        font-size: calc(9px * var(--invoice-print-scale, 1));
     }
 
     body.invoice-paper-ready .payment-table .summary-value {
@@ -532,7 +541,7 @@
 
     body.invoice-paper-ready .invoice-summary-table .summary-sub {
         margin-inline-start: 0.4mm;
-        font-size: 5.95px;
+        font-size: calc(7.2px * var(--invoice-print-scale, 1));
     }
 
     body.invoice-paper-ready .terms-box {
@@ -542,17 +551,17 @@
 
     body.invoice-paper-ready .terms-title {
         margin-bottom: 0.3mm;
-        font-size: 7.5px;
+        font-size: calc(9px * var(--invoice-print-scale, 1));
     }
 
     body.invoice-paper-ready .terms-content {
-        font-size: 6.8px;
+        font-size: calc(8.5px * var(--invoice-print-scale, 1));
         line-height: 1.24;
         overflow-wrap: anywhere;
     }
 
     body.invoice-paper-ready .signatures {
-        font-size: 7.95px;
+        font-size: calc(9.5px * var(--invoice-print-scale, 1));
     }
 
     body.invoice-paper-ready .signature-label {
@@ -571,7 +580,7 @@
         display: flex;
         justify-content: space-between;
         gap: 3mm;
-        font-size: 7px;
+        font-size: calc(8.5px * var(--invoice-print-scale, 1));
         line-height: 1.26;
     }
 

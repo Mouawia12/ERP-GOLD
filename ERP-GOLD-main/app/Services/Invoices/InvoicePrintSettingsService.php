@@ -281,7 +281,10 @@ class InvoicePrintSettingsService
 
     private function defaultOrientation(string $format, bool $showHeader, bool $showFooter): string
     {
-        if ($format === self::FORMAT_A5 && ! $showHeader && ! $showFooter) {
+        // جدول الذهب (10 أعمدة) لا يكون مقروءاً على عرض A5 الطولي (148مم)؛
+        // العرضي يعطي 210مم. لذا الافتراضي لـ A5 = عرضي. يبقى المستخدم قادراً على
+        // التبديل للطولي من شريط الطباعة وتُحفظ تفضيلاته.
+        if ($format === self::FORMAT_A5) {
             return self::ORIENTATION_LANDSCAPE;
         }
 
