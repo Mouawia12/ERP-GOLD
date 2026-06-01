@@ -96,13 +96,21 @@ class InvoicePrintSettingsService
         $userSettings = $this->userSettings();
         $requestedFormat = $allowRequestOverride ? request()->query('paper') : null;
         $requestedOrientation = $allowRequestOverride ? request()->query('orientation') : null;
+        // تجاوز الترويسة/التذييل لكل طباعة عبر الرابط (?header=0/1&footer=0/1) —
+        // يستخدمه شريط الطباعة في الأزرار الأربعة (مع/بدون) دون حفظ تفضيل دائم.
+        $requestedHeader = $allowRequestOverride ? request()->query('header') : null;
+        $requestedFooter = $allowRequestOverride ? request()->query('footer') : null;
         $availableFormats = $this->availableFormats();
         $availableOrientations = array_keys($this->availableOrientations());
         $format = in_array($requestedFormat, $availableFormats, true)
             ? $requestedFormat
             : $this->storedFormat($userSettings);
-        $showHeader = $this->storedShowHeader($userSettings);
-        $showFooter = $this->storedShowFooter($userSettings);
+        $showHeader = $requestedHeader !== null
+            ? ($requestedHeader === '1')
+            : $this->storedShowHeader($userSettings);
+        $showFooter = $requestedFooter !== null
+            ? ($requestedFooter === '1')
+            : $this->storedShowFooter($userSettings);
         $template = $this->storedTemplate($userSettings);
         $storedOrientation = $this->storedOrientation($userSettings);
         $availableTemplates = array_keys($this->availableTemplates());

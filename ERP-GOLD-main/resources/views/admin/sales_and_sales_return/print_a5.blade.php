@@ -391,6 +391,8 @@
     </div>
     @endforeach
 
+    @include('admin.invoices.partials.print_autofit')
+
     @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice'))
 </body>
 </html>

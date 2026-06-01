@@ -88,11 +88,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>{{ $documentTitle }} {{ $invoice->bill_number }}</title>
     <style>
-        /* المناطق الثابتة لـ A4 طولي: هوامش @page تحجز 40مم علوي و25مم سفلي على كل
-           صفحة. الترويسة/التذييل عند "مع" تُرسم فيها عبر position:fixed فتتكرر. */
+        /* نموذج المناطق الكتلية الثابتة لـ A4 طولي: كتلة ترويسة 40مم وكتلة تذييل 25مم
+           في تدفّق الصفحة (إزاحة مستقلة عن هوامش المتصفح). @page margin 0. */
         @page {
             size: A4 portrait;
-            margin: 40mm 10mm 25mm;
+            margin: 0;
         }
 
         @font-face {
@@ -172,22 +172,27 @@
 
         .page {
             position: relative;
+            width: 210mm;
+            margin: 0 auto;
+            padding: 0 10mm;
             background: var(--sheet-background);
         }
 
-        .page-content { min-width: 0; }
+        .page-content { min-width: 0; padding: 3mm 0; }
 
         .running-header {
             box-sizing: border-box;
-            width: 100%;
             height: 40mm;
             overflow: hidden;
+            padding-top: 4mm;
         }
         .running-footer {
             box-sizing: border-box;
-            width: 100%;
             height: 25mm;
             overflow: hidden;
+            display: flex;
+            align-items: flex-end;
+            padding-bottom: 4mm;
         }
         .running-footer .page-footer { margin: 0; width: 100%; }
 
@@ -369,27 +374,12 @@
         @media screen {
             body { padding: 18px 0 40px; background: #3f4550; }
             .page {
-                width: 210mm;
-                margin: 0 auto;
                 min-height: 297mm;
-                padding: 40mm 10mm 25mm;
+                margin: 0 auto 18px;
                 box-shadow: 0 6px 30px rgba(0, 0, 0, 0.45);
             }
-            .running-header {
-                position: absolute;
-                top: 0; left: 0; right: 0;
-                width: auto;
-                padding: 4mm 10mm 0;
-                border-bottom: 1px dashed rgba(239, 68, 68, 0.35);
-            }
-            .running-footer {
-                position: absolute;
-                bottom: 0; left: 0; right: 0;
-                width: auto;
-                padding: 0 10mm 4mm;
-                border-top: 1px dashed rgba(239, 68, 68, 0.35);
-                display: flex; align-items: flex-end;
-            }
+            .running-header { border-bottom: 1px dashed rgba(239, 68, 68, 0.35); }
+            .running-footer { border-top: 1px dashed rgba(239, 68, 68, 0.35); }
         }
 
         body.invoice-template-compact .items-table td, body.invoice-template-compact .items-table th,
@@ -401,18 +391,7 @@
 
         @media print {
             html, body { background: #fff; font-size: var(--invoice-print-font-size); height: auto; }
-            .page { padding: 0; box-shadow: none; overflow: visible; }
-            .running-header {
-                position: fixed;
-                top: 0; left: 0; right: 0;
-                padding: 4mm 10mm 0;
-            }
-            .running-footer {
-                position: fixed;
-                bottom: 0; left: 0; right: 0;
-                padding: 0 10mm 4mm;
-                display: flex; align-items: flex-end;
-            }
+            .page { width: auto; box-shadow: none; overflow: visible; }
             .items-table tr,
             .totals-table tr,
             .payment-table tr,

@@ -1,37 +1,38 @@
-{{-- shrink-to-fit: يضمن بقاء كل صفحة ضمن ارتفاع الورقة (مع المناطق الثابتة).
-     يقلّص --invoice-print-scale فقط عند الفيض (بأرضية 0.75) ولا يكبّر أبداً، فالتكبير
-     اليدوي (font_scale) يبقى آمناً ولا ينزل المحتوى لصفحة ثانية أو يتداخل مع المناطق. --}}
+{{-- إجبار صفحة واحدة: يقيس ارتفاع محتوى الفاتورة مقابل الشريط الأوسط المتاح
+     (ارتفاع الورقة − منطقة الترويسة − منطقة التذييل) ويُصغّر --invoice-print-scale
+     تدريجياً حتى يتسع في صفحة واحدة. لا يكبّر أبداً. يخص A5 (خطوطه مبنية على المقياس). --}}
 <script>
 (function () {
     'use strict';
-    var FLOOR = 0.75;
     var MM_TO_PX = 96 / 25.4;
     var root = document.documentElement;
-    var baseScale = parseFloat(getComputedStyle(root).getPropertyValue('--invoice-print-scale')) || 1;
+    var base = parseFloat(getComputedStyle(root).getPropertyValue('--invoice-print-scale')) || 1;
+    var FLOOR = 0.55;
 
-    function pageHeightPx() {
+    function bandPx() {
         var b = document.body;
-        // A5 أفقي = ارتفاع 148مم، A4 طولي = ارتفاع 297مم
-        var hMm = b.classList.contains('invoice-print-format-a4') ? 297 : 148;
-        return hMm * MM_TO_PX;
+        // الشريط الأوسط المتاح للمحتوى (مطروحاً منه منطقتا الترويسة والتذييل)
+        var mm = b.classList.contains('invoice-print-format-a4') ? (297 - 40 - 25) : (148 - 36 - 20);
+        return mm * MM_TO_PX;
     }
 
     function fit() {
-        var pages = document.querySelectorAll('.page');
-        if (!pages.length) return;
-        /* القياس دائماً من المقياس الأساسي (إعداد المستخدم) لتجنّب التراكم */
-        root.style.setProperty('--invoice-print-scale', baseScale);
-        var target = pageHeightPx();
-        var worst = 1;
-        pages.forEach(function (p) {
-            var h = p.scrollHeight;
-            if (h > target + 2) {
-                var f = target / h;
-                if (f < worst) worst = f;
-            }
-        });
-        if (worst < 1) {
-            root.style.setProperty('--invoice-print-scale', Math.max(FLOOR, baseScale * worst));
+        var contents = document.querySelectorAll('.page-content');
+        if (!contents.length) return;
+        var band = bandPx();
+        var cur = base;
+        root.style.setProperty('--invoice-print-scale', cur);
+
+        // تكرار بسيط: قِس الأطول، صغّر بالنسبة، أعد القياس (يتقارب بسرعة)
+        for (var i = 0; i < 4; i++) {
+            var maxH = 0;
+            contents.forEach(function (c) {
+                if (c.scrollHeight > maxH) maxH = c.scrollHeight;
+            });
+            if (maxH <= band + 2) break;
+            cur = Math.max(FLOOR, cur * (band / maxH) * 0.985);
+            root.style.setProperty('--invoice-print-scale', cur);
+            if (cur <= FLOOR) break;
         }
     }
 

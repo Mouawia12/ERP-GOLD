@@ -1,16 +1,17 @@
 <style>
     /*
-       A5 أفقي بنموذج هوامش @page الثابتة (نفس منطق A4):
-       هامش @page يحجز 36مم علوي و20مم سفلي على كل صفحة (مطبوعة أو لا)، فينساب
-       المحتوى في الشريط الأوسط (~92مم) وينتقل لصفحة جديدة تلقائياً عند الطول — بلا
-       صفحة فارغة زائدة وبلا قص. الترويسة/التذييل عند "مع" تُرسم في المناطق عبر
-       position:fixed فتتكرر في كل صفحة؛ عند "بدون" تبقى المناطق فارغة فينطبق المحتوى
-       على الفراغ الأوسط من الورق المطبوع مسبقاً.
-       --invoice-print-scale : مُضاعِف موحّد لكل الخطوط (افتراضي 1).
+       A5 أفقي — نموذج المناطق الكتلية الثابتة (block fixed-zones):
+       الصفحة = كتلة ترويسة بارتفاع ثابت 36مم + المحتوى + كتلة تذييل 20مم.
+       المناطق كتل حقيقية في تدفّق الصفحة (ليست @page margin) فتُضمن إزاحة المحتوى
+       36مم من الأعلى مهما كانت إعدادات هوامش المتصفح. لا يُفرض ارتفاع الصفحة الكامل
+       (يتجنّب الصفحة الفارغة الزائدة)، وسكربت autofit يُصغّر الخط حتى يتسع المحتوى في
+       الشريط الأوسط (~92مم) فتبقى صفحة واحدة. المناطق محجوزة دائماً بنفس الارتفاع سواء
+       "مع ترويسة" (مملوءة) أو "بدون" (فارغة) → موضع الجدول ثابت لا يتغيّر.
+       @page margin: 0 ليطابق المحتوى حافة الورق المطبوع مسبقاً بدقة.
     */
     @page {
         size: A5 landscape;
-        margin: 36mm 7mm 20mm;
+        margin: 0;
     }
 
     @font-face {
@@ -46,6 +47,8 @@
         /* ── المناطق الثابتة (A5) ── */
         --zone-header: 36mm;
         --zone-footer: 20mm;
+        --page-w: 210mm;
+        --page-h: 148mm;
         --side-pad: 7mm;
 
         /* ── الخطوط (أرضيات مقروءة × المقياس) ── */
@@ -88,29 +91,33 @@
     }
 
     /* ─────────────────────────────────────────────────────────
-       الإطار: المحتوى ينساب في شريط @page؛ المناطق تُموضَع بـ fixed
+       الإطار: ثلاث كتل رأسية (ترويسة ثابتة / محتوى / تذييل ثابت)
     ───────────────────────────────────────────────────────── */
     .page {
         position: relative;
+        width: var(--page-w);
+        margin: 0 auto;
+        padding: 0 var(--side-pad);
         background: var(--page-bg);
     }
 
-    .page-content {
-        min-width: 0;
-    }
-
     .zone-header {
-        box-sizing: border-box;
-        width: 100%;
         height: var(--zone-header);
         overflow: hidden;
+        padding-top: 2.5mm;
     }
 
     .zone-footer {
-        box-sizing: border-box;
-        width: 100%;
         height: var(--zone-footer);
         overflow: hidden;
+        display: flex;
+        align-items: flex-end;
+        padding-bottom: 2mm;
+    }
+
+    .page-content {
+        padding: 1.5mm 0;
+        min-width: 0;
     }
 
     .invoice-shell {
@@ -418,7 +425,7 @@
     }
 
     /* ─────────────────────────────────────────────────────────
-       شاشة: محاكاة الورقة بالهوامش (المناطق absolute داخل .page)
+       شاشة: محاكاة الورقة بارتفاعها الكامل + خطوط مرجعية للمناطق
     ───────────────────────────────────────────────────────── */
     @media screen {
         body {
@@ -427,35 +434,22 @@
         }
 
         .page {
-            width: 210mm;
-            min-height: 148mm;
+            min-height: var(--page-h);
             margin: 0 auto 18px;
-            padding: var(--zone-header) var(--side-pad) var(--zone-footer);
-            background: #fff;
             box-shadow: 0 6px 30px rgba(0, 0, 0, 0.45);
         }
 
         .zone-header {
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            width: auto;
-            padding: 2.5mm var(--side-pad) 0;
             border-bottom: 1px dashed rgba(239, 68, 68, 0.35);
         }
 
         .zone-footer {
-            position: absolute;
-            bottom: 0; left: 0; right: 0;
-            width: auto;
-            padding: 0 var(--side-pad) 2.5mm;
             border-top: 1px dashed rgba(239, 68, 68, 0.35);
-            display: flex;
-            align-items: flex-end;
         }
     }
 
     /* ─────────────────────────────────────────────────────────
-       طباعة: هوامش @page تحجز المناطق؛ الترويسة/التذييل fixed تتكرر
+       طباعة: لا ارتفاع مفروض (يتجنّب الصفحة الفارغة). المناطق كتل ثابتة.
     ───────────────────────────────────────────────────────── */
     @media print {
         html,
@@ -464,21 +458,8 @@
         }
 
         .page {
-            padding: 0;
-        }
-
-        .zone-header {
-            position: fixed;
-            top: 0; left: 0; right: 0;
-            padding: 2.5mm var(--side-pad) 0;
-        }
-
-        .zone-footer {
-            position: fixed;
-            bottom: 0; left: 0; right: 0;
-            padding: 0 var(--side-pad) 2.5mm;
-            display: flex;
-            align-items: flex-end;
+            width: auto;
+            box-shadow: none;
         }
     }
 </style>
