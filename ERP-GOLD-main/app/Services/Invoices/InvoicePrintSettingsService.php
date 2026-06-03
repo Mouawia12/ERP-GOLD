@@ -96,13 +96,21 @@ class InvoicePrintSettingsService
         $userSettings = $this->userSettings();
         $requestedFormat = $allowRequestOverride ? request()->query('paper') : null;
         $requestedOrientation = $allowRequestOverride ? request()->query('orientation') : null;
+        // تجاوز الترويسة/التذييل لكل طباعة عبر الرابط (?header=0/1&footer=0/1) —
+        // يستخدمه شريط الطباعة في الأزرار الأربعة (مع/بدون) دون حفظ تفضيل دائم.
+        $requestedHeader = $allowRequestOverride ? request()->query('header') : null;
+        $requestedFooter = $allowRequestOverride ? request()->query('footer') : null;
         $availableFormats = $this->availableFormats();
         $availableOrientations = array_keys($this->availableOrientations());
         $format = in_array($requestedFormat, $availableFormats, true)
             ? $requestedFormat
             : $this->storedFormat($userSettings);
-        $showHeader = $this->storedShowHeader($userSettings);
-        $showFooter = $this->storedShowFooter($userSettings);
+        $showHeader = $requestedHeader !== null
+            ? ($requestedHeader === '1')
+            : $this->storedShowHeader($userSettings);
+        $showFooter = $requestedFooter !== null
+            ? ($requestedFooter === '1')
+            : $this->storedShowFooter($userSettings);
         $template = $this->storedTemplate($userSettings);
         $storedOrientation = $this->storedOrientation($userSettings);
         $availableTemplates = array_keys($this->availableTemplates());
@@ -281,7 +289,10 @@ class InvoicePrintSettingsService
 
     private function defaultOrientation(string $format, bool $showHeader, bool $showFooter): string
     {
-        if ($format === self::FORMAT_A5 && ! $showHeader && ! $showFooter) {
+        // جدول الذهب (10 أعمدة) لا يكون مقروءاً على عرض A5 الطولي (148مم)؛
+        // العرضي يعطي 210مم. لذا الافتراضي لـ A5 = عرضي. يبقى المستخدم قادراً على
+        // التبديل للطولي من شريط الطباعة وتُحفظ تفضيلاته.
+        if ($format === self::FORMAT_A5) {
             return self::ORIENTATION_LANDSCAPE;
         }
 

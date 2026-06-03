@@ -83,40 +83,16 @@
         $whatsappUrl = ! empty($invoice->client_phone)
             ? route('send.invoice.whatsapp', $invoice->id)
             : null;
-        $bgService  = app(\App\Services\Invoices\InvoiceBackgroundService::class)
-            ->forBranch((int) $invoice->branch_id)
-            ->forContext(
-                \App\Services\Invoices\InvoiceBackgroundService::detectInvoiceTypeFromInvoice($invoice),
-                \App\Services\Invoices\InvoiceBackgroundService::FORMAT_A4
-            );
-        $bgImageUrl = $bgService->currentImageUrl();
-        $bgScale      = $bgService->currentScale();
-        $bgOffsetX    = $bgService->currentOffsetX();
-        $bgContentTop    = $bgService->currentContentTop();
-        $bgContentBottom = $bgService->currentContentBottom();
-        $bgHideHeader    = $bgService->isHideHeader();
-        $bgHideFooter    = $bgService->isHideFooter();
-        $bgContentWidth  = $bgService->currentContentWidth();
-        $bgContentScale  = $bgService->currentContentScale();
-        $bgFontScale     = $bgService->currentFontScale();
-        $bgPaperSize      = $bgService->currentPaperSize();
-        $bgPaperOrientation = $bgService->currentPaperOrientation();
-        $bgRenderMode     = $bgService->currentRenderMode();
-        if ($bgHideHeader && $bgImageUrl) {
-            $showHeader = false;
-        }
-        if ($bgHideFooter && $bgImageUrl) {
-            $showFooter = false;
-        }
-        $compactStandalonePrint = ! $showHeader && ! $showFooter;
     @endphp
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>{{ $documentTitle }} {{ $invoice->bill_number }}</title>
     <style>
+        /* نموذج المناطق الكتلية الثابتة لـ A4 طولي: كتلة ترويسة 40مم وكتلة تذييل 25مم
+           في تدفّق الصفحة (إزاحة مستقلة عن هوامش المتصفح). @page margin 0. */
         @page {
-            size: A4 {{ ($printSettings['orientation'] ?? 'portrait') === 'landscape' ? 'landscape' : 'portrait' }};
-            margin: {{ $compactStandalonePrint ? '6mm 8mm' : '8mm' }};
+            size: A4 portrait;
+            margin: 0;
         }
 
         @font-face {
@@ -195,17 +171,30 @@
         table, th, td { font-size: inherit; }
 
         .page {
-            width: 194mm;
-            max-width: 100%;
-            min-height: 267mm;
+            position: relative;
+            width: 210mm;
             margin: 0 auto;
-            display: flex;
-            flex-direction: column;
+            padding: 0 10mm;
             background: var(--sheet-background);
-            padding: var(--page-padding-block-start) var(--page-padding-inline) var(--page-padding-block-end);
         }
 
-        .page-content { flex: 1 1 auto; min-width: 0; }
+        .page-content { min-width: 0; padding: 3mm 0; }
+
+        .running-header {
+            box-sizing: border-box;
+            height: 40mm;
+            overflow: hidden;
+            padding-top: 4mm;
+        }
+        .running-footer {
+            box-sizing: border-box;
+            height: 25mm;
+            overflow: hidden;
+            display: flex;
+            align-items: flex-end;
+            padding-bottom: 4mm;
+        }
+        .running-footer .page-footer { margin: 0; width: 100%; }
 
         .ltr { direction: ltr; unicode-bidi: embed; display: inline-block; }
 
@@ -383,8 +372,14 @@
         .no-print { display: none !important; }
 
         @media screen {
-            body { padding: 8px 0 18px; background: var(--screen-background); }
-            .page { width: min(194mm, calc(100vw - 24px)); box-shadow: 0 0 0 1px var(--screen-outline); }
+            body { padding: 18px 0 40px; background: #3f4550; }
+            .page {
+                min-height: 297mm;
+                margin: 0 auto 18px;
+                box-shadow: 0 6px 30px rgba(0, 0, 0, 0.45);
+            }
+            .running-header { border-bottom: 1px dashed rgba(239, 68, 68, 0.35); }
+            .running-footer { border-top: 1px dashed rgba(239, 68, 68, 0.35); }
         }
 
         body.invoice-template-compact .items-table td, body.invoice-template-compact .items-table th,
@@ -396,7 +391,7 @@
 
         @media print {
             html, body { background: #fff; font-size: var(--invoice-print-font-size); height: auto; }
-            .page { width: auto; max-width: none; min-height: 0; padding: 0; box-shadow: none; overflow: visible; }
+            .page { width: auto; box-shadow: none; overflow: visible; }
             .items-table tr,
             .totals-table tr,
             .payment-table tr,
@@ -404,17 +399,10 @@
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
         }
-
-        body.invoice-paper-ready .page-footer { display: none; }
-        @media screen {
-            body.invoice-paper-ready .page { padding: 6mm 8mm; min-height: auto; }
-        }
     </style>
     @include('admin.invoices.partials.print_dimension_vars', [
         'printSettings' => $printSettings,
         'dimensionFormat' => 'a4',
-        'compactStandalonePrint' => $compactStandalonePrint ?? false,
-        'bgImageUrl' => $bgImageUrl ?? null,
     ])
 </head>
 <body
@@ -422,11 +410,10 @@
     data-print-template="{{ $printTemplate }}"
     data-show-header="{{ $showHeader ? '1' : '0' }}"
     data-show-footer="{{ $showFooter ? '1' : '0' }}"
-    class="invoice-print-format-a4 invoice-template-{{ $printTemplate }}{{ $compactStandalonePrint ? ' invoice-paper-ready' : '' }}"
+    class="invoice-print-format-a4 invoice-template-{{ $printTemplate }}"
 >
-@include('admin.invoices.partials.print_background', compact('bgImageUrl', 'bgScale', 'bgOffsetX', 'bgContentTop', 'bgContentBottom', 'bgContentWidth', 'bgContentScale', 'bgFontScale', 'bgHideHeader', 'bgHideFooter', 'bgPaperSize', 'bgPaperOrientation', 'bgRenderMode'))
     <div class="page">
-        <div class="page-content">
+        <div class="running-header">
             @if($showHeader)
                 <header class="invoice-header">
                     <section class="company-block company-ar">
@@ -457,10 +444,9 @@
                         <p class="company-line">Branch: {{ $branchNameEn }}</p>
                     </section>
                 </header>
-
-                <div class="invoice-rule"></div>
             @endif
-
+        </div>
+        <div class="page-content">
             <section class="invoice-head-meta">
                 <div class="{{ ! empty($invoice->zatcaQrCode) ? 'qr-box' : 'qr-box is-placeholder' }}">
                     @if(! empty($invoice->zatcaQrCode))
@@ -638,15 +624,16 @@
                 </tr>
             </table>
         </div>
-
-        @if($showFooter)
-            <footer class="page-footer">
-                <div class="footer-right">{{ $branchAddressAr }}</div>
-                <div class="footer-left">{{ $branchAddressEn }}</div>
-            </footer>
-        @endif
+        <div class="running-footer">
+            @if($showFooter)
+                <footer class="page-footer">
+                    <div class="footer-right">{{ $branchAddressAr }}</div>
+                    <div class="footer-left">{{ $branchAddressEn }}</div>
+                </footer>
+            @endif
+        </div>
     </div>
 
-    @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice', 'bgImageUrl', 'bgScale'))
+    @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice'))
 </body>
 </html>
