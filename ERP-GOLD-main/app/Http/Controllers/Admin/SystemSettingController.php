@@ -218,12 +218,12 @@ class SystemSettingController extends Controller
 
         $enabled = (bool) $validated['enabled'];
 
-        // ملاحظة: نظام المناطق الثابتة الجديد لا يعتمد على ميزة الخلفية (المخفية)،
-        // لذا نضبط فقط رؤية الترويسة/التذييل في إعدادات الطباعة.
         if ($validated['flag'] === 'show_header') {
             $this->invoicePrintSettingsService->setShowHeader($enabled);
+            $this->invoiceBackgroundForRequest($request)->setHideHeader(! $enabled);
         } else {
             $this->invoicePrintSettingsService->setShowFooter($enabled);
+            $this->invoiceBackgroundForRequest($request)->setHideFooter(! $enabled);
         }
 
         return response()->json([

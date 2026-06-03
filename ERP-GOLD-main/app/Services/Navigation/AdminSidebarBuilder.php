@@ -157,6 +157,12 @@ class AdminSidebarBuilder
                         'active_patterns' => ['admin.system-settings.invoice-print.*'],
                     ],
                     [
+                        'label' => 'خلفية الفاتورة (ورق الشركة)',
+                        'route' => 'admin.system-settings.invoice-background.edit',
+                        'permission' => 'employee.system_settings.show',
+                        'active_patterns' => ['admin.system-settings.invoice-background.*'],
+                    ],
+                    [
                         'label' => 'إعدادات الشركة والشعار',
                         'route' => 'admin.system-settings.company.edit',
                         'permission' => 'employee.system_settings.show',

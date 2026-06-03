@@ -60,6 +60,32 @@
             ? route('send.invoice.whatsapp', $invoice->id)
             : null;
         $branchAddressAr = $branch->short_address ?: $branch->full_address ?: '---';
+        $bgService  = app(\App\Services\Invoices\InvoiceBackgroundService::class)
+            ->forBranch((int) $invoice->branch_id)
+            ->forContext(
+                \App\Services\Invoices\InvoiceBackgroundService::detectInvoiceTypeFromInvoice($invoice),
+                \App\Services\Invoices\InvoiceBackgroundService::FORMAT_A5
+            );
+        $bgImageUrl = $bgService->currentImageUrl();
+        $bgScale      = $bgService->currentScale();
+        $bgOffsetX    = $bgService->currentOffsetX();
+        $bgContentTop    = $bgService->currentContentTop();
+        $bgContentBottom = $bgService->currentContentBottom();
+        $bgHideHeader    = $bgService->isHideHeader();
+        $bgHideFooter    = $bgService->isHideFooter();
+        $bgContentWidth  = $bgService->currentContentWidth();
+        $bgContentScale  = $bgService->currentContentScale();
+        $bgFontScale     = $bgService->currentFontScale();
+        $bgPaperSize      = $bgService->currentPaperSize();
+        $bgPaperOrientation = $bgService->currentPaperOrientation();
+        $bgRenderMode     = $bgService->currentRenderMode();
+        if ($bgHideHeader && $bgImageUrl) {
+            $showHeader = false;
+        }
+        if ($bgHideFooter && $bgImageUrl) {
+            $showFooter = false;
+        }
+        $compactStandalonePrint = ! $showHeader && ! $showFooter;
     @endphp
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -68,6 +94,8 @@
     @include('admin.invoices.partials.print_dimension_vars', [
         'printSettings' => $printSettings,
         'dimensionFormat' => 'a5',
+        'compactStandalonePrint' => $compactStandalonePrint ?? false,
+        'bgImageUrl' => $bgImageUrl ?? null,
     ])
 </head>
 <body
@@ -75,25 +103,26 @@
     data-print-template="{{ $printTemplate }}"
     data-show-header="{{ $showHeader ? '1' : '0' }}"
     data-show-footer="{{ $showFooter ? '1' : '0' }}"
-    class="invoice-print-format-a5 invoice-template-{{ $printTemplate }}"
+    data-paper-orientation="{{ $printOrientation }}"
+    class="invoice-print-format-a5 invoice-template-{{ $printTemplate }} invoice-orientation-{{ $printOrientation }}{{ $compactStandalonePrint ? ' invoice-paper-ready' : '' }}"
 >
+@include('admin.invoices.partials.print_background', compact('bgImageUrl', 'bgScale', 'bgOffsetX', 'bgContentTop', 'bgContentBottom', 'bgContentWidth', 'bgContentScale', 'bgFontScale', 'bgHideHeader', 'bgHideFooter', 'bgPaperSize', 'bgPaperOrientation', 'bgRenderMode'))
     <div class="page">
-        <div class="zone-header">
-            @if($showHeader)
-                <section class="micro-header">
-                    <div class="micro-header-block">
-                        <span class="micro-header-title">{{ $companyNameAr }}</span>
-                        <span>الفرع: {{ $branchNameAr }}</span>
-                    </div>
-                    <div class="micro-header-block">
-                        <span>الرقم الضريبي: <span class="ltr">{{ $branch->tax_number ?: '---' }}</span></span>
-                        <span>السجل التجاري: <span class="ltr">{{ $branch->commercial_register ?: '---' }}</span></span>
-                    </div>
-                </section>
-            @endif
-        </div>
         <div class="page-content">
             <div class="invoice-shell">
+                @if($showHeader)
+                    <section class="micro-header">
+                        <div class="micro-header-block">
+                            <span class="micro-header-title">{{ $companyNameAr }}</span>
+                            <span>الفرع: {{ $branchNameAr }}</span>
+                        </div>
+                        <div class="micro-header-block">
+                            <span>الرقم الضريبي: <span class="ltr">{{ $branch->tax_number ?: '---' }}</span></span>
+                            <span>السجل التجاري: <span class="ltr">{{ $branch->commercial_register ?: '---' }}</span></span>
+                        </div>
+                    </section>
+                @endif
+
                 <section class="compact-head">
                     <div class="{{ ! empty($invoice->zatcaQrCode) ? 'compact-qr' : 'compact-qr is-placeholder' }}">
                         @if(! empty($invoice->zatcaQrCode))
@@ -273,21 +302,20 @@
                 </section>
             </div>
         </div>
-        <div class="zone-footer">
-            @if($showFooter)
-                <footer class="micro-footer">
-                    <div>{{ $branchAddressAr }}</div>
-                    <div class="ltr">{{ $branch->phone ?: '---' }}</div>
-                </footer>
-            @endif
-        </div>
+
+        @if($showFooter)
+            <footer class="micro-footer">
+                <div>{{ $branchAddressAr }}</div>
+                <div class="ltr">{{ $branch->phone ?: '---' }}</div>
+            </footer>
+        @endif
     </div>
 
     @foreach($continuationChunks as $chunkIndex => $chunk)
     <div class="page" style="page-break-before: always;">
         <div class="page-content">
             <div class="invoice-shell">
-                <div style="font-size:calc(9px * var(--invoice-print-scale, 1)); margin-bottom:2mm; padding-bottom:1.5mm; border-bottom:1px solid #d5d9df; display:flex; justify-content:space-between;">
+                <div style="font-size:7.5px; margin-bottom:2mm; padding-bottom:1.5mm; border-bottom:1px solid #d5d9df; display:flex; justify-content:space-between;">
                     <span>{{ $documentTitle }} — {{ $invoice->bill_number }}</span>
                     <span>صفحة {{ $chunkIndex + 2 }}</span>
                 </div>
@@ -340,8 +368,6 @@
     </div>
     @endforeach
 
-    @include('admin.invoices.partials.print_autofit')
-
-    @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice'))
+    @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice', 'bgImageUrl', 'bgScale'))
 </body>
 </html>

@@ -98,17 +98,40 @@
         $whatsappUrl = ! empty($invoice->client_phone)
             ? route('send.invoice.whatsapp', $invoice->id)
             : null;
+        $bgService  = app(\App\Services\Invoices\InvoiceBackgroundService::class)
+            ->forBranch((int) $invoice->branch_id)
+            ->forContext(
+                \App\Services\Invoices\InvoiceBackgroundService::detectInvoiceTypeFromInvoice($invoice),
+                \App\Services\Invoices\InvoiceBackgroundService::FORMAT_A4
+            );
+        $bgImageUrl = $bgService->currentImageUrl();
+        $bgScale      = $bgService->currentScale();
+        $bgOffsetX    = $bgService->currentOffsetX();
+        $bgContentTop    = $bgService->currentContentTop();
+        $bgContentBottom = $bgService->currentContentBottom();
+        $bgHideHeader    = $bgService->isHideHeader();
+        $bgHideFooter    = $bgService->isHideFooter();
+        $bgContentWidth  = $bgService->currentContentWidth();
+        $bgContentScale  = $bgService->currentContentScale();
+        $bgFontScale     = $bgService->currentFontScale();
+        $bgPaperSize      = $bgService->currentPaperSize();
+        $bgPaperOrientation = $bgService->currentPaperOrientation();
+        $bgRenderMode     = $bgService->currentRenderMode();
+        if ($bgHideHeader && $bgImageUrl) {
+            $showHeader = false;
+        }
+        if ($bgHideFooter && $bgImageUrl) {
+            $showFooter = false;
+        }
+        $compactStandalonePrint = ! $showHeader && ! $showFooter;
     @endphp
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>{{ $documentTitle }} {{ $invoice->bill_number }}</title>
     <style>
-        /* نموذج المناطق الكتلية الثابتة لـ A4 طولي: كتلة ترويسة 40مم وكتلة تذييل 25مم
-           في تدفّق الصفحة (تضمن إزاحة المحتوى مستقلة عن هوامش المتصفح). @page margin 0
-           ليطابق حافة الورق المطبوع مسبقاً. المناطق محجوزة دائماً بنفس الارتفاع. */
         @page {
-            size: A4 portrait;
-            margin: 0;
+            size: A4 {{ ($printSettings['orientation'] ?? 'portrait') === 'landscape' ? 'landscape' : 'portrait' }};
+            margin: {{ $compactStandalonePrint ? '6mm 8mm' : '8mm' }};
         }
 
         @font-face {
@@ -219,30 +242,8 @@
         .section-gap { margin-top: 8px; }
         .section-gap-sm { margin-top: 2px; }
 
-        .page {
-            position: relative;
-            width: 210mm;
-            margin: 0 auto;
-            padding: 0 10mm;
-            background: #fff;
-        }
-        .page-content { padding: 3mm 0; }
-
-        .running-header {
-            box-sizing: border-box;
-            height: 40mm;
-            overflow: hidden;
-            padding-top: 4mm;
-        }
-        .running-footer {
-            box-sizing: border-box;
-            height: 25mm;
-            overflow: hidden;
-            display: flex;
-            align-items: flex-end;
-            padding-bottom: 4mm;
-        }
-        .running-footer .footer { margin: 0; width: 100%; }
+        .page { display: flex; flex-direction: column; }
+        .page-content { flex: 1 1 auto; }
 
         .footer {
             border-top: 1px solid #555;
@@ -285,21 +286,23 @@
 
         @media screen {
             body {
-                background: #3f4550;
-                padding: 18px 0 40px;
+                background: #f3f4f6;
+                padding: 8px 0 18px;
             }
             .page {
-                min-height: 297mm;
-                margin: 0 auto 18px;
-                box-shadow: 0 6px 30px rgba(0, 0, 0, 0.45);
+                width: min(194mm, calc(100vw - 24px));
+                margin: 0 auto;
+                background: #fff;
+                box-shadow: 0 0 0 1px #d4d4d8;
+                padding: 8mm;
+                min-height: 290mm;
             }
-            .running-header { border-bottom: 1px dashed rgba(239, 68, 68, 0.35); }
-            .running-footer { border-top: 1px dashed rgba(239, 68, 68, 0.35); }
         }
 
         @media print {
-            html, body { background: #fff; font-size: 11px; height: auto; }
-            .page { width: auto; }
+            html, body { background: #fff; font-size: 11px; }
+            html, body { height: auto; }
+            .page { min-height: 0; }
             .page-content { page-break-inside: auto; }
             .items-table tr,
             .summary-table tr,
@@ -334,10 +337,16 @@
         body.invoice-template-modern .subtitle,
         body.invoice-template-modern .header-table .company-name { color: #0f172a; }
 
+        body.invoice-paper-ready .footer { display: none; }
+        @media screen {
+            body.invoice-paper-ready .page { padding: 6mm 8mm; min-height: auto; }
+        }
     </style>
     @include('admin.invoices.partials.print_dimension_vars', [
         'printSettings' => $printSettings,
         'dimensionFormat' => 'a4',
+        'compactStandalonePrint' => $compactStandalonePrint ?? false,
+        'bgImageUrl' => $bgImageUrl ?? null,
     ])
 </head>
 <body
@@ -345,49 +354,51 @@
     data-print-template="{{ $printTemplate }}"
     data-show-header="{{ $showHeader ? '1' : '0' }}"
     data-show-footer="{{ $showFooter ? '1' : '0' }}"
-    class="invoice-print-format-a4 invoice-template-{{ $printTemplate }}"
+    class="invoice-print-format-a4 invoice-template-{{ $printTemplate }}{{ $compactStandalonePrint ? ' invoice-paper-ready' : '' }}"
 >
+@include('admin.invoices.partials.print_background', compact('bgImageUrl', 'bgScale', 'bgOffsetX', 'bgContentTop', 'bgContentBottom', 'bgContentWidth', 'bgContentScale', 'bgFontScale', 'bgHideHeader', 'bgHideFooter', 'bgPaperSize', 'bgPaperOrientation', 'bgRenderMode'))
 <div class="page">
-    <div class="running-header">
-        @if($showHeader)
-        <table class="header-table">
-            <tr>
-                <td class="text-right" style="width: 33%;">
-                    <div class="block">
-                        <span class="company-name">{{ $companyNameAr }}</span><br>
-                        الرقم الضريبي: <span class="ltr">{{ $branch->tax_number ?: '---' }}</span><br>
-                        السجل التجاري: <span class="ltr">{{ $branch->commercial_register ?: '---' }}</span><br>
-                        @if(!empty($branch->license_number))
-                            رخصة المعادن: <span class="ltr">{{ $branch->license_number }}</span><br>
-                        @endif
-                        {{ $branchNameAr }}<br>
-                    </div>
-                </td>
-                <td class="text-center" style="width: 34%;">
-                    <div class="logo">
-                        @if(!empty($invoiceLogoUrl))
-                            <img src="{{ $invoiceLogoUrl }}" alt="Logo">
-                        @endif
-                    </div>
-                    <div class="title">{{ $documentTitle }}</div>
-                    <div class="subtitle">{{ $documentTitleEn }}</div>
-                </td>
-                <td class="text-left company-en" style="width: 33%;">
-                    <div class="block">
-                        <span class="company-name">{{ $companyNameEn }}</span><br>
-                        Tax Number: {{ $branch->tax_number ?: '---' }}<br>
-                        Commercial Registry: {{ $branch->commercial_register ?: '---' }}<br>
-                        @if(!empty($branch->license_number))
-                            Mineral License: {{ $branch->license_number }}<br>
-                        @endif
-                        {{ $branchNameEn }}<br>
-                    </div>
-                </td>
-            </tr>
-        </table>
-        @endif
-    </div>
-    <div class="page-content">
+<div class="page-content">
+
+@if($showHeader)
+    <table class="header-table">
+        <tr>
+            <td class="text-right" style="width: 33%;">
+                <div class="block">
+                    <span class="company-name">{{ $companyNameAr }}</span><br>
+                    الرقم الضريبي: <span class="ltr">{{ $branch->tax_number ?: '---' }}</span><br>
+                    السجل التجاري: <span class="ltr">{{ $branch->commercial_register ?: '---' }}</span><br>
+                    @if(!empty($branch->license_number))
+                        رخصة المعادن: <span class="ltr">{{ $branch->license_number }}</span><br>
+                    @endif
+                    {{ $branchNameAr }}<br>
+                </div>
+            </td>
+            <td class="text-center" style="width: 34%;">
+                <div class="logo">
+                    @if(!empty($invoiceLogoUrl))
+                        <img src="{{ $invoiceLogoUrl }}" alt="Logo">
+                    @endif
+                </div>
+                <div class="title">{{ $documentTitle }}</div>
+                <div class="subtitle">{{ $documentTitleEn }}</div>
+            </td>
+            <td class="text-left company-en" style="width: 33%;">
+                <div class="block">
+                    <span class="company-name">{{ $companyNameEn }}</span><br>
+                    Tax Number: {{ $branch->tax_number ?: '---' }}<br>
+                    Commercial Registry: {{ $branch->commercial_register ?: '---' }}<br>
+                    @if(!empty($branch->license_number))
+                        Mineral License: {{ $branch->license_number }}<br>
+                    @endif
+                    {{ $branchNameEn }}<br>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="hr"></div>
+@endif
 
 <table class="meta-grid">
     <tr>
@@ -580,21 +591,19 @@
     </tr>
 </table>
 
+</div>
+@if($showFooter)
+    <div class="footer">
+        <table>
+            <tr>
+                <td class="text-right">{{ $branchAddressAr }}</td>
+                <td class="text-left ltr">{{ $branchAddressEn }}</td>
+            </tr>
+        </table>
     </div>
-    <div class="running-footer">
-        @if($showFooter)
-            <div class="footer">
-                <table>
-                    <tr>
-                        <td class="text-right">{{ $branchAddressAr }}</td>
-                        <td class="text-left ltr">{{ $branchAddressEn }}</td>
-                    </tr>
-                </table>
-            </div>
-        @endif
-    </div>
+@endif
 </div>
 
-@include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice'))
+@include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice', 'bgImageUrl', 'bgScale'))
 </body>
 </html>
