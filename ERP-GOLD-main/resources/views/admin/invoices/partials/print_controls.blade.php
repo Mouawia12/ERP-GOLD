@@ -1,18 +1,6 @@
 @php
+    // المقاس ومع/بدون ترويسة يُضبطان من صفحة "إعدادات طباعة الفواتير" — لا أزرار هنا
     $previewNotice = trim((string) ($previewNotice ?? ''));
-    $curFormat = $printSettings['format'] ?? 'a5';
-    $curWith = (bool) ($printSettings['show_header'] ?? true); // "مع ترويسة" إذا الترويسة ظاهرة
-    // الخيار الفعّال حالياً من الأربعة
-    $activeKey = $curFormat . ($curWith ? '-with' : '-without');
-    // وضع التدوير الفيزيائي (للطابعات التي تتجاهل @page A5 landscape)
-    $rotateActive = request()->boolean('rotate', false);
-
-    $printOptions = [
-        ['key' => 'a5-with',    'paper' => 'a5', 'flag' => 1, 'label' => 'A5 — مع ترويسة وتذييل'],
-        ['key' => 'a5-without', 'paper' => 'a5', 'flag' => 0, 'label' => 'A5 — بدون (ورق الشركة)'],
-        ['key' => 'a4-with',    'paper' => 'a4', 'flag' => 1, 'label' => 'A4 — مع ترويسة وتذييل'],
-        ['key' => 'a4-without', 'paper' => 'a4', 'flag' => 0, 'label' => 'A4 — بدون (ورق الشركة)'],
-    ];
 @endphp
 
 <style type="text/css">
@@ -57,57 +45,6 @@
         opacity: 0 !important;
     }
 
-    .print-options-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 6px;
-    }
-
-    .print-option {
-        height: 34px;
-        min-width: 168px;
-        border: 1px solid #374151;
-        border-radius: 9px;
-        background: #1f2937;
-        color: #e5e7eb !important;
-        font-family: 'Almarai', sans-serif !important;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        padding: 0 12px;
-        text-align: center;
-        transition: background 0.15s ease, border-color 0.15s ease;
-    }
-
-    .print-option:hover { background: #374151; }
-
-    .print-option.is-active {
-        background: #0ea5e9;
-        border-color: #0ea5e9;
-        color: #fff !important;
-    }
-
-    .print-rotate-toggle {
-        height: 40px;
-        border: 1px solid #374151;
-        border-radius: 10px;
-        background: #1f2937;
-        color: #e5e7eb !important;
-        font-family: 'Almarai', sans-serif !important;
-        font-size: 13px;
-        font-weight: 700;
-        cursor: pointer;
-        padding: 0 14px;
-    }
-
-    .print-rotate-toggle:hover { background: #374151; }
-
-    .print-rotate-toggle.is-active {
-        background: #f59e0b;
-        border-color: #f59e0b;
-        color: #1f2937 !important;
-    }
-
     .print-control-button,
     .print-control-link {
         height: 40px;
@@ -129,13 +66,6 @@
     .print-control-link.is-danger { background: #dc2626; }
     .print-control-link.is-success { background: #16a34a; }
 
-    .print-control-sep {
-        width: 1px;
-        align-self: stretch;
-        background: #374151;
-        margin: 2px 0;
-    }
-
     @media print {
         .no-print,
         .print-preview-notice,
@@ -152,30 +82,6 @@
 @endif
 
 <div class="print-control-bar no-print">
-    <div class="print-options-grid">
-        @foreach($printOptions as $opt)
-            <button type="button"
-                class="print-option {{ $activeKey === $opt['key'] ? 'is-active' : '' }}"
-                data-paper="{{ $opt['paper'] }}"
-                data-flag="{{ $opt['flag'] }}">
-                {{ $opt['label'] }}
-            </button>
-        @endforeach
-    </div>
-
-    @if($curFormat === 'a5')
-        <div class="print-control-sep"></div>
-
-        <button type="button" id="print-rotate-toggle"
-            class="print-rotate-toggle {{ $rotateActive ? 'is-active' : '' }}"
-            data-rotate="{{ $rotateActive ? '1' : '0' }}"
-            title="فعّل هذا الوضع إذا طابعتك لا تستجيب لـ A5 landscape — العميل يُدخل الورقة بالعرض يدوياً">
-            🔄 تدوير فيزيائي {{ $rotateActive ? '(مفعّل)' : '' }}
-        </button>
-    @endif
-
-    <div class="print-control-sep"></div>
-
     <button type="button" id="print-now-button" class="print-control-button">🖨 طباعة</button>
 
     <a href="{{ $backUrl }}" class="print-control-link is-danger">العودة</a>
@@ -194,43 +100,6 @@
                 document.body.classList.toggle('print-mode-active', isPrinting);
             }
         };
-
-        // الأزرار الأربعة: تبديل المقاس + مع/بدون ترويسة عبر الرابط (بدون حفظ دائم)
-        document.querySelectorAll('.print-option').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                if (btn.classList.contains('is-active')) {
-                    // الخيار مفعّل أصلاً → اطبع مباشرة
-                    setPrintMode(true);
-                    window.print();
-                    return;
-                }
-                var url = new URL(window.location.href);
-                url.searchParams.set('paper', btn.getAttribute('data-paper'));
-                url.searchParams.set('header', btn.getAttribute('data-flag'));
-                url.searchParams.set('footer', btn.getAttribute('data-flag'));
-                url.searchParams.delete('orientation');
-                // التدوير الفيزيائي خاص بـ A5 — احذفه عند التحويل لـ A4
-                if (btn.getAttribute('data-paper') !== 'a5') {
-                    url.searchParams.delete('rotate');
-                }
-                window.location.href = url.toString();
-            });
-        });
-
-        // زر تدوير فيزيائي: تبديل ?rotate=1 في URL
-        var rotateToggle = document.getElementById('print-rotate-toggle');
-        if (rotateToggle) {
-            rotateToggle.addEventListener('click', function () {
-                var url = new URL(window.location.href);
-                var currentlyActive = rotateToggle.getAttribute('data-rotate') === '1';
-                if (currentlyActive) {
-                    url.searchParams.delete('rotate');
-                } else {
-                    url.searchParams.set('rotate', '1');
-                }
-                window.location.href = url.toString();
-            });
-        }
 
         window.addEventListener('beforeprint', function () { setPrintMode(true); });
         window.addEventListener('afterprint', function () { setPrintMode(false); });

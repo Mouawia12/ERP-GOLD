@@ -1,9 +1,3 @@
-@php
-    // وضع التدوير الفيزيائي: لو ?rotate=1 نخبر الطابعة أن الورقة portrait (148×210)
-    // ثم نُدوّر المحتوى 90° عبر CSS. يُستخدم حين تتجاهل الطابعة `A5 landscape`
-    // (سلوك شائع في تعريفات Windows). العميل يُدخل الورقة بالعرض يدوياً.
-    $physicalRotation = request()->boolean('rotate', false);
-@endphp
 <style>
     /*
        A5 أفقي — نموذج المناطق الكتلية الثابتة (block fixed-zones):
@@ -20,7 +14,7 @@
        موثوقة عبر المتصفحات/الطابعات.
     */
     @page {
-        size: {{ $physicalRotation ? '148mm 210mm' : '210mm 148mm' }};
+        size: 210mm 148mm;
         margin: 0;
     }
 
@@ -473,50 +467,4 @@
         }
     }
 
-@if($physicalRotation)
-    /* ─────────────────────────────────────────────────────────
-       وضع التدوير الفيزيائي:
-       - الطابعة ترى الورقة portrait (148×210mm) — اتجاه افتراضي موثوق.
-       - المحتوى مرسوم landscape (210×148mm) ويُدوَّر 90° عبر transform.
-       - العميل يُدخل ورق A5 بالعرض (الحافة الطويلة في مقدمة المُلقّم).
-
-       النتيجة: لا اعتماد على تفسير تعريف الطابعة لكلمة `landscape`،
-       والورقة المطبوعة سلفاً تتطابق طالما العميل يدخلها بالاتجاه الصحيح.
-
-       ملاحظة: مصمم للفاتورة المعتادة بصفحة واحدة. الفواتير متعددة الصفحات
-       في هذا الوضع: page-break-after يضمن صفحة فيزيائية لكل .page،
-       لكن التدوير قد يحتاج ضبطاً إن ظهرت مشاكل تموضع.
-    ───────────────────────────────────────────────────────── */
-
-    /* شاشة: نعرض كما لو landscape — أكثر فائدة للمستخدم في المعاينة */
-    @media screen {
-        body.invoice-print-format-a5 .page {
-            transform: none;
-        }
-    }
-
-    /* طباعة: تدوير فعلي */
-    @media print {
-        html,
-        body.invoice-print-format-a5 {
-            width: 148mm;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-        }
-
-        body.invoice-print-format-a5 .page {
-            width: 210mm;
-            margin: 0 0 0 148mm;
-            transform: rotate(90deg);
-            transform-origin: top left;
-            page-break-after: always;
-            page-break-inside: avoid;
-        }
-
-        body.invoice-print-format-a5 .page:last-of-type {
-            page-break-after: auto;
-        }
-    }
-@endif
 </style>

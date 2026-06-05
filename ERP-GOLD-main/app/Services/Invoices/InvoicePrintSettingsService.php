@@ -91,33 +91,19 @@ class InvoicePrintSettingsService
     /**
      * @return array{format: string, show_header: bool, show_footer: bool, template: string, orientation: string, dimensions: array<string, array<string, float>|float>}
      */
-    public function currentSettings(bool $allowRequestOverride = true): array
+    public function currentSettings(): array
     {
+        // المصدر الوحيد: الإعدادات المحفوظة (مستخدم ← نظام) من صفحة "إعدادات طباعة الفواتير".
         $userSettings = $this->userSettings();
-        $requestedFormat = $allowRequestOverride ? request()->query('paper') : null;
-        $requestedOrientation = $allowRequestOverride ? request()->query('orientation') : null;
-        // تجاوز الترويسة/التذييل لكل طباعة عبر الرابط (?header=0/1&footer=0/1) —
-        // يستخدمه شريط الطباعة في الأزرار الأربعة (مع/بدون) دون حفظ تفضيل دائم.
-        $requestedHeader = $allowRequestOverride ? request()->query('header') : null;
-        $requestedFooter = $allowRequestOverride ? request()->query('footer') : null;
         $availableFormats = $this->availableFormats();
         $availableOrientations = array_keys($this->availableOrientations());
-        $format = in_array($requestedFormat, $availableFormats, true)
-            ? $requestedFormat
-            : $this->storedFormat($userSettings);
-        $showHeader = $requestedHeader !== null
-            ? ($requestedHeader === '1')
-            : $this->storedShowHeader($userSettings);
-        $showFooter = $requestedFooter !== null
-            ? ($requestedFooter === '1')
-            : $this->storedShowFooter($userSettings);
+        $format = $this->storedFormat($userSettings);
+        $showHeader = $this->storedShowHeader($userSettings);
+        $showFooter = $this->storedShowFooter($userSettings);
         $template = $this->storedTemplate($userSettings);
-        $storedOrientation = $this->storedOrientation($userSettings);
+        $orientation = $this->storedOrientation($userSettings);
         $availableTemplates = array_keys($this->availableTemplates());
         $resolvedFormat = in_array($format, $availableFormats, true) ? $format : self::FORMAT_A4;
-        $orientation = in_array($requestedOrientation, $availableOrientations, true)
-            ? $requestedOrientation
-            : $storedOrientation;
         $resolvedOrientation = in_array($orientation, $availableOrientations, true)
             ? $orientation
             : $this->defaultOrientation($resolvedFormat, $showHeader, $showFooter);
@@ -258,7 +244,7 @@ class InvoicePrintSettingsService
 
     public function setShowHeader(bool $value): void
     {
-        $current = $this->currentSettings(false);
+        $current = $this->currentSettings();
         $this->setSettings(
             $current['format'],
             $value,
@@ -270,7 +256,7 @@ class InvoicePrintSettingsService
 
     public function setShowFooter(bool $value): void
     {
-        $current = $this->currentSettings(false);
+        $current = $this->currentSettings();
         $this->setSettings(
             $current['format'],
             $current['show_header'],
