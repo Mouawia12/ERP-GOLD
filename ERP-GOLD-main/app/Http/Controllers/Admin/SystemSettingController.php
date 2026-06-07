@@ -14,6 +14,7 @@ use App\Services\Invoices\InvoicePrintSettingsService;
 use App\Services\Invoices\InvoiceTermsService;
 use App\Services\Items\DefaultItemSettingsService;
 use App\Services\Purchases\DefaultPurchaseSupplierService;
+use App\Services\Sales\DefaultSalesSettingsService;
 use App\Services\Shifts\SalesShiftModeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -31,11 +32,12 @@ class SystemSettingController extends Controller
         private readonly DefaultPurchaseSupplierService $defaultPurchaseSupplierService,
         private readonly SalesShiftModeService $salesShiftModeService,
         private readonly DefaultItemSettingsService $defaultItemSettingsService,
+        private readonly DefaultSalesSettingsService $defaultSalesSettingsService,
         private readonly InvoiceBackgroundService $invoiceBackgroundService,
         private readonly SubscriberInvoiceLogoService $subscriberInvoiceLogoService,
     ) {
-        $this->middleware('permission:employee.system_settings.show', ['only' => ['editLoginMode', 'editSalesShiftMode', 'editDefaultPurchaseSupplier', 'editInvoiceTerms', 'editInvoicePrint', 'editDefaultItemSettings', 'editInvoiceBackground', 'editCompany']]);
-        $this->middleware('permission:employee.system_settings.edit', ['only' => ['updateLoginMode', 'updateSalesShiftMode', 'updateDefaultPurchaseSupplier', 'updateInvoiceTerms', 'updateInvoicePrint', 'togglePrintFlag', 'updateDefaultItemSettings', 'uploadInvoiceBackground', 'saveInvoiceBackgroundScale', 'toggleInvoiceBackground', 'deleteInvoiceBackground', 'updateCompany', 'deleteCompanyLogo']]);
+        $this->middleware('permission:employee.system_settings.show', ['only' => ['editLoginMode', 'editSalesShiftMode', 'editDefaultPurchaseSupplier', 'editInvoiceTerms', 'editInvoicePrint', 'editDefaultItemSettings', 'editDefaultSalesSettings', 'editInvoiceBackground', 'editCompany']]);
+        $this->middleware('permission:employee.system_settings.edit', ['only' => ['updateLoginMode', 'updateSalesShiftMode', 'updateDefaultPurchaseSupplier', 'updateInvoiceTerms', 'updateInvoicePrint', 'togglePrintFlag', 'updateDefaultItemSettings', 'updateDefaultSalesSettings', 'uploadInvoiceBackground', 'saveInvoiceBackgroundScale', 'toggleInvoiceBackground', 'deleteInvoiceBackground', 'updateCompany', 'deleteCompanyLogo']]);
     }
 
     public function editLoginMode(): View
@@ -272,6 +274,30 @@ class SystemSettingController extends Controller
         return redirect()
             ->route('admin.system-settings.default-item-settings.edit')
             ->with('success', 'تم تحديث الإعدادات الافتراضية للأصناف بنجاح.');
+    }
+
+    public function editDefaultSalesSettings(): View
+    {
+        return view('admin.settings.default_sales_settings', [
+            'settings' => $this->defaultSalesSettingsService->currentSettings(),
+            'saleClassifications' => DefaultSalesSettingsService::saleClassificationOptions(),
+        ]);
+    }
+
+    public function updateDefaultSalesSettings(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'sale_classification' => 'nullable|string|in:' . implode(',', array_keys(DefaultSalesSettingsService::saleClassificationOptions())),
+        ]);
+
+        $this->defaultSalesSettingsService->setSettings(array_map(
+            fn ($v) => $v ?? '',
+            $validated,
+        ));
+
+        return redirect()
+            ->route('admin.system-settings.default-sales-settings.edit')
+            ->with('success', 'تم تحديث الإعدادات التلقائية للمبيعات بنجاح.');
     }
 
     public function updateBranding(Request $request): RedirectResponse

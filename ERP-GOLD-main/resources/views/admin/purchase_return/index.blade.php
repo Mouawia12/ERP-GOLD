@@ -31,6 +31,28 @@
                     <div class="clearfix"></div>
                 </div>
                 <div class="card-body px-0 pt-0 pb-2">
+                    <div class="card shadow mb-3 mx-3 mt-3">
+                        <div class="card-body">
+                            <form method="GET" action="{{ route('purchase_return.index') }}">
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">الفرع</label>
+                                        <select class="form-control" name="branch_id" id="branch_filter">
+                                            <option value="">كل الفروع المتاحة</option>
+                                            @foreach($branches as $branch)
+                                                <option value="{{ $branch->id }}" @selected((string) request('branch_id') === (string) $branch->id)>
+                                                    {{ $branch->name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 mb-3 d-flex align-items-end">
+                                        <button type="submit" class="btn btn-primary btn-block">تطبيق</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                     <div class="card shadow mb-4">
                         <div class="card-body">
                             <div class="table-responsive">
@@ -72,7 +94,12 @@
         $('#PurchaseReturnTable').DataTable({
             processing: true,
             responsive: true,
-            ajax: "{{ route('purchase_return.index') }}",
+            ajax: {
+                url: "{{ route('purchase_return.index') }}",
+                data: function (d) {
+                    d.branch_id = $('#branch_filter').val();
+                }
+            },
             columns: [
                 { data: 'id', name: 'id' },
                 { data: 'bill_number', name: 'bill_number' },

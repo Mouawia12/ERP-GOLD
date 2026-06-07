@@ -213,30 +213,42 @@ class StockReportsController extends Controller
     // ---- تقرير حركة الوزن للمقتنيات ----
     public function collectible_weight_report_search()
     {
+        $filtersData = $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d'), true);
+        $filtersData['carats'] = $this->caratsForClassification(Item::CLASSIFICATION_COLLECTIBLE);
+
         return view('admin.reports.stock_reports.daily_carat_report.search', array_merge(
-            $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d'), true),
+            $filtersData,
             ['presetClassification' => Item::CLASSIFICATION_COLLECTIBLE, 'pageTitle' => 'تقرير حركة وزن المقتنيات', 'formAction' => route('reports.collectible.weight_report.index')]
         ));
     }
 
     public function collectible_weight_report(Request $request)
     {
-        $request->merge(['classification' => Item::CLASSIFICATION_COLLECTIBLE]);
+        $request->merge([
+            'classification' => Item::CLASSIFICATION_COLLECTIBLE,
+            'allowed_carat_ids' => $this->caratsForClassification(Item::CLASSIFICATION_COLLECTIBLE)->pluck('id')->all(),
+        ]);
         return $this->daily_carat_report($request);
     }
 
     // ---- تقرير حركة الوزن للفضة ----
     public function silver_weight_report_search()
     {
+        $filtersData = $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d'), true);
+        $filtersData['carats'] = $this->caratsForClassification(Item::CLASSIFICATION_SILVER);
+
         return view('admin.reports.stock_reports.daily_carat_report.search', array_merge(
-            $this->stockReportFiltersData(Carbon::now()->startOfYear()->format('Y-m-d'), Carbon::now()->endOfYear()->format('Y-m-d'), true),
+            $filtersData,
             ['presetClassification' => Item::CLASSIFICATION_SILVER, 'pageTitle' => 'تقرير حركة وزن الفضة', 'formAction' => route('reports.silver.weight_report.index')]
         ));
     }
 
     public function silver_weight_report(Request $request)
     {
-        $request->merge(['classification' => Item::CLASSIFICATION_SILVER]);
+        $request->merge([
+            'classification' => Item::CLASSIFICATION_SILVER,
+            'allowed_carat_ids' => $this->caratsForClassification(Item::CLASSIFICATION_SILVER)->pluck('id')->all(),
+        ]);
         return $this->daily_carat_report($request);
     }
 
@@ -530,6 +542,12 @@ class StockReportsController extends Controller
             ->when($request->carat_id, function ($query) use ($request) {
                 return $query->where('invoice_details.gold_carat_id', $request->carat_id);
             })
+            ->when(filled($request->input('allowed_carat_ids')), function ($query) use ($request) {
+                return $query->where(function ($sub) use ($request) {
+                    $sub->whereIn('invoice_details.gold_carat_id', (array) $request->input('allowed_carat_ids'))
+                        ->orWhereNull('invoice_details.gold_carat_id');
+                });
+            })
             ->when($classification, function ($query) use ($classification) {
                 return $query->whereExists(function ($sub) use ($classification) {
                     $sub->select(DB::raw(1))
@@ -656,6 +674,46 @@ class StockReportsController extends Controller
         }
 
         return $value;
+    }
+
+    /**
+     * العيارات الخاصة بتصنيف معين: الفضة → عيار 925 فقط، المقتنيات → عيار 18 فقط.
+     */
+    private function caratsForClassification(string $classification)
+    {
+        $markers = match ($classification) {
+            Item::CLASSIFICATION_SILVER => ['925', 'فضة'],
+            Item::CLASSIFICATION_COLLECTIBLE => ['18'],
+            default => null,
+        };
+
+        $carats = GoldCarat::orderBy('id')->get();
+
+        if ($markers === null) {
+            return $carats;
+        }
+
+        return $carats->filter(function (GoldCarat $carat) use ($markers) {
+            $candidates = [
+                (string) $carat->label,
+                (string) $carat->getTranslation('title', 'ar'),
+                (string) $carat->getTranslation('title', 'en'),
+            ];
+
+            foreach ($markers as $marker) {
+                $pattern = preg_match('/^\d+$/', $marker)
+                    ? '/(^|[^0-9])' . preg_quote($marker, '/') . '([^0-9]|$)/u'
+                    : '/' . preg_quote($marker, '/') . '/u';
+
+                foreach ($candidates as $candidate) {
+                    if (preg_match($pattern, $candidate)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        })->values();
     }
 
     private function stockReportFiltersData(string $defaultDateFrom, string $defaultDateTo, bool $includeCarats = false): array

@@ -24,6 +24,11 @@
         $formattedTime = $invoice->time ? \Carbon\Carbon::parse($invoice->time)->format('H:i') : now()->format('H:i');
         $fmtMoney = fn ($value) => number_format((float) $value, 2);
         $fmtWeight = fn ($value) => number_format((float) $value, 3);
+        $weightHeaderLabel = match ($invoice->sale_classification ?? null) {
+            'gold' => 'وزن الذهب',
+            'silver' => 'وزن الفضة',
+            default => 'الوزن',
+        };
         $currencyLabel = 'ريال';
         $printTemplate = $printSettings['template'] ?? 'classic';
         $showHeader = $printSettings['show_header'] ?? true;
@@ -457,7 +462,7 @@
             <th><span class="head-main">م</span><span class="head-sub">(No.)</span></th>
             <th><span class="head-main">الوصف</span><span class="head-sub">(Item)</span></th>
             <th><span class="head-main">العيار</span><span class="head-sub">(Karat)</span></th>
-            <th><span class="head-main">الوزن</span><span class="head-sub">(Weight)</span></th>
+            <th><span class="head-main">{{ $weightHeaderLabel }}</span><span class="head-sub">(Weight)</span></th>
             <th><span class="head-main">ما خلا المعدن</span><span class="head-sub">(Non Metal)</span></th>
             <th><span class="head-main">سعر الجرام</span><span class="head-sub">(Gram Price)</span></th>
             <th><span class="head-main">العدد</span><span class="head-sub">(Count)</span></th>

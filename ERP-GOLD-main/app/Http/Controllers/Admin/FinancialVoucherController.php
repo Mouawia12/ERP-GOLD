@@ -34,9 +34,18 @@ class FinancialVoucherController extends Controller
 
     public function index(Request $request, $type)
     {
+        $validated = $request->validate([
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+        ]);
+
         $voucherQuery = FinancialVoucher::with(['fromAccount', 'toAccount', 'bankAccount'])
             ->where('type', $type);
         $this->branchAccessService->scopeToAccessibleBranch($voucherQuery, $request->user('admin-web'));
+
+        $voucherQuery->when(
+            filled($validated['branch_id'] ?? null),
+            fn ($builder) => $builder->where('branch_id', (int) $validated['branch_id'])
+        );
 
         $vouchers = $voucherQuery->orderBy('id', 'desc')->get();
         $branches = $this->branchAccessService->visibleBranches($request->user('admin-web'));

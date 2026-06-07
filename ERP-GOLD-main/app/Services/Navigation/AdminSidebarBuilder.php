@@ -169,6 +169,12 @@ class AdminSidebarBuilder
                         'active_patterns' => ['admin.system-settings.default-item-settings.*'],
                     ],
                     [
+                        'label' => 'الإعدادات التلقائية للمبيعات',
+                        'route' => 'admin.system-settings.default-sales-settings.edit',
+                        'permission' => 'employee.system_settings.show',
+                        'active_patterns' => ['admin.system-settings.default-sales-settings.*'],
+                    ],
+                    [
                         'label' => 'الحسابات البنكية',
                         'route' => 'admin.system-settings.bank-accounts.index',
                         'permission' => 'employee.system_settings.show',

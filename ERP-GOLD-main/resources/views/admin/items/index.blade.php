@@ -39,10 +39,32 @@
                     <div class="clearfix"></div>
                 </div>  
                 <div class="card-body px-0 pt-0 pb-2">
-                    <div class="card shadow mb-4"> 
+                    <div class="card shadow mb-3 mx-3 mt-3">
                         <div class="card-body">
-                            <div class="table-responsive hoverable-table"> 
-                                <table class="display w-100 text-nowrap table-bordered" id="ItemTable" 
+                            <form method="GET" action="{{ route('items.index') }}">
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">الفرع</label>
+                                        <select class="form-control" name="branch_id" id="branch_filter">
+                                            <option value="">كل الفروع المتاحة</option>
+                                            @foreach($branches as $branch)
+                                                <option value="{{ $branch->id }}" @selected((string) request('branch_id') === (string) $branch->id)>
+                                                    {{ $branch->name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 mb-3 d-flex align-items-end">
+                                        <button type="submit" class="btn btn-primary btn-block">تطبيق</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="card shadow mb-4">
+                        <div class="card-body">
+                            <div class="table-responsive hoverable-table">
+                                <table class="display w-100 text-nowrap table-bordered" id="ItemTable"
                                    style="text-align: center;">
                                     <thead>
                                         <tr class="bg-light">
@@ -198,7 +220,12 @@
                 serverSide: true,
                 responsive: true,
 
-                ajax: "{{ route('items.index') }}",
+                ajax: {
+                    url: "{{ route('items.index') }}",
+                    data: function (d) {
+                        d.branch_id = $('#branch_filter').val();
+                    }
+                },
                 columns: [
                     {
                         data: 'id', 

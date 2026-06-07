@@ -48,8 +48,16 @@ class PurchasesController extends Controller
 
     public function index(Request $request)
     {
+        $validated = $request->validate([
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+        ]);
+
         $query = Invoice::query()->where('type', 'purchase');
         $this->branchAccessService->scopeToAccessibleBranch($query, $request->user('admin-web'));
+        $query->when(
+            filled($validated['branch_id'] ?? null),
+            fn ($builder) => $builder->where('branch_id', (int) $validated['branch_id'])
+        );
         $data = $query->orderBy('id', 'DESC')->get();
 
         if ($request->ajax()) {
@@ -97,7 +105,9 @@ class PurchasesController extends Controller
                 ->make(true);
         }
 
-        return view('admin.purchases.index', compact('data'));
+        $branches = $this->branchAccessService->visibleBranches($request->user('admin-web'));
+
+        return view('admin.purchases.index', compact('data', 'branches'));
     }
 
     public function create()
@@ -137,8 +147,16 @@ class PurchasesController extends Controller
 
     public function purchase_return_index(Request $request)
     {
+        $validated = $request->validate([
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+        ]);
+
         $query = Invoice::query()->where('type', 'purchase_return');
         $this->branchAccessService->scopeToAccessibleBranch($query, $request->user('admin-web'));
+        $query->when(
+            filled($validated['branch_id'] ?? null),
+            fn ($builder) => $builder->where('branch_id', (int) $validated['branch_id'])
+        );
         $data = $query->orderByDesc('id')->get();
 
         if ($request->ajax()) {
@@ -175,7 +193,9 @@ class PurchasesController extends Controller
                 ->make(true);
         }
 
-        return view('admin.purchase_return.index', compact('data'));
+        $branches = $this->branchAccessService->visibleBranches($request->user('admin-web'));
+
+        return view('admin.purchase_return.index', compact('data', 'branches'));
     }
 
     public function purchase_return_create($id)

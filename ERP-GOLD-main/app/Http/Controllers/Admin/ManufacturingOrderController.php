@@ -30,6 +30,10 @@ class ManufacturingOrderController extends Controller
 
     public function index(Request $request)
     {
+        $validated = $request->validate([
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+        ]);
+
         $query = Invoice::query()
             ->with([
                 'branch',
@@ -43,6 +47,12 @@ class ManufacturingOrderController extends Controller
             ->where('type', 'manufacturing_order');
 
         $this->branchAccessService->scopeToAccessibleBranch($query, $request->user('admin-web'));
+
+        $query->when(
+            filled($validated['branch_id'] ?? null),
+            fn ($builder) => $builder->where('branch_id', (int) $validated['branch_id'])
+        );
+
         $orders = $query->latest('id')->get();
         $statusSummary = $this->statusSummary($orders);
         $selectedStatus = $request->input('status', 'all');
@@ -84,7 +94,9 @@ class ManufacturingOrderController extends Controller
                 ->make(true);
         }
 
-        return view('admin.manufacturing_orders.index', compact('statusSummary', 'selectedStatus'));
+        $branches = $this->branchAccessService->visibleBranches($request->user('admin-web'));
+
+        return view('admin.manufacturing_orders.index', compact('statusSummary', 'selectedStatus', 'branches'));
     }
 
     public function create(Request $request)

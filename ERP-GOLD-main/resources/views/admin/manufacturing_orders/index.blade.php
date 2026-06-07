@@ -23,6 +23,29 @@
                 </div>
                 <div class="card-body px-0 pt-0 pb-2">
                     <div class="px-4 pt-4 no-print">
+                        <div class="card shadow mb-3">
+                            <div class="card-body">
+                                <form method="GET" action="{{ route('manufacturing_orders.index') }}">
+                                    <input type="hidden" name="status" value="{{ $selectedStatus }}">
+                                    <div class="row">
+                                        <div class="col-md-4 mb-3">
+                                            <label class="form-label">الفرع</label>
+                                            <select class="form-control" name="branch_id" id="branch_filter">
+                                                <option value="">كل الفروع المتاحة</option>
+                                                @foreach($branches as $branch)
+                                                    <option value="{{ $branch->id }}" @selected((string) request('branch_id') === (string) $branch->id)>
+                                                        {{ $branch->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2 mb-3 d-flex align-items-end">
+                                            <button type="submit" class="btn btn-primary btn-block">تطبيق</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
                         <div class="row mb-4">
                             <div class="col-md-3 col-6 mb-3">
                                 <div class="card border-0 shadow-sm h-100">
@@ -59,19 +82,19 @@
                         </div>
 
                         <div class="d-flex flex-wrap gap-2 mb-3">
-                            <a href="{{ route('manufacturing_orders.index', ['status' => 'all']) }}"
+                            <a href="{{ route('manufacturing_orders.index', array_filter(['status' => 'all', 'branch_id' => request('branch_id')])) }}"
                                class="btn btn-sm {{ $selectedStatus === 'all' ? 'btn-primary' : 'btn-outline-primary' }}">
                                 كل الأوامر
                             </a>
-                            <a href="{{ route('manufacturing_orders.index', ['status' => 'open']) }}"
+                            <a href="{{ route('manufacturing_orders.index', array_filter(['status' => 'open', 'branch_id' => request('branch_id')])) }}"
                                class="btn btn-sm {{ $selectedStatus === 'open' ? 'btn-warning text-white' : 'btn-outline-warning' }}">
                                 المفتوحة
                             </a>
-                            <a href="{{ route('manufacturing_orders.index', ['status' => 'completed']) }}"
+                            <a href="{{ route('manufacturing_orders.index', array_filter(['status' => 'completed', 'branch_id' => request('branch_id')])) }}"
                                class="btn btn-sm {{ $selectedStatus === 'completed' ? 'btn-success' : 'btn-outline-success' }}">
                                 المكتملة
                             </a>
-                            <a href="{{ route('manufacturing_orders.index', ['status' => 'late']) }}"
+                            <a href="{{ route('manufacturing_orders.index', array_filter(['status' => 'late', 'branch_id' => request('branch_id')])) }}"
                                class="btn btn-sm {{ $selectedStatus === 'late' ? 'btn-danger' : 'btn-outline-danger' }}">
                                 المتأخرة
                             </a>
@@ -124,6 +147,7 @@
                 url: "{{ route('manufacturing_orders.index') }}",
                 data: function (d) {
                     d.status = @json($selectedStatus);
+                    d.branch_id = $('#branch_filter').val();
                 }
             },
             columns: [

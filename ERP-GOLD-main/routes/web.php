@@ -350,6 +350,10 @@ Route::group(
                         ->name('admin.system-settings.default-item-settings.edit');
                     Route::patch('system-settings/default-item-settings', [SystemSettingController::class, 'updateDefaultItemSettings'])
                         ->name('admin.system-settings.default-item-settings.update');
+                    Route::get('system-settings/default-sales-settings', [SystemSettingController::class, 'editDefaultSalesSettings'])
+                        ->name('admin.system-settings.default-sales-settings.edit');
+                    Route::patch('system-settings/default-sales-settings', [SystemSettingController::class, 'updateDefaultSalesSettings'])
+                        ->name('admin.system-settings.default-sales-settings.update');
                     Route::get('system-settings/bank-accounts', [BankAccountController::class, 'index'])
                         ->name('admin.system-settings.bank-accounts.index');
                     Route::get('system-settings/bank-accounts/create', [BankAccountController::class, 'create'])

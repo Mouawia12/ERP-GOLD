@@ -486,7 +486,17 @@
                                             </div>
                                             <div class="invoice-section-card invoice-search-card">
                                             <div class="invoice-section-title">البحث عن الأصناف</div>
-                                            <div class="row"> 
+                                            <div class="row">
+                                                    <div class="col-md-3">
+                                                        <div class="form-group">
+                                                            <label>نوع البيع</label>
+                                                            <select class="form-control" id="sale_classification" name="sale_classification">
+                                                                @foreach($saleClassifications as $value => $label)
+                                                                    <option value="{{ $value }}" @selected($value === $defaultSaleClassification)>{{ $label }}</option>
+                                                                @endforeach
+                                                            </select>
+                                                        </div>
+                                                    </div>
                                                     <div class="col-md-3">
                                                         <div class="form-group">
                                                             <label>{{ __('main.gold_carat_type') }}</label>
@@ -497,7 +507,7 @@
                                                             </select>
                                                         </div>
                                                     </div>
-                                                    <div class="col-md-9 " id="sticker">
+                                                    <div class="col-md-6 " id="sticker">
                                                         <div class="well well-sm" @if(Config::get('app.locale') == 'ar')style="direction: rtl;" @endif>
                                                             <div class="form-group">
                                                                 <div class="input-group wide-tip">
@@ -532,7 +542,7 @@
                                                                                 
                                                                                 <th class="col-md-3" >{{__('main.item_name')}}</th>
                                                                                 <th class="col-md-1" >{{__('main.item_carats')}}</th>
-                                                                                <th>{{__('main.item_weight')}}</th>
+                                                                                <th id="weight_header">{{__('main.item_weight')}}</th>
                                                                                 <th>{{__('main.price_gram')}} </th>
                                                                                 <th>{{__('main.quantity')}} </th>
                                                                                 <th>{{__('main.no_metal')}} </th>
@@ -861,6 +871,7 @@
                         bill_client_name: bill_client_name,
                         bill_client_identity_number: bill_client_identity_number,
                         type: type,
+                        sale_classification: $('#sale_classification').val() || 'gold',
                         cash: cash,
                         visa: visa,
                         payment_lines: paymentLines,
@@ -1138,8 +1149,9 @@
     }
 
     function searchProduct(code) {
-        let branch_id = document.getElementById('branch_id').value; 
+        let branch_id = document.getElementById('branch_id').value;
         let carat_type = document.getElementById('sales_carat_type') ? document.getElementById('sales_carat_type').value : 'crafted';
+        let classification = document.getElementById('sale_classification') ? document.getElementById('sale_classification').value : 'gold';
         let url = "{{route('items.search')}}";
         $.ajax({
             type: 'post',
@@ -1147,7 +1159,8 @@
             data: {
                 code: code,
                 branch_id: branch_id,
-                carat_type: carat_type
+                carat_type: carat_type,
+                classification: classification
             },
             dataType: 'json',
 
@@ -1180,6 +1193,42 @@
             }
         });
     }
+
+    // ---- نوع البيع (ذهب / فضة / مقتنيات ثمينة) ----
+    var saleClassificationWeightLabels = {
+        gold: 'وزن الذهب',
+        silver: 'وزن الفضة',
+        collectible: 'الوزن'
+    };
+
+    function applySaleClassification() {
+        var select = document.getElementById('sale_classification');
+        if (!select) {
+            return;
+        }
+
+        var classification = select.value || 'gold';
+        var caratTypeSelect = document.getElementById('sales_carat_type');
+        var weightHeader = document.getElementById('weight_header');
+
+        // المقتنيات الثمينة ليس لها نوع ذهب (كسر / مشغول)
+        if (caratTypeSelect) {
+            caratTypeSelect.disabled = classification === 'collectible';
+        }
+
+        if (weightHeader) {
+            weightHeader.textContent = saleClassificationWeightLabels[classification] || "{{ __('main.item_weight') }}";
+        }
+
+        // تفريغ اقتراحات البحث حتى لا تبقى نتائج من تصنيف سابق
+        var suggestions = document.getElementById('products_suggestions');
+        if (suggestions) {
+            suggestions.innerHTML = '';
+        }
+    }
+
+    $(document).on('change', '#sale_classification', applySaleClassification);
+    $(document).ready(applySaleClassification);
 
     function showSuggestions(response) {
 

@@ -29,15 +29,31 @@ class BranchAccessService
         return filled($user->branch_id) ? (int) $user->branch_id : null;
     }
 
+    /**
+     * كل الفروع المسموح بها للمستخدم (وليس فقط الفرع الحالي في الجلسة).
+     *
+     * @return array<int>
+     */
+    public function accessibleBranchIdsForUser(User $user): array
+    {
+        $branchIds = app(BranchContextService::class)->accessibleBranchIds($user);
+
+        if ($branchIds === [] && filled($user->branch_id)) {
+            $branchIds = [(int) $user->branch_id];
+        }
+
+        return $branchIds;
+    }
+
     public function visibleBranchesQuery(User $user): Builder
     {
         return Branch::query()->when(
             ! $this->canAccessAllBranches($user),
             function (Builder $query) use ($user) {
-                $branchId = $this->branchIdForUser($user);
+                $branchIds = $this->accessibleBranchIdsForUser($user);
 
-                if ($branchId) {
-                    $query->whereKey($branchId);
+                if ($branchIds !== []) {
+                    $query->whereIn('id', $branchIds);
                 } else {
                     $query->whereRaw('1 = 0');
                 }
@@ -56,10 +72,10 @@ class BranchAccessService
             return $query;
         }
 
-        $branchId = $this->branchIdForUser($user);
+        $branchIds = $this->accessibleBranchIdsForUser($user);
 
-        if ($branchId) {
-            return $query->where($column, $branchId);
+        if ($branchIds !== []) {
+            return $query->whereIn($column, $branchIds);
         }
 
         return $query->whereRaw('1 = 0');
@@ -71,10 +87,10 @@ class BranchAccessService
             return;
         }
 
-        $allowedBranchId = $this->branchIdForUser($user);
+        $allowedBranchIds = $this->accessibleBranchIdsForUser($user);
 
         abort_unless(
-            ! is_null($allowedBranchId) && (int) $allowedBranchId === (int) $branchId,
+            $allowedBranchIds !== [] && in_array((int) $branchId, $allowedBranchIds, true),
             403,
             'لا يمكنك الوصول إلى بيانات فرع غير مخصص لك.'
         );

@@ -11,6 +11,7 @@ use App\Models\GoldPrice;
 use App\Models\Invoice;
 use App\Models\Item;
 use App\Models\ItemUnit;
+use App\Services\Branches\BranchAccessService;
 use App\Services\JournalEntriesService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -21,8 +22,9 @@ use DataTables;
 
 class StockSettlementController extends Controller
 {
-    public function __construct()
-    {
+    public function __construct(
+        private readonly BranchAccessService $branchAccessService,
+    ) {
         $this->middleware('permission:employee.stock_settlements.show,admin-web')->only(['index', 'show']);
         $this->middleware('permission:employee.stock_settlements.add,admin-web')->only([
             'create',
@@ -37,13 +39,24 @@ class StockSettlementController extends Controller
 
     public function index(Request $request)
     {
-        $type = $request->type;
-        $data = Invoice::where('type', 'stock_settlements')
-            ->with(['branch', 'user', 'details'])
-            ->orderBy('id', 'DESC')
-            ->get();
+        $validated = $request->validate([
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+        ]);
 
-        $branches = Branch::all();
+        $type = $request->type;
+        $query = Invoice::where('type', 'stock_settlements')
+            ->with(['branch', 'user', 'details']);
+
+        $this->branchAccessService->scopeToAccessibleBranch($query, $request->user('admin-web'));
+
+        $query->when(
+            filled($validated['branch_id'] ?? null),
+            fn ($builder) => $builder->where('branch_id', (int) $validated['branch_id'])
+        );
+
+        $data = $query->orderBy('id', 'DESC')->get();
+
+        $branches = $this->branchAccessService->visibleBranches($request->user('admin-web'));
 
         if ($request->ajax()) {
             return Datatables::of($data)
@@ -73,7 +86,7 @@ class StockSettlementController extends Controller
                 ->make(true);
         }
 
-        return view('admin.stock_settlements.index', compact('data', 'type'));
+        return view('admin.stock_settlements.index', compact('data', 'type', 'branches'));
     }
 
     public function create()

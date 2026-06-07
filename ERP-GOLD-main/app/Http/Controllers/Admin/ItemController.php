@@ -38,11 +38,28 @@ class ItemController extends Controller
      */
     public function index(Request $request)
     {
+        $request->validate([
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+        ]);
+
         $currentUser = $this->currentAdminUser();
+        $allowedBranchIds = $this->accessiblePublicationBranchIds($currentUser);
+        $requestedBranchId = filled($request->input('branch_id')) ? (int) $request->input('branch_id') : null;
+
+        if ($requestedBranchId && $allowedBranchIds !== [] && ! in_array($requestedBranchId, $allowedBranchIds, true)) {
+            $requestedBranchId = null;
+        }
+
         $data = Item::query()->with(['branch', 'category', 'goldCarat', 'goldCaratType', 'defaultUnit', 'publishedBranches']);
 
-        if (!empty($currentUser?->branch_id)) {
-            $data->publishedToBranch((int) $currentUser->branch_id);
+        if ($requestedBranchId) {
+            $data->publishedToBranch($requestedBranchId);
+        } elseif ($allowedBranchIds !== []) {
+            $data->whereHas('branchPublications', function ($publicationQuery) use ($allowedBranchIds) {
+                $publicationQuery->whereIn('branch_id', $allowedBranchIds)
+                    ->where('is_active', true)
+                    ->where('is_visible', true);
+            });
         }
 
         if ($request->ajax()) {
@@ -569,6 +586,7 @@ class ItemController extends Controller
     public function search(Request $request)
     {
         $caratType = $this->normalizeSalesCaratType($request->carat_type);
+        $classification = $this->normalizeSaleClassification($request->input('classification'));
         $code = $request->code;
         if (empty($code)) {
             return response()->json([
@@ -592,7 +610,16 @@ class ItemController extends Controller
                     });
             });
 
-        $this->constrainSaleItemToBranchAndType($items, $branch_id, $caratType);
+        if ($classification) {
+            $items->where('inventory_classification', $classification);
+        }
+
+        if ($classification === Item::CLASSIFICATION_COLLECTIBLE) {
+            // المقتنيات الثمينة ليس لها نوع ذهب (كسر/مشغول) — تقييد الفرع فقط
+            $this->constrainItemToBranchPublication($items, $branch_id);
+        } else {
+            $this->constrainSaleItemToBranchAndType($items, $branch_id, $caratType);
+        }
 
         $units = $this->resolveSearchUnits($items->get(), (string) $code);
 
@@ -762,6 +789,17 @@ class ItemController extends Controller
     private function normalizeSalesCaratType(?string $caratType): string
     {
         return in_array($caratType, ['crafted', 'scrap', 'pure'], true) ? $caratType : 'crafted';
+    }
+
+    private function normalizeSaleClassification(?string $classification): ?string
+    {
+        $allowed = [
+            Item::CLASSIFICATION_GOLD,
+            Item::CLASSIFICATION_SILVER,
+            Item::CLASSIFICATION_COLLECTIBLE,
+        ];
+
+        return in_array($classification, $allowed, true) ? $classification : null;
     }
 
     private function searchItemRelations(int $branchId): array

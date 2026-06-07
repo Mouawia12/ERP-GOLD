@@ -16,6 +16,7 @@ use App\Services\Branches\BranchAccessService;
 use App\Services\Invoices\InvoiceTermsService;
 use App\Services\Invoices\InvoicePartySnapshotService;
 use App\Services\Payments\InvoicePaymentService;
+use App\Services\Sales\DefaultSalesSettingsService;
 use App\Services\Shifts\SalesShiftModeService;
 use App\Services\Shifts\ShiftService;
 use App\Services\Zatca\SendZatcaInvoice;
@@ -146,6 +147,8 @@ class SalesController extends Controller
             'branches' => $branches,
             'caratTypes' => $caratTypes,
             'defaultInvoiceTerms' => $this->invoiceTermsService->defaultTerms($invoiceTermsContext),
+            'saleClassifications' => DefaultSalesSettingsService::saleClassificationOptions(),
+            'defaultSaleClassification' => app(DefaultSalesSettingsService::class)->defaultSaleClassification(),
         ]);
     }
 
@@ -192,6 +195,7 @@ class SalesController extends Controller
                     },
                 ],
                 'branch_id' => 'required',
+                'sale_classification' => 'nullable|string|in:' . implode(',', array_keys(DefaultSalesSettingsService::saleClassificationOptions())),
                 'bill_client_name' => 'nullable|string|max:255',
                 'bill_client_phone' => 'nullable|string|max:50',
                 'bill_client_identity_number' => 'nullable|string|max:100',
@@ -315,6 +319,7 @@ class SalesController extends Controller
                     'type' => 'sale',
                     'payment_type' => $paymentType,
                     'sale_type' => $request->type,
+                    'sale_classification' => $request->input('sale_classification') ?: null,
                     'notes' => $request->notes ?? '',
                     'invoice_terms' => $this->invoiceTermsService->resolveSnapshot(
                         $request->input('invoice_terms'),
@@ -391,6 +396,10 @@ class SalesController extends Controller
 
     public function sales_return_index(Request $request)
     {
+        $validated = $request->validate([
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+        ]);
+
         $currentUser = $request->user('admin-web');
         $type = $request->type;
         $query = Invoice::query()
@@ -398,6 +407,11 @@ class SalesController extends Controller
             ->where('sale_type', $type);
 
         $this->branchAccessService->scopeToAccessibleBranch($query, $currentUser);
+
+        $query->when(
+            filled($validated['branch_id'] ?? null),
+            fn ($builder) => $builder->where('branch_id', (int) $validated['branch_id'])
+        );
 
         $data = $query->with(['customer', 'parent'])->orderBy('id', 'DESC')->get();
 
@@ -441,7 +455,9 @@ class SalesController extends Controller
                 ->make(true);
         }
 
-        return view('admin.sales_return.index', compact('data', 'type'));
+        $branches = $this->branchAccessService->visibleBranches($currentUser);
+
+        return view('admin.sales_return.index', compact('data', 'type', 'branches'));
     }
 
     public function sales_return_create($type, $id)
