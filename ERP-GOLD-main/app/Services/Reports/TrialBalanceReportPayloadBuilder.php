@@ -70,6 +70,11 @@ class TrialBalanceReportPayloadBuilder
             $accountQuery->whereDoesntHave('childrens');
         }
 
+        // Hide accounts linked exclusively to other branches when filtering a branch.
+        if ($branchSelection['selects_all'] !== true) {
+            $accountQuery->visibleForBranches($branchSelection['effective_branch_ids']);
+        }
+
         $accounts = $accountQuery
             ->get()
             ->filter(function (Account $account) use ($filters) {

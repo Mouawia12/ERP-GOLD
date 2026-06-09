@@ -8,6 +8,7 @@ use App\Models\FinancialYear;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryDocument;
 use App\Models\OpeningBalance;
+use App\Services\Branches\BranchAccessService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -63,23 +64,42 @@ class AccountsController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function create()
+    public function create(BranchAccessService $branchAccess)
     {
         $accounts = Account::all();
-        return view('admin.accounts.form', compact('accounts'));
+        $branches = $branchAccess->visibleBranches(auth('admin-web')->user());
+        return view('admin.accounts.form', compact('accounts', 'branches'));
     }
 
     public function excepted_code(Request $request)
     {
-        $account = Account::where('id', $request->parent_id)->first();
-        $countSiblingAccounts = Account::where('parent_account_id', $account->id ?? null)->count();
+        $parent = Account::find($request->parent_id);
 
-        $level = $account ? intval($account->level) + 1 : 1;
+        return response()->json(['code' => Account::nextCodeFor($parent)]);
+    }
 
-        $expectedNum = $countSiblingAccounts + 1;
-        $expectedCode = (new Account())->codePrefix($expectedNum, $level);
-        $code = $account?->code . $expectedCode;
-        return response()->json(['code' => $code]);
+    /**
+     * Branch ids submitted with the form, restricted to the branches the current
+     * user is allowed to see. An empty result means the account is general.
+     *
+     * @return array<int>
+     */
+    private function resolveBranchIds(Request $request, BranchAccessService $branchAccess): array
+    {
+        $submitted = collect($request->input('branch_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique();
+
+        $visibleIds = $branchAccess->visibleBranches(auth('admin-web')->user())
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        return $submitted
+            ->filter(fn ($id) => in_array($id, $visibleIds, true))
+            ->values()
+            ->all();
     }
 
     /**
@@ -88,23 +108,27 @@ class AccountsController extends Controller
      * @param  \App\Http\Requests\StoreAccountsTreeRequest  $request
      * @return \Illuminate\Http\Response
      */
-    public function store(Request $request)
+    public function store(Request $request, BranchAccessService $branchAccess)
     {
         $validated = $request->validate([
             'name' => 'required|unique:accounts',
             'parent_account_id' => 'nullable|exists:accounts,id',
             'accounts_type' => 'required|in:' . implode(',', config('settings.accounts_types')),
             'transfers_side' => 'required|in:' . implode(',', config('settings.transfers_sides')),
+            'branch_ids' => 'nullable|array',
+            'branch_ids.*' => 'integer',
         ]);
 
         try {
             DB::beginTransaction();
-            Account::create([
+            $account = Account::create([
                 'name' => ['ar' => $request->name, 'en' => $request->name],
                 'parent_account_id' => $request->parent_account_id ?? null,
                 'account_type' => $request->accounts_type,
                 'transfer_side' => $request->transfers_side,
             ]);
+
+            $account->branches()->sync($this->resolveBranchIds($request, $branchAccess));
 
             DB::commit();
             return redirect()->route('accounts.index');
@@ -120,12 +144,13 @@ class AccountsController extends Controller
      * @param  \App\Models\AccountsTree  $accountsTree
      * @return \Illuminate\Http\Response
      */
-    public function edit($id)
+    public function edit($id, BranchAccessService $branchAccess)
     {
         $accounts = Account::all();
-        $account = Account::find($id);
+        $account = Account::with('branches')->find($id);
+        $branches = $branchAccess->visibleBranches(auth('admin-web')->user());
 
-        return view('admin.accounts.form', compact('accounts', 'account'));
+        return view('admin.accounts.form', compact('accounts', 'account', 'branches'));
     }
 
     /**
@@ -135,13 +160,15 @@ class AccountsController extends Controller
      * @param  \App\Models\AccountsTree  $accountsTree
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $id, BranchAccessService $branchAccess)
     {
         $validated = $request->validate([
-            'name' => 'required|unique:accounts',
+            'name' => 'required|unique:accounts,name,' . $id,
             'parent_account_id' => 'nullable|exists:accounts,id',
             'accounts_type' => 'required|in:' . implode(',', config('settings.accounts_types')),
             'transfers_side' => 'required|in:' . implode(',', config('settings.transfers_sides')),
+            'branch_ids' => 'nullable|array',
+            'branch_ids.*' => 'integer',
         ]);
 
         try {
@@ -153,6 +180,8 @@ class AccountsController extends Controller
                 'account_type' => $request->accounts_type,
                 'transfer_side' => $request->transfers_side,
             ]);
+
+            $account->branches()->sync($this->resolveBranchIds($request, $branchAccess));
 
             DB::commit();
             return redirect()->route('accounts.index');

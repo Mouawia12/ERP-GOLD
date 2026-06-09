@@ -23,21 +23,89 @@ class Account extends Model
     {
         parent::boot();
         static::creating(function (Account $account) {
-            $expectedLevel = $account->parent ? intval($account->parent->level) + 1 : 1;
-            $account->level = $expectedLevel;
+            $account->level = $account->parent ? intval($account->parent->level) + 1 : 1;
             if (is_null($account->code)) {
-                if (is_null($account->parent_account_id)) {
-                    $countParentAccounts = Account::where('parent_account_id', NULL)->count();
-                    $expectedNum = $countParentAccounts + 1;
-                    $account->code = (new Account())->codePrefix($expectedNum, $expectedLevel);
-                } else {
-                    $countSiblingAccounts = Account::where('parent_account_id', $account->parent->id)->count();
-                    $expectedNum = $countSiblingAccounts + 1;
-                    $expectedCode = (new Account())->codePrefix($expectedNum, $expectedLevel);
-                    $account->code = $account->parent->code . $expectedCode;
-                }
+                $account->code = self::nextCodeFor($account->parent);
             }
         });
+    }
+
+    /**
+     * Compute the next available code for a new account under the given parent.
+     *
+     * Sequence is derived from the largest existing sibling suffix (not the sibling
+     * count) so that deleting an account never causes a later account to reuse an
+     * existing code. A uniqueness guard is kept as a final safety net.
+     */
+    public static function nextCodeFor(?self $parent): string
+    {
+        $level = $parent ? intval($parent->level) + 1 : 1;
+        $prefix = $parent?->code ?? '';
+        $prefixLength = strlen($prefix);
+
+        $siblingCodes = self::query()
+            ->where('parent_account_id', $parent?->id)
+            ->pluck('code')
+            ->filter()
+            ->all();
+
+        $maxSeq = 0;
+        foreach ($siblingCodes as $siblingCode) {
+            $suffix = $prefixLength > 0 ? substr($siblingCode, $prefixLength) : $siblingCode;
+            if ($suffix !== '' && ctype_digit($suffix)) {
+                $maxSeq = max($maxSeq, (int) $suffix);
+            }
+        }
+
+        $nextSeq = max($maxSeq, count($siblingCodes)) + 1;
+        $helper = new self();
+
+        do {
+            $code = $prefix . $helper->codePrefix($nextSeq, $level);
+            $exists = self::query()->where('code', $code)->exists();
+            $nextSeq++;
+        } while ($exists);
+
+        return $code;
+    }
+
+    public function branches()
+    {
+        return $this->belongsToMany(Branch::class, 'account_branch');
+    }
+
+    /**
+     * An account is visible for the given branches when it is general (not linked
+     * to any branch) or linked to at least one of the selected branches.
+     *
+     * @param  array<int>  $branchIds
+     */
+    public function scopeVisibleForBranches($query, array $branchIds)
+    {
+        if ($branchIds === []) {
+            return $query;
+        }
+
+        return $query->where(function ($builder) use ($branchIds) {
+            $builder->whereDoesntHave('branches')
+                ->orWhereHas('branches', fn ($b) => $b->whereIn('branches.id', $branchIds));
+        });
+    }
+
+    /**
+     * Map of account_id => [branch_ids] for every account that is linked to one or
+     * more branches. Accounts absent from this map are general (all branches).
+     *
+     * @return array<int, array<int>>
+     */
+    public static function branchAssignmentMap(): array
+    {
+        return DB::table('account_branch')
+            ->select('account_id', 'branch_id')
+            ->get()
+            ->groupBy('account_id')
+            ->map(fn ($rows) => $rows->pluck('branch_id')->map(fn ($id) => (int) $id)->values()->all())
+            ->all();
     }
 
     public function getNameAttribute($value): string

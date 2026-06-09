@@ -131,10 +131,14 @@ class AccountingReportsController extends Controller
 
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
+        $branchAssignmentMap = Account::branchAssignmentMap();
+        $selectedBranchIds = $branchSelection['effective_branch_ids'];
+        $selectsAll = $branchSelection['selects_all'];
 
         return view('admin.reports.income_statement.index', compact(
             'periodFrom', 'periodTo', 'revenuesAccount', 'expensesAccount',
-            'profitTotal', 'accountMetrics', 'branch', 'branchLabel'
+            'profitTotal', 'accountMetrics', 'branch', 'branchLabel',
+            'branchAssignmentMap', 'selectedBranchIds', 'selectsAll'
         ));
     }
 
@@ -175,6 +179,9 @@ class AccountingReportsController extends Controller
 
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
+        $branchAssignmentMap = Account::branchAssignmentMap();
+        $selectedBranchIds = $branchSelection['effective_branch_ids'];
+        $selectsAll = $branchSelection['selects_all'];
 
         return view('admin.reports.income_statement.index', compact(
             'periodFrom',
@@ -184,7 +191,10 @@ class AccountingReportsController extends Controller
             'profitTotal',
             'accountMetrics',
             'branch',
-            'branchLabel'
+            'branchLabel',
+            'branchAssignmentMap',
+            'selectedBranchIds',
+            'selectsAll'
         ));
     }
 
@@ -224,10 +234,14 @@ class AccountingReportsController extends Controller
 
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
+        $branchAssignmentMap = Account::branchAssignmentMap();
+        $selectedBranchIds = $branchSelection['effective_branch_ids'];
+        $selectsAll = $branchSelection['selects_all'];
 
         return view('admin.reports.balance_sheet.index', compact(
             'periodFrom', 'periodTo', 'assetsAccount', 'equityAccount', 'liabilitiesAccount',
-            'profitTotal', 'accountMetrics', 'branch', 'branchLabel', 'accountLevel'
+            'profitTotal', 'accountMetrics', 'branch', 'branchLabel', 'accountLevel',
+            'branchAssignmentMap', 'selectedBranchIds', 'selectsAll'
         ));
     }
 
@@ -274,6 +288,9 @@ class AccountingReportsController extends Controller
 
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
+        $branchAssignmentMap = Account::branchAssignmentMap();
+        $selectedBranchIds = $branchSelection['effective_branch_ids'];
+        $selectsAll = $branchSelection['selects_all'];
 
         return view('admin.reports.balance_sheet.index', compact(
             'periodFrom',
@@ -285,7 +302,10 @@ class AccountingReportsController extends Controller
             'accountMetrics',
             'branch',
             'branchLabel',
-            'accountLevel'
+            'accountLevel',
+            'branchAssignmentMap',
+            'selectedBranchIds',
+            'selectsAll'
         ));
     }
 

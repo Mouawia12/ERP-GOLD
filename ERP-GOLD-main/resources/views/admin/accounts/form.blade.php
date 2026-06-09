@@ -137,7 +137,22 @@
                                         </div>
                                     </div>
                                 </div>
-                            </div> 
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        @include('admin.reports.partials.branch_filter', [
+                                            'branches' => $branches ?? collect(),
+                                            'defaultFilters' => [
+                                                'branch_ids' => isset($account) ? $account->branches->pluck('id')->all() : [],
+                                                'branch_id' => null,
+                                            ],
+                                            'branchFieldId' => 'account_branch_ids',
+                                            'branchHiddenFieldId' => 'account_branch_id_legacy',
+                                            'branchLabelText' => 'الفروع',
+                                            'branchHelpText' => 'اتركه فارغًا ليكون الحساب عامًا لكل الفروع.',
+                                        ])
+                                    </div>
+                                </div>
+                            </div>
                         </div> 
                         <div class="col-12" style="text-align: center;margin:20px auto;">
                             <button type="submit" class="btn btn-labeled btn-primary"  >
