@@ -638,7 +638,13 @@ class AccountingReportsController extends Controller
 
     private function applyAccountStatementFilters($query, array $filters): void
     {
-        if (($filters['branch_ids'] ?? []) !== []) {
+        // When "all branches" is selected we must NOT restrict by branch_id:
+        // effective_branch_ids is the full subscriber branch list, and any entry
+        // stamped with a NULL/foreign branch (e.g. legacy manual journal entries)
+        // would be silently dropped by whereIn — the exact "posted entry not
+        // showing in the statement" bug. Account scoping already keeps the query
+        // within the current subscriber, so skipping the branch gate is safe.
+        if (empty($filters['branch_scope_all']) && ($filters['branch_ids'] ?? []) !== []) {
             $query->whereHas('journal_entry', function ($journalQuery) use ($filters) {
                 $journalQuery->whereIn('branch_id', $filters['branch_ids']);
             });
@@ -826,7 +832,7 @@ class AccountingReportsController extends Controller
     {
         return JournalEntryDocument::query()
             ->whereIn('account_id', $account->childrensIds)
-            ->when(($filters['branch_ids'] ?? []) !== [], function ($query) use ($filters) {
+            ->when(empty($filters['branch_scope_all']) && ($filters['branch_ids'] ?? []) !== [], function ($query) use ($filters) {
                 return $query->whereHas('journal_entry', function ($journalQuery) use ($filters) {
                     $journalQuery->whereIn('branch_id', $filters['branch_ids']);
                 });

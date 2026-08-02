@@ -7,6 +7,7 @@ use App\Models\Account;
 use App\Models\Branch;
 use App\Models\FinancialYear;
 use App\Models\JournalEntry;
+use App\Services\Branches\BranchContextService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -114,13 +115,33 @@ class JournalEntryController extends Controller
             ], 422);
         }
 
+        // Stamp the entry with the CURRENT user's branch — not Branch::first(),
+        // which returns the globally-first branch (usually another subscriber's)
+        // and makes the entry invisible to this subscriber's branch-scoped reports.
+        $user = $request->user('admin-web');
+        $branchId = app(BranchContextService::class)->currentBranchId($user, $request->session());
+        if (! $branchId) {
+            $branchId = Branch::query()
+                ->when(filled($user?->subscriber_id), fn ($q) => $q->where('subscriber_id', $user->subscriber_id))
+                ->orderBy('id')
+                ->value('id')
+                ?? Branch::query()->orderBy('id')->value('id');
+        }
+
+        if (! $branchId) {
+            return response()->json([
+                'status' => false,
+                'errors' => __('validations.branch_id_required'),
+            ], 422);
+        }
+
         try {
             DB::beginTransaction();
             $journal = JournalEntry::create([
                 'journal_date' => $request->date,
                 'notes' => $request->notes,
                 'financial_year' => FinancialYear::where('is_active', true)->first()->id,
-                'branch_id' => Branch::first()->id,
+                'branch_id' => $branchId,
             ]);
             foreach ($request->account_id as $key => $value) {
                 $documents[] = [
