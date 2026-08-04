@@ -137,8 +137,25 @@
                                         </div>
                                     </div>
                                 </div>
-                            </div> 
-                        </div> 
+
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="form-group">
+                                            <label>{{ __('الفروع') }}</label>
+                                            <select class="js-example-basic-single w-100" name="branch_ids[]" id="branch_ids" multiple>
+                                                @foreach($branches as $branch)
+                                                    <option value="{{ $branch->id }}"
+                                                        @if((isset($account) && $account->branches->contains('id', $branch->id)) || in_array($branch->id, old('branch_ids', []))) selected @endif>
+                                                        {{ $branch->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <small class="text-muted d-block mt-1">اختياري — اترك الحقل فارغًا ليخص الحساب كل الفروع.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="col-12" style="text-align: center;margin:20px auto;">
                             <button type="submit" class="btn btn-labeled btn-primary"  >
                                 {{__('main.save_btn')}}

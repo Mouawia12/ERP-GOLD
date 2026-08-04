@@ -60,6 +60,11 @@ class Account extends Model
         return $this->belongsTo(self::class, 'parent_account_id');
     }
 
+    public function branches()
+    {
+        return $this->belongsToMany(Branch::class, 'account_branch')->withTimestamps();
+    }
+
     public function codePrefix($number, $level)
     {
         return str_pad($number, $level - 1, '0', STR_PAD_LEFT);

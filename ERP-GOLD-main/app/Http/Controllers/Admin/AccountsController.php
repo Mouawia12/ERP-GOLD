@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Models\Branch;
 use App\Models\FinancialYear;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryDocument;
@@ -66,7 +67,55 @@ class AccountsController extends Controller
     public function create()
     {
         $accounts = Account::all();
-        return view('admin.accounts.form', compact('accounts'));
+        $branches = $this->subscriberBranches();
+        return view('admin.accounts.form', compact('accounts', 'branches'));
+    }
+
+    /**
+     * فروع المشترك الحالي (لاختيارها عند ربط الحساب).
+     */
+    private function subscriberBranches()
+    {
+        $actor = request()->user('admin-web');
+
+        return Branch::query()
+            ->when(
+                filled($actor?->subscriber_id),
+                fn ($query) => $query->where('subscriber_id', $actor->subscriber_id)
+            )
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * تنقية معرّفات الفروع المرسلة إلى ما يخص المشترك الحالي فقط.
+     *
+     * @param  mixed  $branchIds
+     * @return array<int, int>
+     */
+    private function allowedBranchIds($branchIds): array
+    {
+        $ids = collect($branchIds)
+            ->map(fn ($value) => (int) $value)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        $actor = request()->user('admin-web');
+
+        return Branch::query()
+            ->when(
+                filled($actor?->subscriber_id),
+                fn ($query) => $query->where('subscriber_id', $actor->subscriber_id)
+            )
+            ->whereIn('id', $ids)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
     }
 
     public function excepted_code(Request $request)
@@ -95,16 +144,20 @@ class AccountsController extends Controller
             'parent_account_id' => 'nullable|exists:accounts,id',
             'accounts_type' => 'required|in:' . implode(',', config('settings.accounts_types')),
             'transfers_side' => 'required|in:' . implode(',', config('settings.transfers_sides')),
+            'branch_ids' => 'nullable|array',
+            'branch_ids.*' => 'integer|exists:branches,id',
         ]);
 
         try {
             DB::beginTransaction();
-            Account::create([
+            $account = Account::create([
                 'name' => ['ar' => $request->name, 'en' => $request->name],
                 'parent_account_id' => $request->parent_account_id ?? null,
                 'account_type' => $request->accounts_type,
                 'transfer_side' => $request->transfers_side,
             ]);
+
+            $account->branches()->sync($this->allowedBranchIds($request->input('branch_ids', [])));
 
             DB::commit();
             return redirect()->route('accounts.index');
@@ -123,9 +176,10 @@ class AccountsController extends Controller
     public function edit($id)
     {
         $accounts = Account::all();
-        $account = Account::find($id);
+        $account = Account::with('branches')->find($id);
+        $branches = $this->subscriberBranches();
 
-        return view('admin.accounts.form', compact('accounts', 'account'));
+        return view('admin.accounts.form', compact('accounts', 'account', 'branches'));
     }
 
     /**
@@ -142,6 +196,8 @@ class AccountsController extends Controller
             'parent_account_id' => 'nullable|exists:accounts,id',
             'accounts_type' => 'required|in:' . implode(',', config('settings.accounts_types')),
             'transfers_side' => 'required|in:' . implode(',', config('settings.transfers_sides')),
+            'branch_ids' => 'nullable|array',
+            'branch_ids.*' => 'integer|exists:branches,id',
         ]);
 
         try {
@@ -153,6 +209,8 @@ class AccountsController extends Controller
                 'account_type' => $request->accounts_type,
                 'transfer_side' => $request->transfers_side,
             ]);
+
+            $account->branches()->sync($this->allowedBranchIds($request->input('branch_ids', [])));
 
             DB::commit();
             return redirect()->route('accounts.index');
