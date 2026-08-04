@@ -100,6 +100,9 @@ Route::group(
                     Route::get('/initial_quantities', [InitialQuantitiesController::class, 'index'])->name('initial_quantities.index');
                     Route::get('/initial_quantities/create', [InitialQuantitiesController::class, 'create'])->name('initial_quantities.create');
                     Route::post('/initial_quantities/store', [InitialQuantitiesController::class, 'store'])->name('initial_quantities.store');
+                    Route::get('/initial_quantities/{id}/edit', [InitialQuantitiesController::class, 'edit'])->name('initial_quantities.edit');
+                    Route::put('/initial_quantities/{id}', [InitialQuantitiesController::class, 'update'])->name('initial_quantities.update');
+                    Route::delete('/initial_quantities/{id}', [InitialQuantitiesController::class, 'destroy'])->name('initial_quantities.destroy');
 
                     Route::get('/stock_settlements', [StockSettlementController::class, 'index'])->name('stock_settlements.index');
                     Route::get('/stock_settlements/create', [StockSettlementController::class, 'create'])->name('stock_settlements.create');

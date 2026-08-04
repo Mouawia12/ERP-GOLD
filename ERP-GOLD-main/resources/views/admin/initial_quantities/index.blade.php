@@ -175,10 +175,56 @@
                 order: [[0, 'desc']]
             }).buttons().container().appendTo('#ItemTable_wrapper .col-md-6:eq(0)');
        
-            $(document).on('click', '#createButton', function (event) {   
-                window.location = "{{route('initial_quantities.create')}}"; 
+            $(document).on('click', '#createButton', function (event) {
+                window.location = "{{route('initial_quantities.create')}}";
+            });
+
+            $(document).on('click', '.deleteBtn', function (event) {
+                selectedDeleteId = $(this).data('id');
+                var bill = $(this).data('bill') || '';
+                $('#modal_table_bill').text(bill);
+                $('#deleteModal').modal('show');
+            });
+
+            $(document).on('click', '.cancel-modal', function (event) {
+                $('#deleteModal').modal('hide');
+                selectedDeleteId = null;
             });
         });
+
+        var selectedDeleteId = null;
+
+        function confirmDelete() {
+            if (!selectedDeleteId) {
+                return;
+            }
+            $.ajax({
+                url: "{{ route('initial_quantities.destroy', ':id') }}".replace(':id', selectedDeleteId),
+                type: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                beforeSend: function () {
+                    $('#loader').show();
+                },
+                success: function (result) {
+                    $('#deleteModal').modal('hide');
+                    alert(result.message);
+                    $('#SalesTable').DataTable().ajax.reload(null, false);
+                },
+                complete: function () {
+                    $('#loader').hide();
+                },
+                error: function (jqXHR) {
+                    $('#deleteModal').modal('hide');
+                    var msg = (jqXHR.responseJSON && jqXHR.responseJSON.message)
+                        ? jqXHR.responseJSON.message
+                        : 'Error';
+                    alert(msg);
+                },
+                timeout: 15000
+            });
+        }
 </script>
 
 
