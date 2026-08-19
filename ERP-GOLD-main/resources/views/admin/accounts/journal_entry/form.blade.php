@@ -35,17 +35,30 @@
                             <div class="col-md-3">
                                 <label>{{ __('main.date') }} <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
                                 <input type="datetime-local"  id="date" name="date"
-                                       class="form-control"/> 
-                            </div>  
-                            <div class="col-md-6">
+                                       class="form-control"/>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label>{{ __('الفرع') }} <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
+                                    <select id="branch_id" name="branch_id" class="form-control js-example-basic-single w-100">
+                                        @foreach(($branches ?? []) as $branch)
+                                            <option value="{{ $branch->id }}"
+                                                @if(isset($currentAdminBranch) && $currentAdminBranch && $currentAdminBranch->id == $branch->id) selected @endif>
+                                                {{ $branch->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
                                 <div class="form-group">
                                     <label>{{ __('البيان') }} <span style="color:#fff; font-size:20px; font-weight:bold;">.</span></label>
                                     <input type="text" id="notes" name="notes"
-                                       class="form-control"/> 
-                                   
+                                       class="form-control"/>
+
                                 </div>
                             </div>
-                        </div> 
+                        </div>
                         <div class="row"> 
                                 <div class="col-md-12" id="sticker">
                                     <div class="well well-sm" @if(Config::get('app.locale') == 'ar')style="direction: rtl;" @endif>

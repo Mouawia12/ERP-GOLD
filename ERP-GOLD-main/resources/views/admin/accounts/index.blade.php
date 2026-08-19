@@ -92,6 +92,7 @@
             border-radius: 14px;
             background: #fff;
             margin-bottom: 0.75rem;
+            min-width: 0;
         }
 
         .account-tree__row--root {
@@ -132,6 +133,13 @@
         .account-tree__title {
             font-weight: 700;
             color: #111827;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        /* keep long account codes from breaking mid-number */
+        .account-tree__content .badge {
+            white-space: nowrap;
         }
 
         .account-tree__meta {
@@ -155,6 +163,23 @@
             padding: 0.2rem 0.6rem;
             font-size: 0.78rem;
             font-weight: 700;
+        }
+
+        /* Mobile: nested indentation (padding-right) compounds per depth and
+           eats the narrow viewport at deep levels — shrink it so level-4+ rows
+           keep enough width for the name + badges instead of overflowing. */
+        @media (max-width: 576px) {
+            .account-tree__children {
+                padding-right: 0.6rem;
+            }
+            .account-tree__row {
+                gap: 0.4rem;
+                padding: 0.6rem 0.5rem;
+            }
+            .account-tree__toggle {
+                width: 1.6rem;
+                height: 1.6rem;
+            }
         }
     </style>
 

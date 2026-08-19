@@ -8,6 +8,7 @@ use App\Models\Branch;
 use App\Models\FinancialYear;
 use App\Models\JournalEntry;
 use App\Services\Branches\BranchContextService;
+use App\Services\Reports\ReportBranchSelectionService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -65,7 +66,10 @@ class JournalEntryController extends Controller
 
     public function create()
     {
-        return view('admin.accounts.journal_entry.form');
+        $branches = app(ReportBranchSelectionService::class)
+            ->visibleBranches(auth('admin-web')->user());
+
+        return view('admin.accounts.journal_entry.form', compact('branches'));
     }
 
     public function preview_journal($id)
@@ -115,11 +119,27 @@ class JournalEntryController extends Controller
             ], 422);
         }
 
-        // Stamp the entry with the CURRENT user's branch — not Branch::first(),
-        // which returns the globally-first branch (usually another subscriber's)
-        // and makes the entry invisible to this subscriber's branch-scoped reports.
+        // Branch (cost-center) is chosen on the form so the entry lands on the
+        // right branch's books and shows up in that branch's reports. Enforce it
+        // is one of the user's accessible branches; fall back to the current
+        // session branch (never Branch::first(), which is another subscriber's).
         $user = $request->user('admin-web');
-        $branchId = app(BranchContextService::class)->currentBranchId($user, $request->session());
+        $accessibleBranchIds = app(ReportBranchSelectionService::class)
+            ->visibleBranches($user)
+            ->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        $branchId = (int) $request->input('branch_id');
+        if ($branchId && $accessibleBranchIds !== [] && ! in_array($branchId, $accessibleBranchIds, true)) {
+            return response()->json([
+                'status' => false,
+                'errors' => __('validations.branch_id_required'),
+            ], 422);
+        }
+
+        if (! $branchId) {
+            $branchId = app(BranchContextService::class)->currentBranchId($user, $request->session());
+        }
+
         if (! $branchId) {
             $branchId = Branch::query()
                 ->when(filled($user?->subscriber_id), fn ($q) => $q->where('subscriber_id', $user->subscriber_id))
