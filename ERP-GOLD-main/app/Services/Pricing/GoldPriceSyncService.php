@@ -49,7 +49,20 @@ class GoldPriceSyncService
 
     public function remoteSyncConfigured(): bool
     {
-        return trim((string) config('services.gold_api.key', '')) !== '';
+        return trim((string) $this->activeProviderKey()) !== '';
+    }
+
+    private function activeProvider(): string
+    {
+        return strtolower(trim((string) config('services.gold_api.provider', 'goldapi'))) ?: 'goldapi';
+    }
+
+    private function activeProviderKey(): string
+    {
+        return (string) match ($this->activeProvider()) {
+            'twelvedata' => config('services.gold_api.twelvedata_key', ''),
+            default => config('services.gold_api.key', ''),
+        };
     }
 
     public function isRefreshDue(?GoldPrice $current = null, ?int $intervalMinutes = null): bool
@@ -167,6 +180,19 @@ class GoldPriceSyncService
      */
     public function fetchRemoteSnapshot(string $currency = 'SAR'): array
     {
+        return match ($this->activeProvider()) {
+            'twelvedata' => $this->fetchFromTwelveData($currency),
+            default => $this->fetchFromGoldApi($currency),
+        };
+    }
+
+    /**
+     * goldapi.io — returns per-karat gram prices already in the target currency.
+     *
+     * @return array<string, mixed>
+     */
+    private function fetchFromGoldApi(string $currency = 'SAR'): array
+    {
         $token = (string) config('services.gold_api.key', '');
         $baseUrl = rtrim((string) config('services.gold_api.base_url', 'https://www.goldapi.io'), '/');
         $symbol = (string) config('services.gold_api.symbol', 'XAU');
@@ -211,6 +237,92 @@ class GoldPriceSyncService
         }
 
         return $payload;
+    }
+
+    /**
+     * twelvedata.com — returns the XAU/USD spot (ounce, USD). Karat gram prices
+     * and the SAR conversion are computed locally, then shaped like the goldapi
+     * payload the rest of the service already consumes.
+     *
+     * @return array<string, mixed>
+     */
+    private function fetchFromTwelveData(string $currency = 'SAR'): array
+    {
+        $token = (string) config('services.gold_api.twelvedata_key', '');
+        $baseUrl = rtrim((string) config('services.gold_api.twelvedata_base_url', 'https://api.twelvedata.com'), '/');
+
+        if ($token === '') {
+            throw new RuntimeException('لم يتم ضبط مفتاح خدمة أسعار الذهب (Twelve Data) في الإعدادات البيئية.');
+        }
+
+        $response = Http::acceptJson()
+            ->timeout(15)
+            ->get($baseUrl . '/price', [
+                'symbol' => 'XAU/USD',
+                'apikey' => $token,
+            ]);
+
+        $body = $response->json();
+
+        // Twelve Data returns HTTP 200 even for errors, with {status:"error",...}.
+        if ($response->failed() || (is_array($body) && ($body['status'] ?? null) === 'error')) {
+            Log::warning('[gold-price-sync] twelvedata fetch failed', [
+                'status' => $response->status(),
+                'currency' => $currency,
+                'body' => Str::limit((string) $response->body(), 500),
+            ]);
+
+            $reason = is_array($body) ? ($body['message'] ?? '') : '';
+
+            throw new RuntimeException(trim(
+                'تعذر تحديث أسعار الذهب من الخدمة الخارجية (Twelve Data). ' . $reason
+            ));
+        }
+
+        $ounceUsd = (float) ($body['price'] ?? 0);
+
+        if ($ounceUsd <= 0) {
+            Log::warning('[gold-price-sync] twelvedata response invalid', [
+                'currency' => $currency,
+                'body' => Str::limit((string) $response->body(), 500),
+            ]);
+
+            throw new RuntimeException('استجابة خدمة أسعار الذهب غير صالحة.');
+        }
+
+        return $this->buildOunceUsdPayload($ounceUsd, strtoupper($currency), [
+            'provider' => 'twelvedata',
+        ]);
+    }
+
+    /**
+     * Build the goldapi-shaped payload from a USD ounce spot price: convert to
+     * the target currency (SAR via the configured peg), derive the 24k gram
+     * price, then scale by karat purity for the other karats.
+     *
+     * @param  array<string, mixed>  $extraMeta
+     * @return array<string, mixed>
+     */
+    private function buildOunceUsdPayload(float $ounceUsd, string $currency, array $extraMeta = []): array
+    {
+        $rate = $currency === 'SAR'
+            ? (float) config('services.gold_api.sar_per_usd', 3.75)
+            : 1.0;
+
+        $ounceInCurrency = $ounceUsd * $rate;
+        $gram24 = $ounceInCurrency / self::OUNCE_GRAMS;
+
+        return array_merge([
+            'price' => round($ounceInCurrency, 2),
+            'price_gram_24k' => round($gram24, 2),
+            'price_gram_22k' => round($gram24 * 22 / 24, 2),
+            'price_gram_21k' => round($gram24 * 21 / 24, 2),
+            'price_gram_18k' => round($gram24 * 18 / 24, 2),
+            'price_gram_14k' => round($gram24 * 14 / 24, 2),
+            'currency' => $currency,
+            'timestamp' => time(),
+            'metal' => 'XAU',
+        ], $extraMeta);
     }
 
     /**

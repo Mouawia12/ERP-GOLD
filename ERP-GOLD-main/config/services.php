@@ -32,9 +32,22 @@ return [
     ],
 
     'gold_api' => [
+        // Active price provider: 'goldapi' (default, per-karat SAR grams) or
+        // 'twelvedata' (XAU/USD spot; karats + SAR peg computed locally).
+        'provider' => env('GOLD_PRICE_PROVIDER', 'goldapi'),
+
+        // goldapi.io
         'key' => env('GOLD_API_KEY'),
         'base_url' => env('GOLD_API_BASE_URL', 'https://www.goldapi.io'),
         'symbol' => env('GOLD_API_SYMBOL', 'XAU'),
+
+        // twelvedata.com (free plan ~800 req/day) — much larger free quota.
+        'twelvedata_key' => env('TWELVEDATA_API_KEY'),
+        'twelvedata_base_url' => env('TWELVEDATA_BASE_URL', 'https://api.twelvedata.com'),
+
+        // SAR is pegged to USD (~3.75). Used to convert USD spot to SAR when the
+        // provider only returns USD. Override via env if the peg ever changes.
+        'sar_per_usd' => env('GOLD_SAR_PER_USD', 3.75),
     ],
 
 ];
