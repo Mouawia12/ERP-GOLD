@@ -8,6 +8,8 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class GoldPriceSyncService
@@ -182,12 +184,29 @@ class GoldPriceSyncService
             ->get(sprintf('%s/api/%s/%s', $baseUrl, $symbol, strtoupper($currency)));
 
         if ($response->failed()) {
-            throw new RuntimeException('تعذر تحديث أسعار الذهب من الخدمة الخارجية.');
+            // Log the real HTTP status + body so the actual cause (invalid key
+            // 401/403, exhausted monthly quota 429, endpoint down 5xx…) is
+            // diagnosable from storage/logs instead of a generic message.
+            Log::warning('[gold-price-sync] remote fetch failed', [
+                'status' => $response->status(),
+                'currency' => $currency,
+                'symbol' => $symbol,
+                'body' => Str::limit((string) $response->body(), 500),
+            ]);
+
+            throw new RuntimeException(
+                'تعذر تحديث أسعار الذهب من الخدمة الخارجية (رمز الاستجابة: ' . $response->status() . ').'
+            );
         }
 
         $payload = $response->json();
 
         if (!is_array($payload) || !isset($payload['price_gram_21k'], $payload['price_gram_24k'], $payload['price'])) {
+            Log::warning('[gold-price-sync] remote response invalid', [
+                'currency' => $currency,
+                'body' => Str::limit((string) $response->body(), 500),
+            ]);
+
             throw new RuntimeException('استجابة خدمة أسعار الذهب غير صالحة.');
         }
 

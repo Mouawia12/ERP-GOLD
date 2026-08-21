@@ -922,8 +922,28 @@
                     updateTicker(payload);
                     emitUpdate(payload);
 
-                    if (options.refresh && payload.success !== false && window.erpShowSuccessToast) {
-                        window.erpShowSuccessToast(payload.message || 'تم تحديث أسعار الذهب بنجاح.', 'أسعار الذهب');
+                    // Only give feedback for an explicit (manual) refresh, but
+                    // ALWAYS give it — previously a success:false response (e.g.
+                    // the gold API failed or the key isn't set) returned HTTP 200
+                    // and fell through here silently: "no message, no update".
+                    if (options.refresh) {
+                        var failed = payload.success === false
+                            || payload.remote_sync_configured === false;
+                        var msg = payload.message || (failed
+                            ? 'تعذر تحديث الأسعار من الخدمة الخارجية.'
+                            : 'تم تحديث أسعار الذهب بنجاح.');
+
+                        if (failed) {
+                            if (window.erpShowError) {
+                                window.erpShowError(msg, 'أسعار الذهب');
+                            } else {
+                                alert(msg);
+                            }
+                        } else if (window.erpShowSuccessToast) {
+                            window.erpShowSuccessToast(msg, 'أسعار الذهب');
+                        } else {
+                            alert(msg);
+                        }
                     }
                 })
                 .catch(function () {
