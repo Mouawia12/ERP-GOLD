@@ -177,14 +177,19 @@ class AccountsCleanupCommand extends Command
 
         $nullParents = DB::table('accounts')->whereNull('parent_account_id')->get();
 
-        // Identify canonical roots (exact-name match) — targets, never moved.
-        $canonical = [];
+        // Identify canonical roots (exact-name match) PER SUBSCRIBER — targets,
+        // never moved. Scoping by subscriber is critical: an orphan must only ever
+        // be re-parented under a root of its OWN subscriber, never another tenant's.
+        $subKey = static fn ($acc) => $acc->subscriber_id === null ? 'null' : (string) $acc->subscriber_id;
+
+        $canonical = [];      // [subscriberKey][category] => account
         $canonicalIds = [];
         foreach ($nullParents as $acc) {
             $name = trim($this->arName($acc->name));
+            $sub = $subKey($acc);
             foreach ($rootNames as $category => $names) {
-                if (! isset($canonical[$category]) && in_array($name, $names, true)) {
-                    $canonical[$category] = $acc;
+                if (! isset($canonical[$sub][$category]) && in_array($name, $names, true)) {
+                    $canonical[$sub][$category] = $acc;
                     $canonicalIds[(int) $acc->id] = true;
                 }
             }
@@ -196,6 +201,7 @@ class AccountsCleanupCommand extends Command
             }
 
             $name = trim($this->arName($orphan->name));
+            $sub = $subKey($orphan);
 
             $category = null;
             foreach ($keywordRules as [$cat, $keywords]) {
@@ -207,13 +213,14 @@ class AccountsCleanupCommand extends Command
                 }
             }
 
-            if ($category === null || ! isset($canonical[$category])) {
+            // Only place under the SAME subscriber's category root.
+            if ($category === null || ! isset($canonical[$sub][$category])) {
                 $unplaced[] = ['id' => $orphan->id, 'name' => $name];
-                $this->warn(sprintf('  ORPHAN #%d "%s" — category unclear, left as-is (place manually)', $orphan->id, $name));
+                $this->warn(sprintf('  ORPHAN #%d "%s" — no same-subscriber root for category, left as-is (place manually)', $orphan->id, $name));
                 continue;
             }
 
-            $parent = $canonical[$category];
+            $parent = $canonical[$sub][$category];
             $reparented[] = [
                 'id' => $orphan->id,
                 'name' => $name,
