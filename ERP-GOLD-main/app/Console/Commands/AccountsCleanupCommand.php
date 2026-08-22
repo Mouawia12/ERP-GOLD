@@ -49,28 +49,30 @@ class AccountsCleanupCommand extends Command
         $this->line('Foreign keys referencing accounts.id: ' . count($this->accountForeignKeys));
 
         $run = function () use ($apply) {
-            $orphans = $this->reportOrphans();               // report only
+            [$reparented, $unplaced] = $this->reparentOrphansByName($apply);
             $sameName = $this->reportSameNameDifferentParent(); // report only
-            $deleted = $this->deleteSameSpotEmptyDuplicates($apply); // the only auto-fix
+            $deleted = $this->deleteSameSpotEmptyDuplicates($apply); // safe auto-fix
 
-            return [$orphans, $sameName, $deleted];
+            return [$reparented, $unplaced, $sameName, $deleted];
         };
 
-        [$orphans, $sameName, $deleted] = $apply ? DB::transaction($run) : $run();
+        [$reparented, $unplaced, $sameName, $deleted] = $apply ? DB::transaction($run) : $run();
 
         $this->newLine();
         $this->table(['Result', 'Count'], [
-            ['Orphans (report only — fix via UI)', count($orphans)],
+            ['Orphans re-parented under their main group ' . ($apply ? '' : '(proposed)'), count($reparented)],
+            ['Orphans that need manual placement (name unclear)', count($unplaced)],
             ['Same name / different parent (review — NOT touched)', count($sameName)],
             ['True same-spot empty duplicates ' . ($apply ? 'deleted' : 'to delete'), count($deleted)],
         ]);
 
         if (! $apply) {
-            $this->warn('Dry run — nothing changed. Only same-spot EMPTY duplicates would be deleted on --apply.');
-            $this->warn('Orphans and same-name/different-parent cases are reported for manual review, never auto-changed.');
+            $this->warn('Dry run — nothing changed. Review the proposed re-parenting above, then re-run with --apply.');
+            $this->warn('Only balances-safe changes are made: re-parenting (id links unchanged) and deleting same-spot EMPTY duplicates.');
         } else {
             Log::info('[accounts:cleanup] applied', [
-                'orphans_reported' => count($orphans),
+                'orphans_reparented' => count($reparented),
+                'orphans_unplaced' => count($unplaced),
                 'same_name_diff_parent_reported' => count($sameName),
                 'empty_same_spot_duplicates_deleted' => count($deleted),
             ]);
@@ -138,47 +140,111 @@ class AccountsCleanupCommand extends Command
     }
 
     /**
-     * A root (parent NULL) whose CODE is a strict prefix of another account's code
-     * is fine; a real orphan is a NULL-parent account whose OWN code has an
-     * existing prefix account (its natural parent). Roots have no such prefix, so
-     * they are never listed. Report only — never modifies.
+     * Re-parent orphan accounts (parent_account_id NULL that are NOT one of the
+     * five standard category roots) under the correct main group, inferred from
+     * the account NAME — reliable even when codes/types are messy. The five
+     * canonical roots are identified by an EXACT name match, so a real root
+     * (incl. one accidentally left NULL-parent) is used as a target, never moved.
      *
-     * @return array<int, array<string, mixed>>
+     * Only parent_account_id/level change — balances (linked by id) are untouched.
+     * An orphan whose category can't be inferred is left alone and reported.
+     *
+     * @return array{0:array<int,array<string,mixed>>,1:array<int,array<string,mixed>>}
      */
-    private function reportOrphans(): array
+    private function reparentOrphansByName(bool $apply): array
     {
-        $found = [];
+        $reparented = [];
+        $unplaced = [];
 
-        $codeMaps = $this->codeMapsBySubscriber();
+        // Category -> exact root names (the canonical top groups).
+        $rootNames = [
+            'assets' => ['الأصول', 'الاصول'],
+            'liabilities' => ['الخصوم', 'الالتزامات', 'الإلتزامات'],
+            'equity' => ['حقوق الملكية', 'حقوق الملكيه'],
+            'revenues' => ['الإيرادات', 'الايرادات', 'الإيراد'],
+            'expenses' => ['المصروفات', 'المصاريف'],
+        ];
 
-        $roots = DB::table('accounts')->whereNull('parent_account_id')->get();
+        // Category keywords, checked in this priority order (liabilities before
+        // expenses so "مصروفات مستحقة" is a liability, not an expense).
+        $keywordRules = [
+            ['liabilities', ['مستحق', 'دائن', 'مورد', 'قرض', 'اوراق دفع', 'أوراق دفع', 'ضريبة المشتريات']],
+            ['revenues', ['مبيعات', 'مردودات', 'ايراد', 'إيراد']],
+            ['equity', ['احتياطي', 'رأس المال', 'راس المال', 'ارباح', 'أرباح', 'خسائر', 'جاري']],
+            ['assets', ['صندوق', 'نقدي', 'بنك', 'عهد', 'شيكات', 'عملاء', 'عميل', 'مخزون', 'اصل']],
+            ['expenses', ['مصروف', 'ايجار', 'إيجار', 'تلحيم', 'رواتب', 'راتب', 'كهرباء', 'صيان', 'زكا', 'علب', 'قرطاس', 'سعود', 'نظاف', 'انترنت', 'إنترنت', 'مواد', 'عمول', 'دعاي', 'ضريبة المبيعات']],
+        ];
 
-        foreach ($roots as $root) {
-            $suggested = $this->suggestParentByCode($root, $codeMaps);
-            if ($suggested === null) {
-                continue; // genuine root (no prefix parent) — leave alone
+        $nullParents = DB::table('accounts')->whereNull('parent_account_id')->get();
+
+        // Identify canonical roots (exact-name match) — targets, never moved.
+        $canonical = [];
+        $canonicalIds = [];
+        foreach ($nullParents as $acc) {
+            $name = trim($this->arName($acc->name));
+            foreach ($rootNames as $category => $names) {
+                if (! isset($canonical[$category]) && in_array($name, $names, true)) {
+                    $canonical[$category] = $acc;
+                    $canonicalIds[(int) $acc->id] = true;
+                }
+            }
+        }
+
+        foreach ($nullParents as $orphan) {
+            if (isset($canonicalIds[(int) $orphan->id])) {
+                continue; // a canonical root — leave as a root
             }
 
-            $found[] = [
-                'id' => $root->id,
-                'name' => $this->arName($root->name),
-                'code' => $root->code,
-                'suggested_parent_id' => $suggested->id,
-                'suggested_parent' => $this->arName($suggested->name) . ' (' . $suggested->code . ')',
+            $name = trim($this->arName($orphan->name));
+
+            $category = null;
+            foreach ($keywordRules as [$cat, $keywords]) {
+                foreach ($keywords as $kw) {
+                    if (mb_strpos($name, $kw) !== false) {
+                        $category = $cat;
+                        break 2;
+                    }
+                }
+            }
+
+            if ($category === null || ! isset($canonical[$category])) {
+                $unplaced[] = ['id' => $orphan->id, 'name' => $name];
+                $this->warn(sprintf('  ORPHAN #%d "%s" — category unclear, left as-is (place manually)', $orphan->id, $name));
+                continue;
+            }
+
+            $parent = $canonical[$category];
+            $reparented[] = [
+                'id' => $orphan->id,
+                'name' => $name,
+                'parent_id' => $parent->id,
+                'parent' => $this->arName($parent->name),
+                'category' => $category,
             ];
 
             $this->line(sprintf(
-                '  ORPHAN #%d "%s" (code %s) — suggested parent: #%d "%s" (code %s) [review via UI]',
-                $root->id,
-                $this->arName($root->name),
-                $root->code,
-                $suggested->id,
-                $this->arName($suggested->name),
-                $suggested->code
+                '  ORPHAN #%d "%s" -> under #%d "%s"  [%s]',
+                $orphan->id,
+                $name,
+                $parent->id,
+                $this->arName($parent->name),
+                $category
             ));
+
+            if ($apply) {
+                DB::table('accounts')->where('id', $orphan->id)->update([
+                    'parent_account_id' => $parent->id,
+                    'level' => (string) ((int) ($parent->level ?? 1) + 1),
+                ]);
+                Log::info('[accounts:cleanup] reparented orphan by name', [
+                    'id' => $orphan->id,
+                    'under' => $parent->id,
+                    'category' => $category,
+                ]);
+            }
         }
 
-        return $found;
+        return [$reparented, $unplaced];
     }
 
     /**
@@ -290,40 +356,6 @@ class AccountsCleanupCommand extends Command
         }
 
         return $deleted;
-    }
-
-    /**
-     * @return array<string, array<string, object>>  subscriberKey => (code => account)
-     */
-    private function codeMapsBySubscriber(): array
-    {
-        $maps = [];
-        foreach (DB::table('accounts')->whereNotNull('code')->get() as $account) {
-            $key = $account->subscriber_id ?? 'null';
-            $maps[$key][(string) $account->code] = $account;
-        }
-
-        return $maps;
-    }
-
-    private function suggestParentByCode(object $account, array $codeMaps): ?object
-    {
-        $code = (string) $account->code;
-        if ($code === '') {
-            return null;
-        }
-
-        $key = $account->subscriber_id ?? 'null';
-        $map = $codeMaps[$key] ?? [];
-
-        for ($len = strlen($code) - 1; $len >= 1; $len--) {
-            $prefix = substr($code, 0, $len);
-            if (isset($map[$prefix]) && (int) $map[$prefix]->id !== (int) $account->id) {
-                return $map[$prefix];
-            }
-        }
-
-        return null;
     }
 
     private function arName($name): string
