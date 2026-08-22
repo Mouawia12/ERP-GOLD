@@ -8,28 +8,28 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Safe, reviewable cleanup for chart-of-accounts data defects:
+ * Safe, reviewable diagnostics + minimal auto-fix for chart-of-accounts defects.
  *
- *  - ORPHANS: a non-root account left with parent_account_id = NULL is
- *    re-parented under the canonical root of its own account_type. Nothing is
- *    deleted; only parent_account_id/level change, so balances are untouched.
+ * IMPORTANT SAFETY MODEL (learned from a dry run that caught two false positives):
+ *  - account_type is unreliable (often left at its enum default), so it is NEVER
+ *    used to group or judge accounts.
+ *  - A root (parent_account_id NULL) is NEVER re-parented. Real "orphans" are only
+ *    identified when the account's own CODE has an existing prefix account — that
+ *    prefix is the natural parent; a genuine root has no such prefix.
+ *  - Two accounts count as a true duplicate ONLY when they share the same name
+ *    AND the same parent (same spot). Same name under DIFFERENT parents is NOT a
+ *    duplicate (e.g. the same trader as both a customer and a supplier) — it is
+ *    only reported for a human to review, never deleted.
+ *  - Only accounts referenced by NO foreign key to accounts.id are ever deleted.
  *
- *  - DUPLICATES: accounts sharing the EXACT same name (per subscriber). A
- *    duplicate member is deleted ONLY when it is referenced NOWHERE — checked
- *    against every foreign key that points at accounts.id (journal documents,
- *    opening balances, children, account_settings, invoices, vouchers, …). If
- *    two or more members carry data, the group is left untouched and flagged
- *    for a human to merge (moving posted entries is an accounting decision).
- *
- * Dry-run by default — prints exactly what WOULD happen and changes nothing.
- * Pass --apply to execute (inside a transaction). Always take a DB backup first.
- * Re-runnable and idempotent.
+ * Dry-run by default (reports only). --apply performs the minimal safe changes
+ * inside a transaction. Take a DB backup first. Re-runnable / idempotent.
  */
 class AccountsCleanupCommand extends Command
 {
-    protected $signature = 'accounts:cleanup {--apply : Actually perform the changes (default is a dry run)}';
+    protected $signature = 'accounts:cleanup {--apply : Actually perform the minimal safe changes (default is a dry run)}';
 
-    protected $description = 'Reparent orphan accounts and remove empty duplicate accounts (safe, dry-run by default).';
+    protected $description = 'Report account orphans/duplicates and safely remove only true same-spot empty duplicates.';
 
     /** @var array<int, array{0:string,1:string}> */
     private array $accountForeignKeys = [];
@@ -45,36 +45,35 @@ class AccountsCleanupCommand extends Command
         $apply = (bool) $this->option('apply');
         $this->accountForeignKeys = $this->discoverAccountForeignKeys();
 
-        $this->info($apply ? '== accounts:cleanup — APPLYING ==' : '== accounts:cleanup — DRY RUN (no changes) ==');
+        $this->info($apply ? '== accounts:cleanup — APPLYING (minimal safe changes) ==' : '== accounts:cleanup — DRY RUN (no changes) ==');
         $this->line('Foreign keys referencing accounts.id: ' . count($this->accountForeignKeys));
 
         $run = function () use ($apply) {
-            $reparented = $this->handleOrphans($apply);
-            [$deleted, $flagged] = $this->handleDuplicates($apply);
+            $orphans = $this->reportOrphans();               // report only
+            $sameName = $this->reportSameNameDifferentParent(); // report only
+            $deleted = $this->deleteSameSpotEmptyDuplicates($apply); // the only auto-fix
 
-            return [$reparented, $deleted, $flagged];
+            return [$orphans, $sameName, $deleted];
         };
 
-        [$reparented, $deleted, $flagged] = $apply
-            ? DB::transaction($run)
-            : $run();
+        [$orphans, $sameName, $deleted] = $apply ? DB::transaction($run) : $run();
 
         $this->newLine();
-        $this->table(['Action', 'Count'], [
-            ['Orphans re-parented', count($reparented)],
-            ['Empty duplicates ' . ($apply ? 'deleted' : 'to delete'), count($deleted)],
-            ['Duplicate groups flagged for manual review', $flagged],
+        $this->table(['Result', 'Count'], [
+            ['Orphans (report only — fix via UI)', count($orphans)],
+            ['Same name / different parent (review — NOT touched)', count($sameName)],
+            ['True same-spot empty duplicates ' . ($apply ? 'deleted' : 'to delete'), count($deleted)],
         ]);
 
         if (! $apply) {
-            $this->warn('Dry run only — nothing was changed. Re-run with --apply to execute (after a DB backup).');
+            $this->warn('Dry run — nothing changed. Only same-spot EMPTY duplicates would be deleted on --apply.');
+            $this->warn('Orphans and same-name/different-parent cases are reported for manual review, never auto-changed.');
         } else {
             Log::info('[accounts:cleanup] applied', [
-                'orphans_reparented' => $reparented,
-                'empty_duplicates_deleted' => $deleted,
-                'duplicate_groups_flagged' => $flagged,
+                'orphans_reported' => count($orphans),
+                'same_name_diff_parent_reported' => count($sameName),
+                'empty_same_spot_duplicates_deleted' => count($deleted),
             ]);
-            $this->info('Applied. See storage/logs for the detailed record.');
         }
 
         return self::SUCCESS;
@@ -98,7 +97,6 @@ class AccountsCleanupCommand extends Command
             }
         }
 
-        // Fallback / belt-and-suspenders: known references from the schema.
         foreach ([
             ['accounts', 'parent_account_id'],
             ['journal_entry_documents', 'account_id'],
@@ -112,7 +110,6 @@ class AccountsCleanupCommand extends Command
             $refs[] = $pair;
         }
 
-        // Keep only (table, column) pairs that actually exist, de-duplicated.
         $seen = [];
         $valid = [];
         foreach ($refs as [$t, $c]) {
@@ -141,82 +138,66 @@ class AccountsCleanupCommand extends Command
     }
 
     /**
+     * A root (parent NULL) whose CODE is a strict prefix of another account's code
+     * is fine; a real orphan is a NULL-parent account whose OWN code has an
+     * existing prefix account (its natural parent). Roots have no such prefix, so
+     * they are never listed. Report only — never modifies.
+     *
      * @return array<int, array<string, mixed>>
      */
-    private function handleOrphans(bool $apply): array
+    private function reportOrphans(): array
     {
-        $done = [];
+        $found = [];
+
+        $codeMaps = $this->codeMapsBySubscriber();
 
         $roots = DB::table('accounts')->whereNull('parent_account_id')->get();
 
-        $groups = [];
         foreach ($roots as $root) {
-            $key = ($root->subscriber_id ?? 'null') . '|' . $root->account_type;
-            $groups[$key][] = $root;
-        }
-
-        foreach ($groups as $group) {
-            if (count($group) < 2) {
-                continue; // single root of this type = canonical, no orphan
+            $suggested = $this->suggestParentByCode($root, $codeMaps);
+            if ($suggested === null) {
+                continue; // genuine root (no prefix parent) — leave alone
             }
 
-            // Canonical = the root with the most children, tie-break lowest id.
-            usort($group, function ($a, $b) {
-                $ca = DB::table('accounts')->where('parent_account_id', $a->id)->count();
-                $cb = DB::table('accounts')->where('parent_account_id', $b->id)->count();
+            $found[] = [
+                'id' => $root->id,
+                'name' => $this->arName($root->name),
+                'code' => $root->code,
+                'suggested_parent_id' => $suggested->id,
+                'suggested_parent' => $this->arName($suggested->name) . ' (' . $suggested->code . ')',
+            ];
 
-                return $cb <=> $ca ?: $a->id <=> $b->id;
-            });
-
-            $canonical = array_shift($group);
-
-            foreach ($group as $orphan) {
-                $done[] = [
-                    'id' => $orphan->id,
-                    'name' => $this->arName($orphan->name),
-                    'account_type' => $orphan->account_type,
-                    'new_parent_id' => $canonical->id,
-                ];
-
-                $this->line(sprintf(
-                    '  orphan #%d "%s" -> under root #%d "%s"',
-                    $orphan->id,
-                    $this->arName($orphan->name),
-                    $canonical->id,
-                    $this->arName($canonical->name)
-                ));
-
-                if ($apply) {
-                    DB::table('accounts')->where('id', $orphan->id)->update([
-                        'parent_account_id' => $canonical->id,
-                        'level' => (string) ((int) ($canonical->level ?? 1) + 1),
-                    ]);
-                    Log::info('[accounts:cleanup] reparented orphan', [
-                        'id' => $orphan->id,
-                        'under' => $canonical->id,
-                    ]);
-                }
-            }
+            $this->line(sprintf(
+                '  ORPHAN #%d "%s" (code %s) — suggested parent: #%d "%s" (code %s) [review via UI]',
+                $root->id,
+                $this->arName($root->name),
+                $root->code,
+                $suggested->id,
+                $this->arName($suggested->name),
+                $suggested->code
+            ));
         }
 
-        return $done;
+        return $found;
     }
 
     /**
-     * @return array{0:array<int,array<string,mixed>>,1:int}
+     * Same name, but sitting under different parents — ambiguous (could be a
+     * legitimate customer-and-supplier, or a misplacement). Report only.
+     *
+     * @return array<int, array<string, mixed>>
      */
-    private function handleDuplicates(bool $apply): array
+    private function reportSameNameDifferentParent(): array
     {
-        $deleted = [];
-        $flagged = 0;
+        $found = [];
 
-        $dupGroups = DB::table('accounts')
-            ->select('subscriber_id', 'name', DB::raw('COUNT(*) as cnt'))
+        $groups = DB::table('accounts')
+            ->select('subscriber_id', 'name', DB::raw('COUNT(DISTINCT COALESCE(parent_account_id, 0)) as parents'), DB::raw('COUNT(*) as cnt'))
             ->groupBy('subscriber_id', 'name')
-            ->havingRaw('COUNT(*) > 1')
+            ->havingRaw('COUNT(*) > 1 AND COUNT(DISTINCT COALESCE(parent_account_id, 0)) > 1')
             ->get();
 
-        foreach ($dupGroups as $group) {
+        foreach ($groups as $group) {
             $members = DB::table('accounts')
                 ->where('name', $group->name)
                 ->when(
@@ -224,6 +205,48 @@ class AccountsCleanupCommand extends Command
                     fn ($q) => $q->whereNull('subscriber_id'),
                     fn ($q) => $q->where('subscriber_id', $group->subscriber_id)
                 )
+                ->get();
+
+            $ids = $members->map(fn ($m) => $m->id . ' (parent ' . ($m->parent_account_id ?? 'ROOT') . ')')->implode(', ');
+            $found[] = ['name' => $this->arName($group->name), 'members' => $ids];
+
+            $this->warn(sprintf('  SAME NAME / DIFFERENT PARENT (review, not touched) "%s": %s', $this->arName($group->name), $ids));
+        }
+
+        return $found;
+    }
+
+    /**
+     * Only a true accidental duplicate: same subscriber + same name + same parent.
+     * Delete the EMPTY extras (referenced nowhere), keep one. This is the sole
+     * auto-fix, and it cannot affect balances or lose data.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function deleteSameSpotEmptyDuplicates(bool $apply): array
+    {
+        $deleted = [];
+
+        $groups = DB::table('accounts')
+            ->select('subscriber_id', 'parent_account_id', 'name', DB::raw('COUNT(*) as cnt'))
+            ->groupBy('subscriber_id', 'parent_account_id', 'name')
+            ->havingRaw('COUNT(*) > 1')
+            ->get();
+
+        foreach ($groups as $group) {
+            $members = DB::table('accounts')
+                ->where('name', $group->name)
+                ->when(
+                    is_null($group->parent_account_id),
+                    fn ($q) => $q->whereNull('parent_account_id'),
+                    fn ($q) => $q->where('parent_account_id', $group->parent_account_id)
+                )
+                ->when(
+                    is_null($group->subscriber_id),
+                    fn ($q) => $q->whereNull('subscriber_id'),
+                    fn ($q) => $q->where('subscriber_id', $group->subscriber_id)
+                )
+                ->orderBy('id')
                 ->get();
 
             $referenced = [];
@@ -236,44 +259,24 @@ class AccountsCleanupCommand extends Command
                 }
             }
 
-            // Two or more members carry data — never auto-merge; leave for a human.
-            if (count($referenced) >= 2) {
-                $flagged++;
-                $ids = array_map(fn ($m) => $m->id, $members->all());
-                $this->warn(sprintf(
-                    '  DUPLICATE (needs manual merge) "%s" — members with data: [%s]',
-                    $this->arName($group->name),
-                    implode(', ', array_map(fn ($m) => $m->id, $referenced))
-                ));
-                Log::warning('[accounts:cleanup] duplicate group needs manual merge', [
-                    'name' => $this->arName($group->name),
-                    'ids' => $ids,
-                    'referenced_ids' => array_map(fn ($m) => $m->id, $referenced),
-                ]);
+            // Keeper: a data-bearing member if any, otherwise the lowest-id empty.
+            $keeper = $referenced[0] ?? ($empty[0] ?? null);
+            if ($keeper === null) {
                 continue;
             }
-
-            // Keeper: the data-bearing member, else the deepest / lowest-id empty.
-            $keeper = $referenced[0] ?? collect($empty)
-                ->sortBy([['level', 'desc'], ['id', 'asc']])
-                ->first();
 
             foreach ($members as $member) {
                 if ((int) $member->id === (int) $keeper->id) {
                     continue;
                 }
                 if ($this->isReferenced((int) $member->id)) {
-                    continue; // safety net — never delete a referenced account
+                    continue; // never delete a referenced account
                 }
 
-                $deleted[] = [
-                    'id' => $member->id,
-                    'name' => $this->arName($member->name),
-                    'keeper_id' => $keeper->id,
-                ];
+                $deleted[] = ['id' => $member->id, 'name' => $this->arName($member->name), 'keeper_id' => $keeper->id];
 
                 $this->line(sprintf(
-                    '  empty duplicate #%d "%s" -> delete (keep #%d)',
+                    '  EMPTY same-spot duplicate #%d "%s" -> delete (keep #%d)',
                     $member->id,
                     $this->arName($member->name),
                     $keeper->id
@@ -281,15 +284,46 @@ class AccountsCleanupCommand extends Command
 
                 if ($apply) {
                     DB::table('accounts')->where('id', $member->id)->delete();
-                    Log::info('[accounts:cleanup] deleted empty duplicate', [
-                        'id' => $member->id,
-                        'keeper' => $keeper->id,
-                    ]);
+                    Log::info('[accounts:cleanup] deleted empty same-spot duplicate', ['id' => $member->id, 'keeper' => $keeper->id]);
                 }
             }
         }
 
-        return [$deleted, $flagged];
+        return $deleted;
+    }
+
+    /**
+     * @return array<string, array<string, object>>  subscriberKey => (code => account)
+     */
+    private function codeMapsBySubscriber(): array
+    {
+        $maps = [];
+        foreach (DB::table('accounts')->whereNotNull('code')->get() as $account) {
+            $key = $account->subscriber_id ?? 'null';
+            $maps[$key][(string) $account->code] = $account;
+        }
+
+        return $maps;
+    }
+
+    private function suggestParentByCode(object $account, array $codeMaps): ?object
+    {
+        $code = (string) $account->code;
+        if ($code === '') {
+            return null;
+        }
+
+        $key = $account->subscriber_id ?? 'null';
+        $map = $codeMaps[$key] ?? [];
+
+        for ($len = strlen($code) - 1; $len >= 1; $len--) {
+            $prefix = substr($code, 0, $len);
+            if (isset($map[$prefix]) && (int) $map[$prefix]->id !== (int) $account->id) {
+                return $map[$prefix];
+            }
+        }
+
+        return null;
     }
 
     private function arName($name): string
