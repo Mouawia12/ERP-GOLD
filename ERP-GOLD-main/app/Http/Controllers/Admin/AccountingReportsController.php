@@ -131,10 +131,13 @@ class AccountingReportsController extends Controller
 
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
+        // When a specific branch is chosen, hide accounts with no movement in it
+        // so other branches' accounts don't appear as empty (0.00) rows.
+        $hideEmpty = $branchSelection['selects_all'] !== true;
 
         return view('admin.reports.income_statement.index', compact(
             'periodFrom', 'periodTo', 'revenuesAccount', 'expensesAccount',
-            'profitTotal', 'accountMetrics', 'branch', 'branchLabel'
+            'profitTotal', 'accountMetrics', 'branch', 'branchLabel', 'hideEmpty'
         ));
     }
 
@@ -175,6 +178,9 @@ class AccountingReportsController extends Controller
 
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
+        // When a specific branch is chosen, hide accounts with no movement in it
+        // so other branches' accounts don't appear as empty (0.00) rows.
+        $hideEmpty = $branchSelection['selects_all'] !== true;
 
         return view('admin.reports.income_statement.index', compact(
             'periodFrom',
@@ -184,7 +190,8 @@ class AccountingReportsController extends Controller
             'profitTotal',
             'accountMetrics',
             'branch',
-            'branchLabel'
+            'branchLabel',
+            'hideEmpty'
         ));
     }
 
