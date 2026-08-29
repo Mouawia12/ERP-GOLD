@@ -10,6 +10,7 @@ use App\Models\JournalEntry;
 use App\Models\JournalEntryDocument;
 use App\Models\OpeningBalance;
 use App\Services\Accounts\AccountCodeService;
+use App\Services\Accounts\AccountReferenceInspector;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -263,7 +264,7 @@ class AccountsController extends Controller
         }
     }
 
-    public function destroy($id)
+    public function destroy($id, AccountReferenceInspector $references)
     {
         $account = Account::query()
             ->withCount('childrens')
@@ -287,8 +288,21 @@ class AccountsController extends Controller
                 ->with('error', 'لا يمكن حذف حساب مرتبط بقيود يومية.');
         }
 
+        // ارتباطات أخرى (الربط المحاسبي للفروع، عميل، سند، حساب بنكي…) كانت
+        // تصطدم بقيد قاعدة البيانات وتظهر رسالة SQL غير مفهومة.
+        $blocking = $references->blockingMessage((int) $account->id);
+
+        if ($blocking !== null) {
+            return redirect()
+                ->route('accounts.index')
+                ->with('error', $blocking);
+        }
+
         try {
-            $account->delete();
+            DB::transaction(function () use ($account) {
+                $account->branches()->detach();
+                $account->delete();
+            });
 
             return redirect()
                 ->route('accounts.index')
