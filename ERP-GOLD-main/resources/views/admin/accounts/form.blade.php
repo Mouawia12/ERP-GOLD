@@ -7,6 +7,24 @@
         </div>
     @endif
 
+    @if (session('error'))
+        <div class="alert alert-danger fade show">
+            <button class="close" data-dismiss="alert" aria-label="Close">×</button>
+            {{ session('error') }}
+        </div>
+    @endif
+
+    @if ($errors->any())
+        <div class="alert alert-danger fade show">
+            <button class="close" data-dismiss="alert" aria-label="Close">×</button>
+            <ul class="mb-0">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     <style>
         .itemCaRD{
             background: white;
@@ -93,8 +111,7 @@
                                     <div class="col-md-6">
                                         <div class="form-group">
                                             <label>{{ __('main.parent_id') }} <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
-                                            <select class="js-example-basic-single w-100 @error('brand') is-invalid @enderror" id="parent_id" name="parent_account_id"
-                                                @if(!isset($account) || is_null($account->parent_account_id)) disabled @endif>
+                                            <select class="js-example-basic-single w-100 @error('brand') is-invalid @enderror" id="parent_id" name="parent_account_id">
                                                 <option value="">{{ __('بدون أب — حساب رئيسي') }}</option>
                                                 @foreach($accounts as $accountw)
                                                     <option value="{{$accountw->id}}" @if(@$account->parent_account_id == $accountw->id) selected @endif>{{$accountw->name . ' - ' . $accountw->code}}</option>
@@ -213,20 +230,20 @@ $(document).ready(function () {
     generateCode();
     @endif
 
+    // «نوع الحساب» يزامن قائمة الأب فقط ولا يعطّلها: اختيار «رئيسي» يفرّغ الأب،
+    // واختيار أب يضبط النوع على «فرعي». تعطيل القائمة كان يمنع تعديل أب أي حساب
+    // رئيسي فيبدو الحفظ وكأنه لم ينفّذ.
     $('#account_type').change(function () {
-        var t = $(this).val();
-        $('#parent_id').val('').trigger('change');
-        if (t == 'parent') {
-            $('#parent_id').attr('disabled', true);
-        }
-        else {
-            $('#parent_id').attr('disabled', false);
+        if ($(this).val() == 'parent') {
+            $('#parent_id').val('').trigger('change');
         }
     });
 
 
     $('#parent_id').change(function () {
         var parent = $(this).val() || null;
+
+        $('#account_type').val(parent ? 'child' : 'parent');
 
         // عند التعديل: الكود الحالي يبقى كما هو ما دام الأب لم يتغيّر،
         // ويُعرض الكود الجديد فور اختيار أب مختلف.

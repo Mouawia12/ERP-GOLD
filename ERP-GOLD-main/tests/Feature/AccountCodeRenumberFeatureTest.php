@@ -86,6 +86,77 @@ class AccountCodeRenumberFeatureTest extends TestCase
         $this->assertSame('11', $cash->code);
     }
 
+    public function test_edit_form_never_disables_the_parent_select(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.add', 'employee.accounts.edit']);
+
+        $assets = $this->createAccount('الأصول');
+
+        $response = $this
+            ->actingAs($admin, 'admin-web')
+            ->get(route('accounts.edit', $assets->id, false));
+
+        $response->assertOk();
+
+        preg_match('/<select[^>]*id="parent_id".*?<\/select>/s', $response->getContent(), $matches);
+
+        $this->assertNotEmpty($matches, 'قائمة الحساب الأب غير موجودة في الشاشة');
+        $this->assertStringNotContainsString(
+            'disabled',
+            $matches[0],
+            'قائمة معطّلة تعني أن الحقل لا يُرسل، فيبدو الحفظ وكأنه لم ينفّذ'
+        );
+        $this->assertStringContainsString('بدون أب', $matches[0]);
+    }
+
+    public function test_a_root_account_can_be_given_a_parent(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.edit']);
+
+        $assets = $this->createAccount('الأصول');
+        $liabilities = $this->createAccount('الخصوم');
+
+        $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('accounts.update', $liabilities->id, false), [
+                'name' => 'الخصوم',
+                'parent_account_id' => $assets->id,
+                'accounts_type' => 'liabilities',
+                'transfers_side' => 'budget',
+            ])
+            ->assertRedirect(route('accounts.index', [], false));
+
+        $liabilities->refresh();
+
+        $this->assertSame($assets->id, (int) $liabilities->parent_account_id);
+        $this->assertSame('11', $liabilities->code);
+        $this->assertSame('2', $liabilities->level);
+    }
+
+    public function test_a_child_account_can_become_a_root_again(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.edit']);
+
+        $assets = $this->createAccount('الأصول');
+        $cash = $this->createAccount('الصندوق', $assets);
+
+        $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('accounts.update', $cash->id, false), [
+                'name' => 'الصندوق',
+                'parent_account_id' => '',
+                'accounts_type' => 'assets',
+                'transfers_side' => 'budget',
+            ])
+            ->assertRedirect(route('accounts.index', [], false));
+
+        $cash->refresh();
+
+        $this->assertNull($cash->parent_account_id);
+        $this->assertSame('2', $cash->code);
+        $this->assertSame('1', $cash->level);
+    }
+
     public function test_account_cannot_be_moved_under_its_own_child(): void
     {
         $admin = $this->createAdminUser(['employee.accounts.edit']);
