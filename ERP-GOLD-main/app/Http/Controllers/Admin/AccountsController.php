@@ -242,10 +242,16 @@ class AccountsController extends Controller
             // تغيير الأب يعني تغيير موضع الحساب في الشجرة، فيُصرف له كود جديد تحت
             // الأب الجديد وتُعاد ترقيم كل حساباته الفرعية تبعًا له.
             $message = __('main.updated');
-            if ($newParentId !== $currentParentId) {
+            $moved = $newParentId !== $currentParentId;
+
+            // يُعاد الترقيم عند النقل، وكذلك عند الحفظ العادي إذا كان الكود لا
+            // يطابق موضع الحساب — حساب نُقل قبل هذا الإصلاح ظلّ حاملًا كود
+            // عيلته القديمة، فأول حفظ يصحّحه.
+            if ($moved || ! $codes->isCodeConsistent($account)) {
                 $oldCode = $account->code;
                 $recoded = $codes->recodeSubtree($account);
-                $message = 'تم تعديل الحساب ونقله: الكود ' . $oldCode . ' ← ' . $account->code
+                $message = ($moved ? 'تم تعديل الحساب ونقله: الكود ' : 'تم تعديل الحساب وتصحيح كوده: ')
+                    . $oldCode . ' ← ' . $account->code
                     . ($recoded > 1 ? ' (وأُعيد ترقيم ' . ($recoded - 1) . ' حسابًا فرعيًا)' : '');
             }
 

@@ -8,6 +8,7 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Mcamara\LaravelLocalization\Middleware\LaravelLocalizationRedirectFilter;
 use Mcamara\LaravelLocalization\Middleware\LocaleSessionRedirect;
@@ -155,6 +156,54 @@ class AccountCodeRenumberFeatureTest extends TestCase
         $this->assertNull($cash->parent_account_id);
         $this->assertSame('2', $cash->code);
         $this->assertSame('1', $cash->level);
+    }
+
+    public function test_saving_an_account_repairs_a_code_left_over_from_its_old_family(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.edit']);
+
+        $assets = $this->createAccount('الأصول');
+        $cash = $this->createAccount('الصندوق', $assets);
+        $drawer = $this->createAccount('درج الفرع', $cash);
+
+        // محاكاة حساب نُقل قبل الإصلاح: أبوه صحيح وكوده من موضعه القديم.
+        DB::table('accounts')->where('id', $drawer->id)->update(['code' => '67', 'level' => '2']);
+
+        $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('accounts.update', $drawer->id, false), [
+                'name' => 'درج الفرع',
+                'parent_account_id' => $cash->id,
+                'accounts_type' => 'assets',
+                'transfers_side' => 'budget',
+            ])
+            ->assertRedirect(route('accounts.index', [], false));
+
+        $drawer->refresh();
+
+        $this->assertSame($cash->id, (int) $drawer->parent_account_id);
+        $this->assertSame('1101', $drawer->code, 'الحفظ يصحّح كودًا لا يطابق موضع الحساب');
+        $this->assertSame('3', $drawer->level);
+    }
+
+    public function test_saving_an_account_with_a_valid_code_leaves_it_alone(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.edit']);
+
+        $assets = $this->createAccount('الأصول');
+        $cash = $this->createAccount('الصندوق', $assets);
+
+        $this
+            ->actingAs($admin, 'admin-web')
+            ->post(route('accounts.update', $cash->id, false), [
+                'name' => 'الصندوق الرئيسي',
+                'parent_account_id' => $assets->id,
+                'accounts_type' => 'assets',
+                'transfers_side' => 'budget',
+            ])
+            ->assertRedirect(route('accounts.index', [], false));
+
+        $this->assertSame('11', $cash->refresh()->code, 'تعديل الاسم وحده لا يغيّر كودًا سليمًا');
     }
 
     public function test_account_cannot_be_moved_under_its_own_child(): void

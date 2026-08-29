@@ -90,6 +90,41 @@ class AccountCodeService
     }
 
     /**
+     * هل كود الحساب متّسق مع موضعه في الشجرة؟
+     *
+     * الكود لازم يكون كود الأب + رقم تسلسلي، ومستواه = مستوى الأب + 1. الحساب
+     * المنقول قديمًا (قبل أن يُعاد الترقيم عند تغيير الأب) يحتفظ بكود عيلته
+     * السابقة — وهذا ما يكشفه هذا الفحص حتى يُصحَّح عند أول حفظ.
+     */
+    public function isCodeConsistent(Account $account): bool
+    {
+        $parent = $account->parent_account_id
+            ? $this->treeQuery($account->subscriber_id)->find($account->parent_account_id)
+            : null;
+
+        $level = $this->levelFor($parent);
+        $code = (string) $account->code;
+
+        if ($code === '' || (int) $account->level !== $level) {
+            return false;
+        }
+
+        $prefix = (string) ($parent?->code ?? '');
+
+        if ($prefix !== '' && ! str_starts_with($code, $prefix)) {
+            return false;
+        }
+
+        $suffix = substr($code, strlen($prefix));
+
+        // الجزء الخاص بالحساب لا يقل عن عرض المستوى (قد يزيد إذا تجاوز الإخوة
+        // سعة الخانات) ولا بد أن يكون رقمًا.
+        return $suffix !== ''
+            && ctype_digit($suffix)
+            && strlen($suffix) >= max($level - 1, 1);
+    }
+
+    /**
      * يعيد ترقيم الحساب حسب موضعه الحالي في الشجرة ثم كل فروعه بالتتابع.
      *
      * @return int عدد الحسابات التي تغيّر كودها (الحساب + الفروع)
