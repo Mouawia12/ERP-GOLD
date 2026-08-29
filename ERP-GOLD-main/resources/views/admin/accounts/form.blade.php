@@ -77,7 +77,8 @@
                                             <label>{{ __('main.account_type') }} <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
                                             <select class="form-control @error('type') is-invalid @enderror" id="account_type" name="type" required>
                                             @foreach(config('settings.accounts_categories') as $key => $value)
-                                                <option value="{{$value}}" @if(isset($account) && is_null($account->parent_account_id) && $value == 'parent') selected @endif>{{__('main.accounts_categories.'.$value)}}</option>
+                                                <option value="{{$value}}"
+                                                    @if(isset($account) && ((is_null($account->parent_account_id) && $value == 'parent') || (!is_null($account->parent_account_id) && $value == 'child'))) selected @endif>{{__('main.accounts_categories.'.$value)}}</option>
                                             @endforeach    
                                                
                                             </select>
@@ -92,11 +93,14 @@
                                     <div class="col-md-6">
                                         <div class="form-group">
                                             <label>{{ __('main.parent_id') }} <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
-                                            <select class="js-example-basic-single w-100 @error('brand') is-invalid @enderror" id="parent_id" name="parent_account_id" disabled>
+                                            <select class="js-example-basic-single w-100 @error('brand') is-invalid @enderror" id="parent_id" name="parent_account_id"
+                                                @if(!isset($account) || is_null($account->parent_account_id)) disabled @endif>
+                                                <option value="">{{ __('بدون أب — حساب رئيسي') }}</option>
                                                 @foreach($accounts as $accountw)
                                                     <option value="{{$accountw->id}}" @if(@$account->parent_account_id == $accountw->id) selected @endif>{{$accountw->name . ' - ' . $accountw->code}}</option>
                                                 @endforeach
                                             </select>
+                                            <small class="text-muted d-block mt-1">تغيير الحساب الأب يصرف للحساب كودًا جديدًا تحت الأب الجديد ويعيد ترقيم حساباته الفرعية.</small>
                                             @error('brand')
                                             <span class="invalid-feedback" role="alert">
                                                 <strong>{{ $message }}</strong>
@@ -182,6 +186,10 @@
 <script type="text/javascript">
 $(document).ready(function () {
 
+    var accountId = {{ isset($account) ? (int) $account->id : 'null' }};
+    var currentParentId = {{ isset($account) && $account->parent_account_id ? (int) $account->parent_account_id : 'null' }};
+    var currentCode = "{{ @$account->code }}";
+
     function generateCode(parent_id = null){
         var url = "{{route('accounts.excepted_code')}}";
         $.ajax({
@@ -189,7 +197,9 @@ $(document).ready(function () {
             url: url,
             dataType: "json",
             data: {
-                parent_id: parent_id
+                parent_id: parent_id,
+                account_id: accountId,
+                _token: "{{ csrf_token() }}"
             },
             success: function (data) {
                 if(data.code){
@@ -205,7 +215,7 @@ $(document).ready(function () {
 
     $('#account_type').change(function () {
         var t = $(this).val();
-        $('#parent_id').val(0).trigger('change');
+        $('#parent_id').val('').trigger('change');
         if (t == 'parent') {
             $('#parent_id').attr('disabled', true);
         }
@@ -216,7 +226,15 @@ $(document).ready(function () {
 
 
     $('#parent_id').change(function () {
-        var parent = $(this).val();
+        var parent = $(this).val() || null;
+
+        // عند التعديل: الكود الحالي يبقى كما هو ما دام الأب لم يتغيّر،
+        // ويُعرض الكود الجديد فور اختيار أب مختلف.
+        if (accountId && parent == currentParentId) {
+            $('#code').val(currentCode);
+            return;
+        }
+
         generateCode(parent);
     });
 });

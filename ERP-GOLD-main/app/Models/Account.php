@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToSubscriberScope;
+use App\Services\Accounts\AccountCodeService;
 use App\Traits\HasTranslations;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,19 +24,17 @@ class Account extends Model
     {
         parent::boot();
         static::creating(function (Account $account) {
-            $expectedLevel = $account->parent ? intval($account->parent->level) + 1 : 1;
-            $account->level = $expectedLevel;
+            // الترقيم يمرّ عبر AccountCodeService: محصور بشجرة المشترك نفسه
+            // ويتخطّى أي كود مستعمل، بدل عدّ الإخوة على مستوى النظام كله.
+            $codes = app(AccountCodeService::class);
+            $parent = $account->parent_account_id
+                ? static::withoutGlobalScopes()->find($account->parent_account_id)
+                : null;
+
+            $account->level = $codes->levelFor($parent);
+
             if (is_null($account->code)) {
-                if (is_null($account->parent_account_id)) {
-                    $countParentAccounts = Account::where('parent_account_id', NULL)->count();
-                    $expectedNum = $countParentAccounts + 1;
-                    $account->code = (new Account())->codePrefix($expectedNum, $expectedLevel);
-                } else {
-                    $countSiblingAccounts = Account::where('parent_account_id', $account->parent->id)->count();
-                    $expectedNum = $countSiblingAccounts + 1;
-                    $expectedCode = (new Account())->codePrefix($expectedNum, $expectedLevel);
-                    $account->code = $account->parent->code . $expectedCode;
-                }
+                $account->code = $codes->nextCode($parent, $account->subscriber_id);
             }
         });
     }

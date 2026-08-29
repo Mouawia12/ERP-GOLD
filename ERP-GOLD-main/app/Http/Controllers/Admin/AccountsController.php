@@ -9,6 +9,7 @@ use App\Models\FinancialYear;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryDocument;
 use App\Models\OpeningBalance;
+use App\Services\Accounts\AccountCodeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -66,7 +67,7 @@ class AccountsController extends Controller
      */
     public function create()
     {
-        $accounts = Account::all();
+        $accounts = Account::query()->orderBy('code')->get();
         $branches = $this->subscriberBranches();
         return view('admin.accounts.form', compact('accounts', 'branches'));
     }
@@ -118,17 +119,24 @@ class AccountsController extends Controller
             ->all();
     }
 
-    public function excepted_code(Request $request)
+    /**
+     * الكود المتوقّع لحساب تحت أب معيّن — يُستدعى من الشاشة عند اختيار الأب.
+     * عند التعديل يُستبعد الحساب نفسه من عدّ الإخوة حتى لا يقفز الرقم بلا داعٍ.
+     */
+    public function excepted_code(Request $request, AccountCodeService $codes)
     {
-        $account = Account::where('id', $request->parent_id)->first();
-        $countSiblingAccounts = Account::where('parent_account_id', $account->id ?? null)->count();
+        $editedId = $request->filled('account_id') ? (int) $request->account_id : null;
+        $edited = $editedId ? Account::find($editedId) : null;
 
-        $level = $account ? intval($account->level) + 1 : 1;
+        $parent = $request->filled('parent_id') ? Account::find($request->parent_id) : null;
 
-        $expectedNum = $countSiblingAccounts + 1;
-        $expectedCode = (new Account())->codePrefix($expectedNum, $level);
-        $code = $account?->code . $expectedCode;
-        return response()->json(['code' => $code]);
+        $subscriberId = $edited?->subscriber_id
+            ?? $parent?->subscriber_id
+            ?? request()->user('admin-web')?->subscriber_id;
+
+        return response()->json([
+            'code' => $codes->nextCode($parent, $subscriberId, $editedId),
+        ]);
     }
 
     /**
@@ -175,8 +183,13 @@ class AccountsController extends Controller
      */
     public function edit($id)
     {
-        $accounts = Account::all();
-        $account = Account::with('branches')->find($id);
+        $account = Account::with('branches')->findOrFail($id);
+
+        // الحساب نفسه وفروعه مستبعدون من قائمة الآباء حتى لا تُبنى دورة في الشجرة.
+        $accounts = Account::query()
+            ->whereNotIn('id', $account->childrensIds)
+            ->orderBy('code')
+            ->get();
         $branches = $this->subscriberBranches();
 
         return view('admin.accounts.form', compact('accounts', 'account', 'branches'));
@@ -189,10 +202,10 @@ class AccountsController extends Controller
      * @param  \App\Models\AccountsTree  $accountsTree
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $id, AccountCodeService $codes)
     {
         $validated = $request->validate([
-            'name' => 'required|unique:accounts',
+            'name' => 'required',
             'parent_account_id' => 'nullable|exists:accounts,id',
             'accounts_type' => 'required|in:' . implode(',', config('settings.accounts_types')),
             'transfers_side' => 'required|in:' . implode(',', config('settings.transfers_sides')),
@@ -200,20 +213,44 @@ class AccountsController extends Controller
             'branch_ids.*' => 'integer|exists:branches,id',
         ]);
 
+        $account = Account::findOrFail($id);
+        $currentParentId = $account->parent_account_id === null ? null : (int) $account->parent_account_id;
+
+        // الحقل قد يصل غير مُرسل (قائمة معطّلة في الشاشة) — عندها يبقى الأب كما هو
+        // بدل أن يتحوّل الحساب إلى جذر يتيم.
+        $newParentId = $request->has('parent_account_id')
+            ? ($request->filled('parent_account_id') ? (int) $request->parent_account_id : null)
+            : $currentParentId;
+
+        if ($newParentId !== null && in_array($newParentId, $account->childrensIds, true)) {
+            return redirect()
+                ->back()
+                ->with('error', 'لا يمكن نقل الحساب ليصبح تابعًا لنفسه أو لأحد حساباته الفرعية.');
+        }
+
         try {
             DB::beginTransaction();
-            $account = Account::find($id);
             $account->update([
                 'name' => ['ar' => $request->name, 'en' => $request->name],
-                'parent_account_id' => $request->parent_account_id ?? null,
+                'parent_account_id' => $newParentId,
                 'account_type' => $request->accounts_type,
                 'transfer_side' => $request->transfers_side,
             ]);
 
             $account->branches()->sync($this->allowedBranchIds($request->input('branch_ids', [])));
 
+            // تغيير الأب يعني تغيير موضع الحساب في الشجرة، فيُصرف له كود جديد تحت
+            // الأب الجديد وتُعاد ترقيم كل حساباته الفرعية تبعًا له.
+            $message = __('main.updated');
+            if ($newParentId !== $currentParentId) {
+                $oldCode = $account->code;
+                $recoded = $codes->recodeSubtree($account);
+                $message = 'تم تعديل الحساب ونقله: الكود ' . $oldCode . ' ← ' . $account->code
+                    . ($recoded > 1 ? ' (وأُعيد ترقيم ' . ($recoded - 1) . ' حسابًا فرعيًا)' : '');
+            }
+
             DB::commit();
-            return redirect()->route('accounts.index');
+            return redirect()->route('accounts.index')->with('success', $message);
         } catch (\Throwable $th) {
             DB::rollBack();
             return redirect()->back()->with('error', $th->getMessage());
