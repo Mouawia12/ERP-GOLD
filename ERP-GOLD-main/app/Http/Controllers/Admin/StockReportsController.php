@@ -12,6 +12,7 @@ use App\Models\ItemCategory;
 use App\Models\User;
 use App\Models\Subscriber;
 use App\Services\Reports\ReportBranchSelectionService;
+use App\Services\Reports\ReportUserScopeService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use DB;
@@ -854,11 +855,11 @@ class StockReportsController extends Controller
 
         return User::query()
             ->when(
-                filled($user?->subscriber_id) && ! $this->isSubscriberPrimaryAccount($user),
+                filled($user?->subscriber_id) && ! $this->seesAllUsersReports($user),
                 fn ($query) => $query->whereKey($user->id)
             )
             ->when(
-                filled($user?->subscriber_id) && $this->isSubscriberPrimaryAccount($user),
+                filled($user?->subscriber_id) && $this->seesAllUsersReports($user),
                 fn ($query) => $query->where('subscriber_id', $user->subscriber_id)
             );
     }
@@ -870,7 +871,7 @@ class StockReportsController extends Controller
     {
         $user = auth('admin-web')->user();
         $users = $this->usersQuery($visibleBranchIds)->orderBy('name')->get();
-        $locked = filled($user?->subscriber_id) && ! $this->isSubscriberPrimaryAccount($user);
+        $locked = filled($user?->subscriber_id) && ! $this->seesAllUsersReports($user);
 
         return [
             'users' => $users,
@@ -883,7 +884,7 @@ class StockReportsController extends Controller
     {
         $user = auth('admin-web')->user();
 
-        if ($user && filled($user->subscriber_id) && ! $this->isSubscriberPrimaryAccount($user)) {
+        if ($user && filled($user->subscriber_id) && ! $this->seesAllUsersReports($user)) {
             return (int) $user->id;
         }
 
@@ -898,17 +899,13 @@ class StockReportsController extends Controller
             : null;
     }
 
-    private function isSubscriberPrimaryAccount(?User $user): bool
+    /**
+     * هل يرى هذا المستخدم فواتير كل المستخدمين (ضمن فروعه)؟ الحساب الرئيسي
+     * للمشترك يراها، وكذلك من مُنح صلاحية «تقارير كل المستخدمين».
+     */
+    private function seesAllUsersReports(?User $user): bool
     {
-        if (! $user || blank($user->subscriber_id)) {
-            return false;
-        }
-
-        $subscriber = $user->relationLoaded('subscriber')
-            ? $user->subscriber
-            : Subscriber::query()->select('id', 'admin_user_id')->find($user->subscriber_id);
-
-        return (int) ($subscriber?->admin_user_id ?? 0) === (int) $user->id;
+        return app(ReportUserScopeService::class)->seesAllUsers($user);
     }
 
     /**

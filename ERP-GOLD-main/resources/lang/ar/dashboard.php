@@ -106,6 +106,7 @@ return [
         'accounting_reports' => 'تقارير المحاسبة',
         'journal_entries' => 'قيود اليومية',
         'gold_balance_sheet' => 'ميزان الذهب',
+        'all_users_reports' => 'تقارير كل المستخدمين (لا تقتصر على فواتيره)',
         'stock_settlements' => 'جرد المخزون',
         'manufacturing_orders' => 'أوامر التصنيع',
         'branch_karat_transfers' => 'تحويل بين الفروع',

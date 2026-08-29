@@ -15,6 +15,34 @@ class PermissionMatrixService
     ];
 
     /**
+     * وحدات لها إجراءات أقل من الأربعة الافتراضية — «تقارير كل المستخدمين»
+     * مفتاح رؤية لا يُضاف ولا يُعدَّل ولا يُحذف، فيكفيه «عرض».
+     *
+     * @var array<string, array<int, string>>
+     */
+    private array $moduleActions = [
+        'all_users_reports' => ['show'],
+    ];
+
+    /**
+     * @return array<string, array<string, string>>
+     */
+    private function actionsFor(string $module): array
+    {
+        $allowed = $this->moduleActions[$module] ?? array_keys($this->permissionActions);
+
+        return collect($this->permissionActions)
+            ->only($allowed)
+            ->mapWithKeys(fn ($actionLabel, $actionKey) => [
+                $actionKey => [
+                    'label' => $actionLabel,
+                    'name' => "employee.{$module}.{$actionKey}",
+                ],
+            ])
+            ->all();
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     public function permissionGroups(): array
@@ -26,7 +54,7 @@ class PermissionMatrixService
             'المخزون والتشغيل' => ['items', 'initial_quantities', 'stock_entries', 'warehouses', 'stock', 'inventory_list', 'stock_settlements', 'manufacturing_orders', 'workbook', 'breakbook', 'convert_work_to_break', 'branch_karat_transfers'],
             'العملاء والموردون' => ['customers', 'suppliers'],
             'المحاسبة' => ['accounts', 'journal_entries'],
-            'التقارير' => ['inventory_reports', 'accounting_reports', 'gold_balance_sheet'],
+            'التقارير' => ['inventory_reports', 'accounting_reports', 'gold_balance_sheet', 'all_users_reports'],
             'الاسعار' => ['gold_prices'],
         ];
 
@@ -48,12 +76,7 @@ class PermissionMatrixService
                 'modules' => $categoryModules->map(fn ($module) => [
                     'key' => $module,
                     'label' => __("dashboard.permissions_modules.$module"),
-                    'permissions' => collect($this->permissionActions)->mapWithKeys(fn ($actionLabel, $actionKey) => [
-                        $actionKey => [
-                            'label' => $actionLabel,
-                            'name' => "employee.{$module}.{$actionKey}",
-                        ],
-                    ])->all(),
+                    'permissions' => $this->actionsFor($module),
                 ])->all(),
             ];
         }
@@ -72,12 +95,7 @@ class PermissionMatrixService
                 'modules' => $remainingModules->map(fn ($module) => [
                     'key' => $module,
                     'label' => __("dashboard.permissions_modules.$module"),
-                    'permissions' => collect($this->permissionActions)->mapWithKeys(fn ($actionLabel, $actionKey) => [
-                        $actionKey => [
-                            'label' => $actionLabel,
-                            'name' => "employee.{$module}.{$actionKey}",
-                        ],
-                    ])->all(),
+                    'permissions' => $this->actionsFor($module),
                 ])->all(),
             ];
         }

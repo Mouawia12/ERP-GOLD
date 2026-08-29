@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\Reports\ReportUserScopeService;
 use App\Models\Branch;
 use App\Models\GoldCarat;
 use App\Models\InvoiceDetail;
@@ -381,7 +382,7 @@ class ItemsReportsController extends Controller
 
         return User::query()
             ->when(
-                $subscriberId && ! $this->isSubscriberPrimaryAccount($user),
+                $subscriberId && ! $this->seesAllUsersReports($user),
                 fn ($query) => $query->whereKey($user?->id)
             )
             ->when($subscriberId, fn ($query) => $query->where('subscriber_id', $subscriberId));
@@ -393,7 +394,7 @@ class ItemsReportsController extends Controller
     private function soldItemsUserFilterOptions(?int $subscriberId, array $visibleBranchIds = []): array
     {
         $user = auth('admin-web')->user();
-        $locked = $subscriberId !== null && ! $this->isSubscriberPrimaryAccount($user);
+        $locked = $subscriberId !== null && ! $this->seesAllUsersReports($user);
 
         return [
             'users' => $this->usersQuery($subscriberId, $visibleBranchIds)->orderBy('name')->get(),
@@ -406,7 +407,7 @@ class ItemsReportsController extends Controller
     {
         $user = auth('admin-web')->user();
 
-        if ($subscriberId !== null && ! $this->isSubscriberPrimaryAccount($user)) {
+        if ($subscriberId !== null && ! $this->seesAllUsersReports($user)) {
             return $user ? (int) $user->id : null;
         }
 
@@ -421,17 +422,13 @@ class ItemsReportsController extends Controller
             : null;
     }
 
-    private function isSubscriberPrimaryAccount(?User $user): bool
+    /**
+     * نفس قاعدة StockReportsController: الحساب الرئيسي للمشترك أو حامل صلاحية
+     * «تقارير كل المستخدمين» يرى فواتير الجميع ضمن فروعه.
+     */
+    private function seesAllUsersReports(?User $user): bool
     {
-        if (! $user || blank($user->subscriber_id)) {
-            return false;
-        }
-
-        $subscriber = $user->relationLoaded('subscriber')
-            ? $user->subscriber
-            : Subscriber::query()->select('id', 'admin_user_id')->find($user->subscriber_id);
-
-        return (int) ($subscriber?->admin_user_id ?? 0) === (int) $user->id;
+        return app(ReportUserScopeService::class)->seesAllUsers($user);
     }
 
     /**

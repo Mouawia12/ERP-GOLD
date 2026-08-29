@@ -42,6 +42,7 @@ return [
         'accounting_reports',
         'journal_entries',
         'gold_balance_sheet',
+        'all_users_reports',
         'stock_settlements',
         'manufacturing_orders',
         'branch_karat_transfers'
