@@ -189,7 +189,8 @@ $(document).ready(function () {
             url: url,
             dataType: "json",
             data: {
-                parent_id: parent_id
+                parent_id: parent_id,
+                account_id: {{ @$account->id ?? 'null' }}
             },
             success: function (data) {
                 if(data.code){

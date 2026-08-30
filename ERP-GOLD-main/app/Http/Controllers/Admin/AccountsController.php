@@ -9,6 +9,8 @@ use App\Models\FinancialYear;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryDocument;
 use App\Models\OpeningBalance;
+use App\Services\Accounts\AccountDeletionGuard;
+use App\Services\Accounts\AccountRenumberingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -120,14 +122,26 @@ class AccountsController extends Controller
 
     public function excepted_code(Request $request)
     {
-        $account = Account::where('id', $request->parent_id)->first();
-        $countSiblingAccounts = Account::where('parent_account_id', $account->id ?? null)->count();
+        $parent = Account::where('id', $request->parent_id)->first();
+        $parentId = $parent->id ?? null;
 
-        $level = $account ? intval($account->level) + 1 : 1;
+        // عند التعديل: إن بقي الحساب تحت نفس الأب فلا نقل ولا إعادة ترقيم،
+        // فيُعرض كوده الحالي بدل كود «ابن جديد».
+        $edited = $request->filled('account_id')
+            ? Account::find($request->account_id)
+            : null;
+
+        if ($edited && (int) $edited->parent_account_id === (int) $parentId) {
+            return response()->json(['code' => $edited->code]);
+        }
+
+        $countSiblingAccounts = Account::where('parent_account_id', $parentId)->count();
+
+        $level = $parent ? intval($parent->level) + 1 : 1;
 
         $expectedNum = $countSiblingAccounts + 1;
         $expectedCode = (new Account())->codePrefix($expectedNum, $level);
-        $code = $account?->code . $expectedCode;
+        $code = $parent?->code . $expectedCode;
         return response()->json(['code' => $code]);
     }
 
@@ -200,56 +214,73 @@ class AccountsController extends Controller
             'branch_ids.*' => 'integer|exists:branches,id',
         ]);
 
+        $account = Account::findOrFail($id);
+
+        $previousParentId = $account->parent_account_id !== null
+            ? (int) $account->parent_account_id
+            : null;
+        $newParentId = $request->parent_account_id !== null
+            ? (int) $request->parent_account_id
+            : null;
+
+        $renumbering = app(AccountRenumberingService::class);
+
+        if ($renumbering->wouldCreateCycle($account, $newParentId)) {
+            return redirect()
+                ->back()
+                ->with('error', 'لا يمكن نقل الحساب تحت نفسه أو تحت أحد حساباته الفرعية.');
+        }
+
         try {
             DB::beginTransaction();
-            $account = Account::find($id);
             $account->update([
                 'name' => ['ar' => $request->name, 'en' => $request->name],
-                'parent_account_id' => $request->parent_account_id ?? null,
+                'parent_account_id' => $newParentId,
                 'account_type' => $request->accounts_type,
                 'transfer_side' => $request->transfers_side,
             ]);
 
             $account->branches()->sync($this->allowedBranchIds($request->input('branch_ids', [])));
 
+            // نقل الحساب يغيّر موضعه في الشجرة، والكود والمستوى مشتقان من الموضع.
+            if ($previousParentId !== $newParentId) {
+                $renumbering->renumberAfterMove($account, $previousParentId);
+            }
+
             DB::commit();
-            return redirect()->route('accounts.index');
+
+            $message = $previousParentId !== $newParentId
+                ? 'تم تعديل الحساب وإعادة ترقيمه تلقائيًا إلى «' . $account->code . '».'
+                : 'تم تعديل الحساب بنجاح.';
+
+            return redirect()->route('accounts.index')->with('success', $message);
         } catch (\Throwable $th) {
             DB::rollBack();
             return redirect()->back()->with('error', $th->getMessage());
         }
     }
 
-    public function destroy($id)
+    public function destroy($id, AccountDeletionGuard $guard)
     {
-        $account = Account::query()
-            ->withCount('childrens')
-            ->findOrFail($id);
+        $account = Account::query()->findOrFail($id);
 
-        if ($account->childrens_count > 0) {
+        $blockingReason = $guard->blockingReason($account);
+
+        if ($blockingReason !== null) {
             return redirect()
                 ->route('accounts.index')
-                ->with('error', 'لا يمكن حذف حساب يحتوي على حسابات فرعية.');
-        }
-
-        if (OpeningBalance::query()->where('account_id', $account->id)->exists()) {
-            return redirect()
-                ->route('accounts.index')
-                ->with('error', 'لا يمكن حذف حساب عليه رصيد افتتاحي.');
-        }
-
-        if (JournalEntryDocument::query()->where('account_id', $account->id)->exists()) {
-            return redirect()
-                ->route('accounts.index')
-                ->with('error', 'لا يمكن حذف حساب مرتبط بقيود يومية.');
+                ->with('error', $blockingReason);
         }
 
         try {
-            $account->delete();
+            DB::transaction(function () use ($account) {
+                $account->branches()->detach();
+                $account->delete();
+            });
 
             return redirect()
                 ->route('accounts.index')
-                ->with('success', __('main.deleted'));
+                ->with('success', 'تم حذف الحساب «' . $account->code . ' - ' . $account->name . '» بنجاح.');
         } catch (\Throwable $th) {
             return redirect()
                 ->route('accounts.index')
