@@ -9,6 +9,7 @@ use App\Models\FinancialYear;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryDocument;
 use App\Models\OpeningBalance;
+use App\Services\Accounts\AccountDeletionGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -220,36 +221,27 @@ class AccountsController extends Controller
         }
     }
 
-    public function destroy($id)
+    public function destroy($id, AccountDeletionGuard $guard)
     {
-        $account = Account::query()
-            ->withCount('childrens')
-            ->findOrFail($id);
+        $account = Account::query()->findOrFail($id);
 
-        if ($account->childrens_count > 0) {
+        $blockingReason = $guard->blockingReason($account);
+
+        if ($blockingReason !== null) {
             return redirect()
                 ->route('accounts.index')
-                ->with('error', 'لا يمكن حذف حساب يحتوي على حسابات فرعية.');
-        }
-
-        if (OpeningBalance::query()->where('account_id', $account->id)->exists()) {
-            return redirect()
-                ->route('accounts.index')
-                ->with('error', 'لا يمكن حذف حساب عليه رصيد افتتاحي.');
-        }
-
-        if (JournalEntryDocument::query()->where('account_id', $account->id)->exists()) {
-            return redirect()
-                ->route('accounts.index')
-                ->with('error', 'لا يمكن حذف حساب مرتبط بقيود يومية.');
+                ->with('error', $blockingReason);
         }
 
         try {
-            $account->delete();
+            DB::transaction(function () use ($account) {
+                $account->branches()->detach();
+                $account->delete();
+            });
 
             return redirect()
                 ->route('accounts.index')
-                ->with('success', __('main.deleted'));
+                ->with('success', 'تم حذف الحساب «' . $account->code . ' - ' . $account->name . '» بنجاح.');
         } catch (\Throwable $th) {
             return redirect()
                 ->route('accounts.index')

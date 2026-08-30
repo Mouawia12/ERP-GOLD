@@ -349,6 +349,7 @@
                                                                     class="btn btn-danger btn-sm deleteBtn"
                                                                     data-id="{{ $account->id }}"
                                                                     data-name="{{ $account->name }}"
+                                                                    data-code="{{ $account->code }}"
                                                                 >
                                                                     <i class="fa fa-trash"></i>
                                                                 </button>
@@ -399,9 +400,9 @@
                 </div>
                 <div class="modal-body">
                     <img src="../assets/img/warning.png" class="alertImage">
-                    <label class="alertTitle">{{ __('main.delete_alert') }}</label>
+                    <label class="alertTitle" id="delete-account-question"></label>
                     <br>
-                    <label class="alertSubTitle" id="delete-account-name"></label>
+                    <label class="alertSubTitle">{{ __('main.delete_account_hint') }}</label>
                     <div class="row">
                         <div class="col-6 text-center">
                             <button type="button" class="btn btn-labeled btn-primary" onclick="confirmDelete()">
@@ -442,7 +443,12 @@
     $(document).ready(function () {
         $(document).on('click', '.deleteBtn', function () {
             selectedAccountId = $(this).data('id');
-            $('#delete-account-name').text($(this).data('name'));
+
+            const accountName = $(this).data('name');
+            const accountCode = $(this).data('code');
+            const accountLabel = accountCode ? accountCode + ' - ' + accountName : accountName;
+
+            $('#delete-account-question').text('هل تريد حذف الحساب «' + accountLabel + '» ؟');
             $('#deleteModal').modal('show');
         });
 

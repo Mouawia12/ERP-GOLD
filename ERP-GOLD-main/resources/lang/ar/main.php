@@ -35,6 +35,7 @@ return [
   'confirm_btn' => ' موافق',
   'cancel_btn' => 'تراجع',
   'delete_alert' => 'هل تريد حذف البيانات !',
+  'delete_account_hint' => 'لا يمكن حذف حساب عليه حركة أو مرتبط ببيانات أخرى.',
   'deleteModal' => 'تنبه للحذف!',
   'stamp_value' => 'قيمة الضريبة / جرام',
   'label' => 'الإختصار',
