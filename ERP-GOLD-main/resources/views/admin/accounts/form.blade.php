@@ -144,17 +144,13 @@
                                     </div>
                                     <div class="col-6">
                                         <div class="form-group">
-                                            <label>{{ __('main.account_department') }}<span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
-                                            <select class="form-control @error('transfers_side') is-invalid @enderror" id="department" name="transfers_side">
+                                            <label>{{ __('main.account_department') }}</label>
+                                            <select class="form-control" id="department" disabled>
                                                 @foreach(config('settings.transfers_sides') as $key => $value)
                                                     <option value="{{$value}}" @if(@$account->transfer_side == $value) selected @endif>{{__('main.transfers_sides.'.$value)}}</option>
                                                 @endforeach
                                             </select>
-                                            @error('transfers_side')
-                                            <span class="invalid-feedback" role="alert">
-                                                <strong>{{ $message }}</strong>
-                                            </span>
-                                            @enderror
+                                            <small class="text-muted d-block mt-1">يُحدَّد تلقائيًا من «قائمة الحساب»: الأصول والالتزامات وحقوق الملكية مركز مالي، والإيرادات والمصروفات قائمة دخل.</small>
                                         </div>
                                     </div>
                                 </div>
@@ -239,6 +235,17 @@ $(document).ready(function () {
         }
     });
 
+
+    // «قسم الحساب» مشتق من «قائمة الحساب» بقاعدة محاسبية ثابتة، فيُملأ تلقائيًا
+    // ويُعرض معطّلًا. الخادم يشتقّه بنفسه عند الحفظ فلا يُرسَل من الشاشة.
+    var sideByList = @json(app(\App\Services\Accounts\AccountStatementSideResolver::class)->map());
+
+    function syncDepartmentWithList() {
+        $('#department').val(sideByList[$('#list').val()] || 'not_have');
+    }
+
+    $('#list').change(syncDepartmentWithList);
+    syncDepartmentWithList();
 
     // «قائمة الحساب» تحدّد أي الحسابات يصح أن يصبّ فيها هذا الحساب، فلا تُعرض في
     // «يصب في» إلا حسابات القائمة نفسها. «لا يوجد» تعني غير محدّدة فتُعرض الكل.

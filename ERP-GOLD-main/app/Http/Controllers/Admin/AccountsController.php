@@ -11,6 +11,7 @@ use App\Models\JournalEntryDocument;
 use App\Models\OpeningBalance;
 use App\Services\Accounts\AccountCodeService;
 use App\Services\Accounts\AccountReferenceInspector;
+use App\Services\Accounts\AccountStatementSideResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -146,13 +147,12 @@ class AccountsController extends Controller
      * @param  \App\Http\Requests\StoreAccountsTreeRequest  $request
      * @return \Illuminate\Http\Response
      */
-    public function store(Request $request)
+    public function store(Request $request, AccountStatementSideResolver $sides)
     {
         $validated = $request->validate([
             'name' => 'required|unique:accounts',
             'parent_account_id' => 'nullable|exists:accounts,id',
             'accounts_type' => 'required|in:' . implode(',', config('settings.accounts_types')),
-            'transfers_side' => 'required|in:' . implode(',', config('settings.transfers_sides')),
             'branch_ids' => 'nullable|array',
             'branch_ids.*' => 'integer|exists:branches,id',
         ]);
@@ -163,7 +163,7 @@ class AccountsController extends Controller
                 'name' => ['ar' => $request->name, 'en' => $request->name],
                 'parent_account_id' => $request->parent_account_id ?? null,
                 'account_type' => $request->accounts_type,
-                'transfer_side' => $request->transfers_side,
+                'transfer_side' => $sides->forList($request->accounts_type),
             ]);
 
             $account->branches()->sync($this->allowedBranchIds($request->input('branch_ids', [])));
@@ -203,13 +203,12 @@ class AccountsController extends Controller
      * @param  \App\Models\AccountsTree  $accountsTree
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, $id, AccountCodeService $codes)
+    public function update(Request $request, $id, AccountCodeService $codes, AccountStatementSideResolver $sides)
     {
         $validated = $request->validate([
             'name' => 'required',
             'parent_account_id' => 'nullable|exists:accounts,id',
             'accounts_type' => 'required|in:' . implode(',', config('settings.accounts_types')),
-            'transfers_side' => 'required|in:' . implode(',', config('settings.transfers_sides')),
             'branch_ids' => 'nullable|array',
             'branch_ids.*' => 'integer|exists:branches,id',
         ]);
@@ -235,7 +234,7 @@ class AccountsController extends Controller
                 'name' => ['ar' => $request->name, 'en' => $request->name],
                 'parent_account_id' => $newParentId,
                 'account_type' => $request->accounts_type,
-                'transfer_side' => $request->transfers_side,
+                'transfer_side' => $sides->forList($request->accounts_type),
             ]);
 
             $account->branches()->sync($this->allowedBranchIds($request->input('branch_ids', [])));
