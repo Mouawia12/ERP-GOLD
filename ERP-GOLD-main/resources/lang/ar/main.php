@@ -408,7 +408,7 @@ return [
     'income_statement' => 'قائمة دخل',
   ],
   'accounts_categories' => [
-    'parent' => 'جذري',
+    'parent' => 'رئيسي',
     'child' => 'فرعي',
   ],
   'error' => 'هناك حطأ ما',

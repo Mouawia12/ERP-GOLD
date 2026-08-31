@@ -110,15 +110,13 @@
 									
                                     <div class="col-md-6">
                                         <div class="form-group">
-                                            <label>{{ __('main.parent_id') }} <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
-                                            <select class="js-example-basic-single w-100 @error('brand') is-invalid @enderror" id="parent_id" name="parent_account_id">
-                                                <option value="">{{ __('بدون أب — حساب رئيسي') }}</option>
-                                                @foreach($accounts as $accountw)
-                                                    <option value="{{$accountw->id}}" @if(@$account->parent_account_id == $accountw->id) selected @endif>{{$accountw->name . ' - ' . $accountw->code}}</option>
+                                            <label>{{ __('main.account_list') }} <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
+                                            <select class="form-control @error('accounts_type') is-invalid @enderror" id="list" name="accounts_type">
+                                                @foreach(config('settings.accounts_types') as $key => $value)
+                                                    <option value="{{$value}}" @if(@$account->account_type == $value) selected @endif>{{__('main.accounts_types.'.$value)}}</option>
                                                 @endforeach
                                             </select>
-                                            <small class="text-muted d-block mt-1">تغيير الحساب الأب يصرف للحساب كودًا جديدًا تحت الأب الجديد ويعيد ترقيم حساباته الفرعية.</small>
-                                            @error('brand')
+                                            @error('accounts_type')
                                             <span class="invalid-feedback" role="alert">
                                                 <strong>{{ $message }}</strong>
                                             </span>
@@ -129,13 +127,15 @@
                                 <div class="row">
                                     <div class="col-6">
                                         <div class="form-group">
-                                            <label>{{ __('main.account_list') }} <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
-                                            <select class="form-control @error('accounts_type') is-invalid @enderror" id="list" name="accounts_type">
-                                                @foreach(config('settings.accounts_types') as $key => $value)
-                                                    <option value="{{$value}}" @if(@$account->account_type == $value) selected @endif>{{__('main.accounts_types.'.$value)}}</option>
+                                            <label>{{ __('main.parent_id') }} <span style="color:red; font-size:20px; font-weight:bold;">*</span> </label>
+                                            <select class="js-example-basic-single w-100 @error('brand') is-invalid @enderror" id="parent_id" name="parent_account_id">
+                                                <option value="">{{ __('بدون أب — حساب رئيسي') }}</option>
+                                                @foreach($accounts as $accountw)
+                                                    <option value="{{$accountw->id}}" data-account-type="{{ $accountw->account_type }}" @if(@$account->parent_account_id == $accountw->id) selected @endif>{{$accountw->name . ' - ' . $accountw->code}}</option>
                                                 @endforeach
                                             </select>
-                                            @error('accounts_type')
+                                            <small class="text-muted d-block mt-1">تعرض حسابات «قائمة الحساب» المختارة فقط. تغيير الحساب الأب يصرف للحساب كودًا جديدًا تحت الأب الجديد ويعيد ترقيم حساباته الفرعية.</small>
+                                            @error('brand')
                                             <span class="invalid-feedback" role="alert">
                                                 <strong>{{ $message }}</strong>
                                             </span>
@@ -239,6 +239,47 @@ $(document).ready(function () {
         }
     });
 
+
+    // «قائمة الحساب» تحدّد أي الحسابات يصح أن يصبّ فيها هذا الحساب، فلا تُعرض في
+    // «يصب في» إلا حسابات القائمة نفسها. «لا يوجد» تعني غير محدّدة فتُعرض الكل.
+    var allParentOptions = $('#parent_id option').map(function () {
+        return {
+            value: this.value,
+            text: this.text,
+            type: $(this).attr('data-account-type') || ''
+        };
+    }).get();
+
+    function filterParentsByList() {
+        var list = $('#list').val();
+        var selected = $('#parent_id').val();
+        var $parent = $('#parent_id');
+
+        $parent.empty();
+
+        allParentOptions.forEach(function (option) {
+            var keep = option.value === ''
+                || !list
+                || list === 'not_have'
+                || option.type === list
+                // الأب المحفوظ يبقى معروضًا دائمًا حتى لا يُفقد بصمت عند التعديل.
+                || (currentParentId !== null && option.value === String(currentParentId));
+
+            if (keep) {
+                $parent.append(new Option(option.text, option.value, false, option.value === selected));
+            }
+        });
+
+        if ($parent.val() === selected) {
+            $parent.trigger('change.select2');
+        } else {
+            // سقط الأب المختار خارج القائمة الجديدة، فيُعاد ضبط النوع والكود.
+            $parent.trigger('change');
+        }
+    }
+
+    $('#list').change(filterParentsByList);
+    filterParentsByList();
 
     $('#parent_id').change(function () {
         var parent = $(this).val() || null;
