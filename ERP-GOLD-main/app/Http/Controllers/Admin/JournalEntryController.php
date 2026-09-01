@@ -160,7 +160,7 @@ class JournalEntryController extends Controller
             $journal = JournalEntry::create([
                 'journal_date' => $request->date,
                 'notes' => $request->notes,
-                'financial_year' => FinancialYear::where('is_active', true)->first()->id,
+                'financial_year' => FinancialYear::activeOrFail()->id,
                 'branch_id' => $branchId,
             ]);
             foreach ($request->account_id as $key => $value) {

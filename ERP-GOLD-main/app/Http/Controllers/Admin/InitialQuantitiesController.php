@@ -154,7 +154,7 @@ class InitialQuantitiesController extends Controller
                     'branch_id' => $request->branch_id,
                     'warehouse_id' => $warehouse->id ?? null,
                     'customer_id' => $request->customer_id,
-                    'financial_year' => FinancialYear::where('is_active', true)->first()->id,
+                    'financial_year' => FinancialYear::activeOrFail()->id,
                     'type' => 'initial_quantities',
                     'account_id' => $request->credit_account,
                     'notes' => $request->notes ?? '',

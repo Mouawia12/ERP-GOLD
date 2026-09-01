@@ -154,7 +154,7 @@ class FinancialVoucherController extends Controller
             $voucher = FinancialVoucher::create([
                 'type' => $type,
                 'payment_method' => $paymentMethod,
-                'financial_year' => FinancialYear::where('is_active', true)->first()->id,
+                'financial_year' => FinancialYear::activeOrFail()->id,
                 'date' => $request->date,
                 'branch_id' => $request->branch_id,
                 'from_account_id' => $request->from_account_id,

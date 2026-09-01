@@ -17,7 +17,7 @@ class JournalsMove
         foreach ($journals as $journal) {
             $journal_entry = JournalEntry::create([
                 'journal_date' => $journal['date'],
-                'financial_year' => FinancialYear::where('is_active', true)->first()->id,
+                'financial_year' => FinancialYear::activeOrFail()->id,
                 'branch_id' => $journal['branch_id'],
             ]);
             $journalDocuments = collect(LegacyMigrationData::getArray('journal_details'))->where('journal_id', $journal['id'])->toArray();
