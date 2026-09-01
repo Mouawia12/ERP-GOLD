@@ -196,20 +196,13 @@
             },
             success:function(response){
                 document.getElementById('products_suggestions').innerHTML = '';
-                if(response){
-                    if(response.length == 1){
-                        //addItemToTable
-                        addItemToTable(response[0]);
-
-                    }else if(response.length > 1){ 
-                        showSuggestions(response);
-                    } else if(response.id){
-                        showSuggestions(response);
-                    } else {
-                        //showNotFoundAlert
-                        openDialog();
-                        document.getElementById('add_item').value = '' ;
-                    }
+                // تُعرض النتائج دائمًا ولو كانت واحدة. كانت النتيجة الواحدة تُضاف
+                // إلى الجدول مباشرة بلا قائمة، فتبدو نتيجة البحث فارغة بينما
+                // الحساب نزل في الجدول دون أن يراه المستخدم أو يؤكّده.
+                if(response && response.length > 0){
+                    showSuggestions(response);
+                } else if(response && response.id){
+                    showSuggestions([response]);
                 } else {
                     //showNotFoundAlert
                     openDialog();

@@ -294,6 +294,34 @@ class AccountsTreeFeatureTest extends TestCase
         $this->assertNotSame($foreignCustomersControl->id, (int) $customerAccount->parent_account_id);
     }
 
+    public function test_account_search_screens_always_show_the_result_list(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.accounts.add',
+            'employee.accounts.show',
+        ]);
+        // شاشة الأرصدة الافتتاحية تقرأ السنة المالية النشطة مباشرة.
+        $this->createFinancialYear();
+
+        $pages = [
+            route('accounts.journals.create', [], false),
+            route('accounts.opening', [], false),
+        ];
+
+        foreach ($pages as $page) {
+            $content = $this->actingAs($admin, 'admin-web')
+                ->get($page)
+                ->assertOk()
+                ->getContent();
+
+            // النتيجة الواحدة كانت تُضاف إلى الجدول مباشرة بلا قائمة، فتبدو
+            // نتيجة البحث فارغة بينما الحساب نزل دون أن يراه المستخدم.
+            $this->assertStringNotContainsString('response.length == 1', $content, $page);
+            $this->assertStringContainsString('response.length > 0', $content, $page);
+            $this->assertStringContainsString('showSuggestions(response)', $content, $page);
+        }
+    }
+
     /**
      * @param  array<int, string>  $permissions
      */
