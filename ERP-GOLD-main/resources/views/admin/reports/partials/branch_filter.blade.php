@@ -37,7 +37,7 @@
             data-hidden-target="{{ $branchHiddenFieldId }}"
             data-live-search="true"
             data-actions-box="true"
-            data-selected-text-format="count > 2"
+            data-selected-text-format="values"
             title="جميع الفروع المسموح بها"
         >
             @foreach($branches as $branch)

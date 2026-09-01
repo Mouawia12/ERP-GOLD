@@ -180,7 +180,9 @@
   padding-right: inherit;
 }
 .bootstrap-select .dropdown-toggle .filter-option-inner-inner {
-  overflow: hidden;color: #fff;
+  overflow: hidden;
+  /* كان color:#fff فيختفي نص الاختيار على زر أبيض. inherit يأخذ لون الزر نفسه. */
+  color: inherit;
 }
 .bootstrap-select .dropdown-toggle .caret {
   position: absolute;

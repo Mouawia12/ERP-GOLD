@@ -443,6 +443,44 @@ class AccountingSummaryReportsFeatureTest extends TestCase
         $this->assertLessThan($equityAt, $liabilitiesAt, 'الخصوم يجب أن تسبق حقوق الملكية.');
     }
 
+    public function test_branch_filter_shows_the_names_of_the_branches_picked(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.accounting_reports.show',
+        ]);
+        $secondBranch = $this->createBranch('فرع ثانٍ للفلتر');
+        // القائمة المتعددة لا تُعرض إلا لمن يرى أكثر من فرع.
+        $admin->branches()->sync([$admin->branch_id, $secondBranch->id]);
+
+        $content = $this->actingAs($admin->fresh(), 'admin-web')
+            ->get(route('balance_sheet.index', [], false))
+            ->assertOk()
+            ->getContent();
+
+        // «values» تسرد أسماء الفروع المختارة؛ «count > 2» كانت تستبدلها بعبارة
+        // إنجليزية «items selected 3» فلا يعرف المستخدم ما اختار.
+        $this->assertStringContainsString('data-selected-text-format="values"', $content);
+        $this->assertStringNotContainsString('data-selected-text-format="count', $content);
+    }
+
+    public function test_the_selected_branch_text_is_not_painted_white(): void
+    {
+        $css = file_get_contents(public_path('assets/css-rtl/bootstrap-select.css'));
+
+        $this->assertIsString($css);
+
+        $rule = substr(
+            $css,
+            (int) strpos($css, '.filter-option-inner-inner {'),
+            220
+        );
+
+        // كان `color: #fff` يجعل نص الاختيار أبيض على زر أبيض فيبدو الحقل فارغًا
+        // رغم أن الفرع مختار فعلًا.
+        $this->assertStringNotContainsString('color: #fff', $rule);
+        $this->assertStringContainsString('color: inherit', $rule);
+    }
+
     private function createAdminUser(array $permissions): User
     {
         $branch = $this->createBranch('فرع التقارير المحاسبية');
