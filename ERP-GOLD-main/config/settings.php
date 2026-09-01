@@ -50,8 +50,8 @@ return [
     'accounts_types' => [
         'not_have',
         'assets',
-        'equity',
         'liabilities',
+        'equity',
         'revenues',
         'expenses',
     ],

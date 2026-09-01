@@ -86,6 +86,37 @@ class LiabilitiesWordingFeatureTest extends TestCase
         $this->assertStringContainsString('الالتزامات', $root->name);
     }
 
+    public function test_the_account_list_follows_the_accounting_order(): void
+    {
+        $this->assertSame(
+            ['not_have', 'assets', 'liabilities', 'equity', 'revenues', 'expenses'],
+            config('settings.accounts_types'),
+            'ترتيب القوائم يجب أن يتبع الترتيب المحاسبي: أصول، التزامات، حقوق ملكية، إيرادات، مصروفات.'
+        );
+    }
+
+    public function test_the_list_field_shows_liabilities_before_equity(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.add']);
+
+        $content = $this->actingAs($admin, 'admin-web')
+            ->get(route('accounts.create'))
+            ->assertOk()
+            ->getContent();
+
+        $listField = substr(
+            $content,
+            (int) strpos($content, 'id="list"'),
+            (int) strpos($content, '</select>', (int) strpos($content, 'id="list"')) - (int) strpos($content, 'id="list"')
+        );
+
+        $this->assertLessThan(
+            strpos($listField, 'حقوق ملكية'),
+            strpos($listField, 'التزامات (خصوم)'),
+            'يجب أن تسبق «التزامات» حقوق الملكية في قائمة الحساب.'
+        );
+    }
+
     /**
      * @param  array<int, string>  $permissions
      */

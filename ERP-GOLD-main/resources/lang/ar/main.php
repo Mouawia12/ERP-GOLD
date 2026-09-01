@@ -397,8 +397,8 @@ return [
   'accounts_types' => [
     'not_have' => 'لا يوجد',
     'assets' => 'اصول',
-    'equity' => 'حقوق ملكية',
     'liabilities' => 'التزامات (خصوم)',
+    'equity' => 'حقوق ملكية',
     'revenues' => 'ايرادات',
     'expenses' => 'مصروفات',
   ],
