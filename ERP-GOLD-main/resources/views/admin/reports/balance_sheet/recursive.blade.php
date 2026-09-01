@@ -4,8 +4,19 @@
     $font_percentage = 130 - (($account->level - 1) * 10);
     $accountLevel = $accountLevel ?? null;
     $shouldDescend = $accountLevel === null || $account->level < $accountLevel;
+
+    // عند تحديد فرع، يُسقَط الحساب الذي لا حركة له ولا لأي حساب تحته في ذلك
+    // الفرع — بهذا تختفي حسابات الفروع الأخرى بدل أن تظهر بأصفار. الأقسام
+    // الرئيسية تبقى دائمًا حتى لا تظهر ميزانية ناقصة ركنًا من أركانها.
+    // القرار مبني على أرقام الفرع وحده؛ وإن غابت الأرقام لا نخفي شيئًا.
+    $hideEmpty = ($hideEmpty ?? false) === true;
+    $subtreeEmpty = $metrics !== null
+        && abs((float) ($metrics['closing_debit'] ?? 0)) < 0.005
+        && abs((float) ($metrics['closing_credit'] ?? 0)) < 0.005;
+    $skip = $hideEmpty && $subtreeEmpty && (int) $account->level > 1;
 @endphp
 
+@unless ($skip)
 <tr>
     <td class="text-right"
         style="padding-right: {{$account->level}}rem !important; font-size:{{$font_percentage}}% !important">
@@ -21,6 +32,7 @@
 
 @if ($shouldDescend && $account->childrens && $account->childrens->count())
     @foreach ($account->childrens as $child)
-        @include('admin.reports.balance_sheet.recursive', ['account' => $child, 'accountLevel' => $accountLevel])
+        @include('admin.reports.balance_sheet.recursive', ['account' => $child, 'accountLevel' => $accountLevel, 'hideEmpty' => $hideEmpty])
     @endforeach
 @endif
+@endunless

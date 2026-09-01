@@ -115,15 +115,15 @@
                             </thead>
                             <tbody>
                                 @foreach ([$assetsAccount] ?? [] as $account)
-                                    @include('admin.reports.balance_sheet.recursive', ['account' => $account, 'accountLevel' => $accountLevel ?? null])
+                                    @include('admin.reports.balance_sheet.recursive', ['account' => $account, 'accountLevel' => $accountLevel ?? null, 'hideEmpty' => $hideEmpty ?? false])
                                 @endforeach
 
                                 @foreach ([$liabilitiesAccount] ?? [] as $account)
-                                    @include('admin.reports.balance_sheet.recursive', ['account' => $account, 'accountLevel' => $accountLevel ?? null])
+                                    @include('admin.reports.balance_sheet.recursive', ['account' => $account, 'accountLevel' => $accountLevel ?? null, 'hideEmpty' => $hideEmpty ?? false])
                                 @endforeach
 
                                 @foreach ([$equityAccount] ?? [] as $account)
-                                    @include('admin.reports.balance_sheet.recursive', ['account' => $account, 'accountLevel' => $accountLevel ?? null])
+                                    @include('admin.reports.balance_sheet.recursive', ['account' => $account, 'accountLevel' => $accountLevel ?? null, 'hideEmpty' => $hideEmpty ?? false])
                                 @endforeach
 
                                 <tr>

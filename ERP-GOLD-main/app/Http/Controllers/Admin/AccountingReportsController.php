@@ -243,10 +243,13 @@ class AccountingReportsController extends Controller
 
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
+        // عند اختيار فرع معيّن تُخفى الحسابات التي لا حركة لها فيه، وإلا ظهرت
+        // حسابات الفروع الأخرى بأصفار داخل ميزانية فرع لا تخصّه.
+        $hideEmpty = $branchSelection['selects_all'] !== true;
 
         return view('admin.reports.balance_sheet.index', compact(
             'periodFrom', 'periodTo', 'assetsAccount', 'equityAccount', 'liabilitiesAccount',
-            'profitTotal', 'accountMetrics', 'branch', 'branchLabel', 'accountLevel'
+            'profitTotal', 'accountMetrics', 'branch', 'branchLabel', 'accountLevel', 'hideEmpty'
         ));
     }
 
@@ -297,6 +300,9 @@ class AccountingReportsController extends Controller
 
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
+        // عند اختيار فرع معيّن تُخفى الحسابات التي لا حركة لها فيه، وإلا ظهرت
+        // حسابات الفروع الأخرى بأصفار داخل ميزانية فرع لا تخصّه.
+        $hideEmpty = $branchSelection['selects_all'] !== true;
 
         return view('admin.reports.balance_sheet.index', compact(
             'periodFrom',
@@ -308,7 +314,8 @@ class AccountingReportsController extends Controller
             'accountMetrics',
             'branch',
             'branchLabel',
-            'accountLevel'
+            'accountLevel',
+            'hideEmpty'
         ));
     }
 

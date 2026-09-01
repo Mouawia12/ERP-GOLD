@@ -580,6 +580,116 @@ class AccountingSummaryReportsFeatureTest extends TestCase
         }
     }
 
+    public function test_balance_sheet_hides_accounts_that_have_no_movement_in_the_chosen_branch(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounting_reports.show']);
+        $financialYearId = $this->createFinancialYear();
+        $otherBranch = $this->createBranch('فرع المرقب الكبير');
+        // اختيار فرع لا يُعدّ تضييقًا إلا إذا كان المستخدم يرى أكثر من فرع.
+        $admin->branches()->sync([$admin->branch_id, $otherBranch->id]);
+        $admin = $admin->fresh();
+
+        [$assetsId, $liabilitiesId, $equityId] = $this->createBalanceSheetRoots();
+
+        $mine = $this->createAccount([
+            'name' => ['ar' => 'مصروفات زاتكا العويس', 'en' => 'Owais Expenses'],
+            'code' => '1001',
+            'level' => '2',
+            'parent_account_id' => $assetsId,
+            'account_type' => 'assets',
+            'transfer_side' => 'budget',
+        ]);
+        $theirs = $this->createAccount([
+            'name' => ['ar' => 'صندوق المرقب الكبير', 'en' => 'Other Branch Cash'],
+            'code' => '1002',
+            'level' => '2',
+            'parent_account_id' => $assetsId,
+            'account_type' => 'assets',
+            'transfer_side' => 'budget',
+        ]);
+
+        // حركة في فرع المستخدم فقط
+        $mineJournal = $this->insertJournalEntry([
+            'serial' => 'J-BR-MINE',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $mineJournal,
+            'account_id' => $mine,
+            'document_date' => '2026-03-22',
+            'debit' => 700,
+        ]);
+
+        // وحركة في فرع آخر على حساب آخر
+        $otherJournal = $this->insertJournalEntry([
+            'serial' => 'J-BR-OTHER',
+            'financial_year' => $financialYearId,
+            'branch_id' => $otherBranch->id,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $otherJournal,
+            'account_id' => $theirs,
+            'document_date' => '2026-03-22',
+            'debit' => 900,
+        ]);
+
+        $response = $this->actingAs($admin, 'admin-web')
+            ->post(route('balance_sheet.search', [], false), [
+                'date_from' => '2026-03-22',
+                'date_to' => '2026-03-22',
+                'branch_ids' => [$admin->branch_id],
+                'branch_id' => $admin->branch_id,
+            ])
+            ->assertOk();
+
+        $response->assertSee('مصروفات زاتكا العويس');
+        $response->assertDontSee('صندوق المرقب الكبير');
+        $response->assertDontSee('900.00');
+
+        // الأقسام الرئيسية تبقى ظاهرة حتى لو خلت من الحركة في هذا الفرع.
+        $response->assertSee('الخصوم');
+        $response->assertSee('حقوق الملكية');
+    }
+
+    public function test_balance_sheet_keeps_every_branch_account_when_no_branch_is_chosen(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounting_reports.show']);
+        $financialYearId = $this->createFinancialYear();
+        $otherBranch = $this->createBranch('فرع المرقب الكبير');
+
+        [$assetsId] = $this->createBalanceSheetRoots();
+
+        $theirs = $this->createAccount([
+            'name' => ['ar' => 'صندوق المرقب الكبير', 'en' => 'Other Branch Cash'],
+            'code' => '1002',
+            'level' => '2',
+            'parent_account_id' => $assetsId,
+            'account_type' => 'assets',
+            'transfer_side' => 'budget',
+        ]);
+
+        $otherJournal = $this->insertJournalEntry([
+            'serial' => 'J-ALL-BR',
+            'financial_year' => $financialYearId,
+            'branch_id' => $otherBranch->id,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $otherJournal,
+            'account_id' => $theirs,
+            'document_date' => '2026-03-22',
+            'debit' => 900,
+        ]);
+
+        $this->actingAs($admin, 'admin-web')
+            ->post(route('balance_sheet.search', [], false), [
+                'date_from' => '2026-03-22',
+                'date_to' => '2026-03-22',
+            ])
+            ->assertOk()
+            ->assertSee('صندوق المرقب الكبير');
+    }
+
     private function createAdminUser(array $permissions): User
     {
         $branch = $this->createBranch('فرع التقارير المحاسبية');
