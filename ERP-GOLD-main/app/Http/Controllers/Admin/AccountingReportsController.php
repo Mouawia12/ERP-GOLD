@@ -126,8 +126,12 @@ class AccountingReportsController extends Controller
             $expensesAccount,
         ], $filters);
 
-        $profitTotal = abs($accountMetrics[$revenuesAccount->id]['closing_net'])
-            - abs($accountMetrics[$expensesAccount->id]['closing_net']);
+        // صافي الربح = الإيرادات - المصروفات. الإيرادات دائنة فـ `closing_net`
+        // سالب لها، لذلك يُعكس مجموعهما بالإشارة بدل أخذ القيمة المطلقة.
+        $profitTotal = -(
+            $accountMetrics[$revenuesAccount->id]['closing_net']
+            + $accountMetrics[$expensesAccount->id]['closing_net']
+        );
 
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
@@ -173,8 +177,12 @@ class AccountingReportsController extends Controller
             $expensesAccount,
         ], $filters);
 
-        $profitTotal = abs($accountMetrics[$revenuesAccount->id]['closing_net'])
-            - abs($accountMetrics[$expensesAccount->id]['closing_net']);
+        // صافي الربح = الإيرادات - المصروفات. الإيرادات دائنة فـ `closing_net`
+        // سالب لها، لذلك يُعكس مجموعهما بالإشارة بدل أخذ القيمة المطلقة.
+        $profitTotal = -(
+            $accountMetrics[$revenuesAccount->id]['closing_net']
+            + $accountMetrics[$expensesAccount->id]['closing_net']
+        );
 
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
@@ -224,10 +232,14 @@ class AccountingReportsController extends Controller
             $assetsAccount, $equityAccount, $liabilitiesAccount,
         ], $filters);
 
-        $assetsTotal = abs($accountMetrics[$assetsAccount->id]['closing_net']);
-        $liabilitiesTotal = abs($accountMetrics[$liabilitiesAccount->id]['closing_net']);
-        $equityTotal = abs($accountMetrics[$equityAccount->id]['closing_net']);
-        $profitTotal = $assetsTotal - ($liabilitiesTotal + $equityTotal);
+        // الأصول = الخصوم + حقوق الملكية + صافي الربح.
+        // `closing_net` = مدين - دائن، فالأصول موجبة والخصوم وحقوق الملكية سالبة
+        // في وضعها الطبيعي، ومن ثم يكون الربح مجموعها الجبري. الجمع بالإشارة لا
+        // بالقيمة المطلقة: حساب على الجانب المعاكس (خسائر مبقاة مدينة مثلًا)
+        // تقلبه `abs` فتنكسر المعادلة.
+        $profitTotal = $accountMetrics[$assetsAccount->id]['closing_net']
+            + $accountMetrics[$liabilitiesAccount->id]['closing_net']
+            + $accountMetrics[$equityAccount->id]['closing_net'];
 
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
@@ -274,10 +286,14 @@ class AccountingReportsController extends Controller
             $liabilitiesAccount,
         ], $filters);
 
-        $assetsTotal = abs($accountMetrics[$assetsAccount->id]['closing_net']);
-        $liabilitiesTotal = abs($accountMetrics[$liabilitiesAccount->id]['closing_net']);
-        $equityTotal = abs($accountMetrics[$equityAccount->id]['closing_net']);
-        $profitTotal = $assetsTotal - ($liabilitiesTotal + $equityTotal);
+        // الأصول = الخصوم + حقوق الملكية + صافي الربح.
+        // `closing_net` = مدين - دائن، فالأصول موجبة والخصوم وحقوق الملكية سالبة
+        // في وضعها الطبيعي، ومن ثم يكون الربح مجموعها الجبري. الجمع بالإشارة لا
+        // بالقيمة المطلقة: حساب على الجانب المعاكس (خسائر مبقاة مدينة مثلًا)
+        // تقلبه `abs` فتنكسر المعادلة.
+        $profitTotal = $accountMetrics[$assetsAccount->id]['closing_net']
+            + $accountMetrics[$liabilitiesAccount->id]['closing_net']
+            + $accountMetrics[$equityAccount->id]['closing_net'];
 
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];

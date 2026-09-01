@@ -481,6 +481,105 @@ class AccountingSummaryReportsFeatureTest extends TestCase
         $this->assertStringContainsString('color: inherit', $rule);
     }
 
+    public function test_balance_sheet_profit_satisfies_the_accounting_equation(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounting_reports.show']);
+        $financialYearId = $this->createFinancialYear();
+
+        [$assetsId, $liabilitiesId, $equityId] = $this->createBalanceSheetRoots();
+
+        // أصول 1,000 مدين | خصوم 200 دائن | حقوق ملكية 300 دائن
+        // 1,000 = 200 + 300 + 500  →  صافي الربح 500
+        $this->postBalanceSheetMovements($admin, $financialYearId, [
+            [$assetsId, 'debit', 1000],
+            [$liabilitiesId, 'credit', 200],
+            [$equityId, 'credit', 300],
+        ]);
+
+        $this->actingAs($admin, 'admin-web')
+            ->post(route('balance_sheet.search', [], false), [
+                'date_from' => '2026-03-22',
+                'date_to' => '2026-03-22',
+                'branch_id' => $admin->branch_id,
+            ])
+            ->assertOk()
+            ->assertViewHas('profitTotal', 500.0);
+    }
+
+    public function test_balance_sheet_profit_holds_when_equity_carries_a_debit_balance(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounting_reports.show']);
+        $financialYearId = $this->createFinancialYear();
+
+        [$assetsId, $liabilitiesId, $equityId] = $this->createBalanceSheetRoots();
+
+        // خسائر مبقاة تجعل حقوق الملكية مدينة 300.
+        // 1,000 = 200 + (-300) + 1,100  →  صافي الربح 1,100
+        // القيمة المطلقة كانت تعطي 500 لأنها تقلب إشارة حقوق الملكية.
+        $this->postBalanceSheetMovements($admin, $financialYearId, [
+            [$assetsId, 'debit', 1000],
+            [$liabilitiesId, 'credit', 200],
+            [$equityId, 'debit', 300],
+        ]);
+
+        $this->actingAs($admin, 'admin-web')
+            ->post(route('balance_sheet.search', [], false), [
+                'date_from' => '2026-03-22',
+                'date_to' => '2026-03-22',
+                'branch_id' => $admin->branch_id,
+            ])
+            ->assertOk()
+            ->assertViewHas('profitTotal', 1100.0);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function createBalanceSheetRoots(): array
+    {
+        return [
+            $this->createAccount([
+                'name' => ['ar' => 'الأصول', 'en' => 'Assets'],
+                'code' => '1000',
+                'account_type' => 'assets',
+                'transfer_side' => 'budget',
+            ]),
+            $this->createAccount([
+                'name' => ['ar' => 'الخصوم', 'en' => 'Liabilities'],
+                'code' => '2000',
+                'account_type' => 'liabilities',
+                'transfer_side' => 'budget',
+            ]),
+            $this->createAccount([
+                'name' => ['ar' => 'حقوق الملكية', 'en' => 'Equity'],
+                'code' => '3000',
+                'account_type' => 'equity',
+                'transfer_side' => 'budget',
+            ]),
+        ];
+    }
+
+    /**
+     * @param  array<int, array{0: int, 1: string, 2: float}>  $lines
+     */
+    private function postBalanceSheetMovements(User $admin, int $financialYearId, array $lines): void
+    {
+        $journalId = $this->insertJournalEntry([
+            'serial' => 'J-EQ-' . uniqid(),
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+        ]);
+
+        foreach ($lines as [$accountId, $side, $amount]) {
+            $this->insertJournalEntryDocument([
+                'journal_id' => $journalId,
+                'account_id' => $accountId,
+                'document_date' => '2026-03-22',
+                $side => $amount,
+            ]);
+        }
+    }
+
     private function createAdminUser(array $permissions): User
     {
         $branch = $this->createBranch('فرع التقارير المحاسبية');
