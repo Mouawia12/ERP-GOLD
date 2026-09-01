@@ -118,11 +118,11 @@
                                     @include('admin.reports.balance_sheet.recursive', ['account' => $account, 'accountLevel' => $accountLevel ?? null])
                                 @endforeach
 
-                                @foreach ([$equityAccount] ?? [] as $account)
+                                @foreach ([$liabilitiesAccount] ?? [] as $account)
                                     @include('admin.reports.balance_sheet.recursive', ['account' => $account, 'accountLevel' => $accountLevel ?? null])
                                 @endforeach
 
-                                @foreach ([$liabilitiesAccount] ?? [] as $account)
+                                @foreach ([$equityAccount] ?? [] as $account)
                                     @include('admin.reports.balance_sheet.recursive', ['account' => $account, 'accountLevel' => $accountLevel ?? null])
                                 @endforeach
 

@@ -370,6 +370,79 @@ class AccountingSummaryReportsFeatureTest extends TestCase
     /**
      * @param  array<int, string>  $permissions
      */
+    public function test_balance_sheet_lists_liabilities_before_equity(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.accounting_reports.show',
+        ]);
+        $financialYearId = $this->createFinancialYear();
+
+        $assetsId = $this->createAccount([
+            'name' => ['ar' => 'الأصول', 'en' => 'Assets'],
+            'code' => '1000',
+            'account_type' => 'assets',
+            'transfer_side' => 'budget',
+        ]);
+        // يُنشأ حقوق الملكية أولًا عمدًا: الترتيب في التقرير يجب ألا يتبع ترتيب
+        // الإنشاء ولا الكود، بل ترتيب الميزانية المحاسبي.
+        $equityId = $this->createAccount([
+            'name' => ['ar' => 'حقوق الملكية', 'en' => 'Equity'],
+            'code' => '3000',
+            'account_type' => 'equity',
+            'transfer_side' => 'budget',
+        ]);
+        $liabilitiesId = $this->createAccount([
+            'name' => ['ar' => 'الخصوم', 'en' => 'Liabilities'],
+            'code' => '2000',
+            'account_type' => 'liabilities',
+            'transfer_side' => 'budget',
+        ]);
+
+        $journalId = $this->insertJournalEntry([
+            'serial' => 'J-ORDER-1',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $journalId,
+            'account_id' => $assetsId,
+            'document_date' => '2026-03-22',
+            'debit' => 1000,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $journalId,
+            'account_id' => $equityId,
+            'document_date' => '2026-03-22',
+            'credit' => 400,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $journalId,
+            'account_id' => $liabilitiesId,
+            'document_date' => '2026-03-22',
+            'credit' => 600,
+        ]);
+
+        $content = $this->actingAs($admin, 'admin-web')
+            ->post(route('balance_sheet.search', [], false), [
+                'date_from' => '2026-03-22',
+                'date_to' => '2026-03-22',
+                'branch_id' => $admin->branch_id,
+            ])
+            ->assertOk()
+            ->getContent();
+
+        $assetsAt = strpos($content, 'الأصول');
+        $liabilitiesAt = strpos($content, 'الخصوم');
+        $equityAt = strpos($content, 'حقوق الملكية');
+
+        $this->assertNotFalse($assetsAt);
+        $this->assertNotFalse($liabilitiesAt);
+        $this->assertNotFalse($equityAt);
+
+        $this->assertLessThan($liabilitiesAt, $assetsAt, 'الأصول يجب أن تسبق الخصوم.');
+        $this->assertLessThan($equityAt, $liabilitiesAt, 'الخصوم يجب أن تسبق حقوق الملكية.');
+    }
+
     private function createAdminUser(array $permissions): User
     {
         $branch = $this->createBranch('فرع التقارير المحاسبية');
