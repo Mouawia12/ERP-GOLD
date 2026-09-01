@@ -355,6 +355,73 @@ class AccountsTreeFeatureTest extends TestCase
         $this->assertStringContainsString("env('MYSQL_ATTR_SSL_CA')\n                ? [", $config);
     }
 
+    public function test_opening_balances_screen_explains_itself_without_an_active_financial_year(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.show']);
+
+        // لا سنة مالية نشطة إطلاقًا — كانت الشاشة تنهار بخطأ 500.
+        $this->actingAs($admin, 'admin-web')
+            ->get(route('accounts.opening', [], false))
+            ->assertRedirect(route('accounts.index', [], false));
+
+        $this->assertStringContainsString('سنة مالية نشطة', (string) session('error'));
+    }
+
+    public function test_opening_balances_screen_opens_with_an_active_financial_year(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.show']);
+        $this->createFinancialYear();
+
+        $this->actingAs($admin, 'admin-web')
+            ->get(route('accounts.opening', [], false))
+            ->assertOk();
+    }
+
+    public function test_opening_balances_screen_survives_a_balance_whose_account_is_gone(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.show']);
+        $financialYearId = $this->createFinancialYear();
+
+        $accountId = $this->createAccount([
+            'name' => ['ar' => 'حساب سيُحذف', 'en' => 'Doomed'],
+            'code' => '1900',
+        ]);
+
+        DB::table('opening_balances')->insert([
+            'account_id' => $accountId,
+            'financial_year' => $financialYearId,
+            'debit' => 500,
+            'credit' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // يُحذف الحساب دون رصيده، فتبقى العلاقة فارغة.
+        DB::statement('PRAGMA foreign_keys = OFF');
+        DB::table('accounts')->where('id', $accountId)->delete();
+        DB::statement('PRAGMA foreign_keys = ON');
+
+        $this->actingAs($admin, 'admin-web')
+            ->get(route('accounts.opening', [], false))
+            ->assertOk();
+    }
+
+    public function test_saving_opening_balances_without_an_active_financial_year_is_refused(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.add']);
+        $accountId = $this->createAccount(['code' => '1901']);
+
+        $response = $this->actingAs($admin, 'admin-web')
+            ->post(route('accounts.opening.store', [], false), [
+                'account_id' => [$accountId],
+                'debit' => [100],
+                'credit' => [100],
+            ])
+            ->assertStatus(422);
+
+        $this->assertStringContainsString('سنة مالية نشطة', $response->json('errors'));
+    }
+
     /**
      * @param  array<int, string>  $permissions
      */

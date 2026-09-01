@@ -325,16 +325,33 @@ class AccountsController extends Controller
 
     public function opening()
     {
-        $openingBalances = OpeningBalance::where('financial_year', FinancialYear::where('is_active', true)->first()->id)->get();
-        $openingBalances = collect($openingBalances)->map(function ($openingBalance) {
-            return [
-                'id' => $openingBalance->account_id,
-                'code' => $openingBalance->account->code,
-                'name' => $openingBalance->account->name,
-                'debit' => $openingBalance->debit,
-                'credit' => $openingBalance->credit,
-            ];
-        });
+        // بلا سنة مالية نشطة كانت الشاشة تقرأ ->id على null فتنهار بخطأ 500
+        // أبيض. الآن تُعاد رسالة تقول ما الناقص وكيف يُستدرك.
+        $financialYear = FinancialYear::query()->where('is_active', true)->first();
+
+        if (! $financialYear) {
+            return redirect()
+                ->route('accounts.index')
+                ->with('error', 'لا توجد سنة مالية نشطة، فلا يمكن فتح شاشة الأرصدة الافتتاحية. فعّل سنة مالية أولًا.');
+        }
+
+        $openingBalances = OpeningBalance::query()
+            ->where('financial_year', $financialYear->id)
+            ->with('account')
+            ->get()
+            // رصيد لحساب محذوف يترك العلاقة فارغة، وقراءة كوده تنهار بدورها.
+            ->filter(fn (OpeningBalance $openingBalance) => $openingBalance->account !== null)
+            ->map(function (OpeningBalance $openingBalance) {
+                return [
+                    'id' => $openingBalance->account_id,
+                    'code' => $openingBalance->account->code,
+                    'name' => $openingBalance->account->name,
+                    'debit' => $openingBalance->debit,
+                    'credit' => $openingBalance->credit,
+                ];
+            })
+            ->values();
+
         return view('admin.accounts.opening', compact('openingBalances'));
     }
 
@@ -366,7 +383,15 @@ class AccountsController extends Controller
             ], 422);
         }
 
-        $financialYear = FinancialYear::where('is_active', true)->first();
+        $financialYear = FinancialYear::query()->where('is_active', true)->first();
+
+        if (! $financialYear) {
+            return response()->json([
+                'status' => false,
+                'errors' => 'لا توجد سنة مالية نشطة، فلا يمكن حفظ الأرصدة الافتتاحية. فعّل سنة مالية أولًا.',
+            ], 422);
+        }
+
         try {
             DB::beginTransaction();
             foreach ($request->account_id as $key => $value) {
