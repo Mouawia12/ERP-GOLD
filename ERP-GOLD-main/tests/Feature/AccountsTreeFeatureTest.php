@@ -322,6 +322,39 @@ class AccountsTreeFeatureTest extends TestCase
         }
     }
 
+    public function test_account_search_returns_json_with_nothing_before_it(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.show']);
+        $this->createAccount([
+            'name' => ['ar' => 'البنك الرئيسي', 'en' => 'Main Bank'],
+            'code' => '1102001',
+        ]);
+
+        $response = $this->actingAs($admin, 'admin-web')
+            ->post(route('accounts.search', [], false), ['search' => 'البنك'])
+            ->assertOk();
+
+        // jQuery يطلب dataType:'json'؛ أي حرف قبل الـ JSON يُسقط التحليل فلا
+        // تظهر نتائج البحث إطلاقًا.
+        $this->assertSame('[', substr(ltrim($response->getContent()), 0, 1));
+        $response->assertJsonFragment(['code' => '1102001']);
+    }
+
+    public function test_database_config_does_not_always_read_the_deprecated_pdo_constant(): void
+    {
+        $config = file_get_contents(config_path('database.php'));
+
+        $this->assertIsString($config);
+
+        // على PHP 8.5 تُطلق قراءة PDO::MYSQL_ATTR_SSL_CA تنبيه إهمال يُحقن في
+        // جسم كل استجابة فيفسد كل رد JSON. تُقرأ الآن فقط عند ضبط شهادة SSL.
+        $this->assertStringNotContainsString(
+            "array_filter([\n                PDO::MYSQL_ATTR_SSL_CA",
+            $config
+        );
+        $this->assertStringContainsString("env('MYSQL_ATTR_SSL_CA')\n                ? [", $config);
+    }
+
     /**
      * @param  array<int, string>  $permissions
      */

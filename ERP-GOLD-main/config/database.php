@@ -58,9 +58,15 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
+            // يُقرأ الثابت فقط عند ضبط شهادة SSL فعلًا. قراءته دائمًا كانت تطلق
+            // تنبيه إهمال على PHP 8.5 يُحقن في جسم كل استجابة، فيفسد كل رد JSON
+            // ويُسقط نداءات AJAX في البرنامج كله.
+            'options' => extension_loaded('pdo_mysql') && env('MYSQL_ATTR_SSL_CA')
+                ? [
+                    (defined('Pdo\\Mysql::ATTR_SSL_CA') ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA)
+                        => env('MYSQL_ATTR_SSL_CA'),
+                ]
+                : [],
             'dump' => [
                 //'dump_binary_path' => 'C:/wamp/wamp64/bin/mysql/mysql8.3.0/bin/', // only the path, so without `mysqldump` or `pg_dump`
                 'dump_binary_path' => 'C:/xampp/mysql/bin/',
@@ -85,9 +91,15 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
+            // يُقرأ الثابت فقط عند ضبط شهادة SSL فعلًا. قراءته دائمًا كانت تطلق
+            // تنبيه إهمال على PHP 8.5 يُحقن في جسم كل استجابة، فيفسد كل رد JSON
+            // ويُسقط نداءات AJAX في البرنامج كله.
+            'options' => extension_loaded('pdo_mysql') && env('MYSQL_ATTR_SSL_CA')
+                ? [
+                    (defined('Pdo\\Mysql::ATTR_SSL_CA') ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA)
+                        => env('MYSQL_ATTR_SSL_CA'),
+                ]
+                : [],
         ],
 
         'pgsql' => [
