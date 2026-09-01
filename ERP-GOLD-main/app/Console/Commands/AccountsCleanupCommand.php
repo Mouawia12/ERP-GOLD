@@ -159,7 +159,7 @@ class AccountsCleanupCommand extends Command
         // Category -> exact root names (the canonical top groups).
         $rootNames = [
             'assets' => ['الأصول', 'الاصول'],
-            'liabilities' => ['الخصوم', 'الالتزامات', 'الإلتزامات'],
+            'liabilities' => ['الخصوم', 'الالتزامات', 'الإلتزامات', 'الخصوم (الالتزامات)'],
             'equity' => ['حقوق الملكية', 'حقوق الملكيه'],
             'revenues' => ['الإيرادات', 'الايرادات', 'الإيراد'],
             'expenses' => ['المصروفات', 'المصاريف'],

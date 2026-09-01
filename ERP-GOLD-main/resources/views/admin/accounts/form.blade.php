@@ -150,7 +150,7 @@
                                                     <option value="{{$value}}" @if(@$account->transfer_side == $value) selected @endif>{{__('main.transfers_sides.'.$value)}}</option>
                                                 @endforeach
                                             </select>
-                                            <small class="text-muted d-block mt-1">يُحدَّد تلقائيًا من «قائمة الحساب»: الأصول والالتزامات وحقوق الملكية مركز مالي، والإيرادات والمصروفات قائمة دخل.</small>
+                                            <small class="text-muted d-block mt-1">يُحدَّد تلقائيًا من «قائمة الحساب»: الأصول والالتزامات (الخصوم) وحقوق الملكية مركز مالي، والإيرادات والمصروفات قائمة دخل.</small>
                                         </div>
                                     </div>
                                 </div>
