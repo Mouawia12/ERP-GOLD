@@ -260,6 +260,78 @@ class AccountingSummaryReportsFeatureTest extends TestCase
         $response->assertDontSee('900.00');
     }
 
+    public function test_balance_sheet_hides_other_branch_account_left_with_zero_balance(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounting_reports.show']);
+        $financialYearId = $this->createFinancialYear();
+        $otherBranch = $this->createBranch('فرع المرقب الكبير');
+        $admin->branches()->sync([$admin->branch_id, $otherBranch->id]);
+        $admin = $admin->fresh();
+
+        [$assetsId] = $this->createBalanceSheetRoots();
+
+        $theirs = $this->createAccount([
+            'name' => ['ar' => 'صندوق المرقب الكبير', 'en' => 'Other Branch Cash'],
+            'code' => '1002',
+            'level' => '2',
+            'parent_account_id' => $assetsId,
+            'account_type' => 'assets',
+            'transfer_side' => 'budget',
+        ]);
+        $mine = $this->createAccount([
+            'name' => ['ar' => 'صندوق العويس', 'en' => 'Owais Cash'],
+            'code' => '1003',
+            'level' => '2',
+            'parent_account_id' => $assetsId,
+            'account_type' => 'assets',
+            'transfer_side' => 'budget',
+        ]);
+
+        // حركة الفرع سُجّلت أولًا على صندوق الفرع الآخر…
+        $saleJournal = $this->insertJournalEntry([
+            'serial' => 'J-BR-MINE',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $saleJournal,
+            'account_id' => $theirs,
+            'document_date' => '2026-03-22',
+            'debit' => 700,
+        ]);
+
+        // …ثم رحّلها قيد تسوية إلى صندوق الفرع نفسه، فبقي الأول بحركة ورصيد صفر.
+        $reclassJournal = $this->insertJournalEntry([
+            'serial' => 'MJ-BR-FIX',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $reclassJournal,
+            'account_id' => $theirs,
+            'document_date' => '2026-03-22',
+            'credit' => 700,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $reclassJournal,
+            'account_id' => $mine,
+            'document_date' => '2026-03-22',
+            'debit' => 700,
+        ]);
+
+        $response = $this->actingAs($admin, 'admin-web')
+            ->post(route('balance_sheet.search', [], false), [
+                'date_from' => '2026-03-22',
+                'date_to' => '2026-03-22',
+                'branch_ids' => [$admin->branch_id],
+                'branch_id' => $admin->branch_id,
+            ])
+            ->assertOk();
+
+        $response->assertSee('صندوق العويس');
+        $response->assertDontSee('صندوق المرقب الكبير');
+    }
+
     public function test_subscriber_primary_account_can_select_multiple_accounting_branches_from_search_and_limit_trail_balance(): void
     {
         [$subscriber, $mainBranch, $primaryUser] = $this->createSubscriberPrimaryUser([
