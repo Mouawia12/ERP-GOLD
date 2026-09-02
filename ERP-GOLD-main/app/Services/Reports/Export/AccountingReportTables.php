@@ -115,7 +115,14 @@ class AccountingReportTables
             ]),
             headerRows: [$this->summaryHeader()],
             bodyRows: $rows,
-            footerRows: [$this->profitRow($payload['profitTotal'] ?? 0)],
+            // نتيجة الفترة محمولة داخل حقوق الملكية، فسطر الذيل هو المجموع
+            // الذي يُظهر تساوي المدين والدائن.
+            footerRows: [ReportRow::total([
+                ReportCell::label('الإجمالي', 0, true),
+                ReportCell::number((float) ($payload['totals']['debit'] ?? 0), true),
+                ReportCell::number((float) ($payload['totals']['credit'] ?? 0), true),
+                ReportCell::number(abs((float) ($payload['totals']['debit'] ?? 0) - (float) ($payload['totals']['credit'] ?? 0)), true),
+            ])],
             fileName: 'balance-sheet',
         );
     }

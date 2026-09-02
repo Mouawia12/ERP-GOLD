@@ -605,6 +605,153 @@ class AccountingSummaryReportsFeatureTest extends TestCase
     }
 
     /**
+     * نتيجة الفترة ما زالت في الإيرادات والمصروفات ولم تُقفل، فتُعرض في
+     * الميزانية على «حساب الربح أو الخسارة» داخل حقوق الملكية بدل أن تتدلّى
+     * سطرًا وحدها أسفل التقرير.
+     */
+    public function test_balance_sheet_carries_the_period_result_into_the_profit_and_loss_account(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounting_reports.show']);
+        $financialYearId = $this->createFinancialYear();
+        [$assetsId, , $equityId, $profitAndLossId, $revenuesId] = $this->createChartWithProfitAndLossAccount();
+
+        // بيع بـ 1,000: نقدية مدينة وإيراد دائن ⇒ ربح الفترة 1,000 دائن
+        $journalId = $this->insertJournalEntry([
+            'serial' => 'J-PL-1',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $journalId,
+            'account_id' => $assetsId,
+            'document_date' => '2026-03-22',
+            'debit' => 1000,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $journalId,
+            'account_id' => $revenuesId,
+            'document_date' => '2026-03-22',
+            'credit' => 1000,
+        ]);
+
+        $response = $this->actingAs($admin, 'admin-web')
+            ->post(route('balance_sheet.search', [], false), [
+                'date_from' => '2026-03-22',
+                'date_to' => '2026-03-22',
+                'branch_id' => $admin->branch_id,
+            ]);
+
+        $response->assertOk();
+
+        $metrics = $response->viewData('accountMetrics');
+
+        // الربح دائن: يزيد حقوق الملكية، ويظهر على حساب الربح أو الخسارة
+        $this->assertSame(1000.0, $metrics[$profitAndLossId]['closing_credit']);
+        $this->assertSame(-1000.0, $metrics[$profitAndLossId]['closing_net']);
+        $this->assertSame(1000.0, $metrics[$equityId]['closing_credit']);
+        $this->assertSame(-1000.0, $metrics[$equityId]['closing_net']);
+    }
+
+    /**
+     * وبعد حمل النتيجة على حقوق الملكية يتساوى إجمالي المدين وإجمالي الدائن،
+     * وهو ما يقرأه المحاسب ليطمئن أن الميزانية متوازنة.
+     */
+    public function test_balance_sheet_totals_show_matching_debit_and_credit(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounting_reports.show']);
+        $financialYearId = $this->createFinancialYear();
+        [$assetsId, , , , $revenuesId] = $this->createChartWithProfitAndLossAccount();
+
+        $journalId = $this->insertJournalEntry([
+            'serial' => 'J-PL-2',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $journalId,
+            'account_id' => $assetsId,
+            'document_date' => '2026-03-22',
+            'debit' => 1000,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $journalId,
+            'account_id' => $revenuesId,
+            'document_date' => '2026-03-22',
+            'credit' => 1000,
+        ]);
+
+        $response = $this->actingAs($admin, 'admin-web')
+            ->post(route('balance_sheet.search', [], false), [
+                'date_from' => '2026-03-22',
+                'date_to' => '2026-03-22',
+                'branch_id' => $admin->branch_id,
+            ]);
+
+        $response->assertOk();
+
+        $totals = $response->viewData('totals');
+
+        $this->assertSame(1000.0, $totals['debit']);
+        $this->assertSame(1000.0, $totals['credit']);
+        $response->assertSee('الإجمالي');
+    }
+
+    /**
+     * شجرة الميزانية بأكوادها المعتمدة: حقوق الملكية «3» وتحته «31» حساب
+     * الربح أو الخسارة، كما ينشئها SubscriberChartProvisioner.
+     *
+     * @return array{0:int,1:int,2:int,3:int,4:int}
+     */
+    private function createChartWithProfitAndLossAccount(): array
+    {
+        $assetsId = $this->createAccount([
+            'name' => ['ar' => 'الأصول', 'en' => 'Assets'],
+            'code' => '1',
+            'level' => '1',
+            'account_type' => 'assets',
+            'transfer_side' => 'budget',
+        ]);
+        $liabilitiesId = $this->createAccount([
+            'name' => ['ar' => 'الخصوم', 'en' => 'Liabilities'],
+            'code' => '2',
+            'level' => '1',
+            'account_type' => 'liabilities',
+            'transfer_side' => 'budget',
+        ]);
+        $equityId = $this->createAccount([
+            'name' => ['ar' => 'حقوق الملكية', 'en' => 'Equity'],
+            'code' => '3',
+            'level' => '1',
+            'account_type' => 'equity',
+            'transfer_side' => 'budget',
+        ]);
+        $profitAndLossId = $this->createAccount([
+            'name' => ['ar' => 'حساب الربح أو الخسارة', 'en' => 'Profit and Loss Account'],
+            'code' => '31',
+            'level' => '2',
+            'parent_account_id' => $equityId,
+            'account_type' => 'equity',
+            'transfer_side' => 'budget',
+        ]);
+        $revenuesId = $this->createAccount([
+            'name' => ['ar' => 'الإيرادات', 'en' => 'Revenues'],
+            'code' => '4',
+            'level' => '1',
+            'account_type' => 'revenues',
+            'transfer_side' => 'income_statement',
+        ]);
+        $this->createAccount([
+            'name' => ['ar' => 'المصروفات', 'en' => 'Expenses'],
+            'code' => '5',
+            'level' => '1',
+            'account_type' => 'expenses',
+            'transfer_side' => 'income_statement',
+        ]);
+
+        return [$assetsId, $liabilitiesId, $equityId, $profitAndLossId, $revenuesId];
+    }
+
+    /**
      * @return array<int, int>
      */
     private function createBalanceSheetRoots(): array

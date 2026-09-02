@@ -126,10 +126,13 @@
                                     @include('admin.reports.balance_sheet.recursive', ['account' => $account, 'accountLevel' => $accountLevel ?? null, 'hideEmpty' => $hideEmpty ?? false])
                                 @endforeach
 
-                                <tr>
-                                    <td class="text-right" style="font-size:20px !important">صافي الربح</td>
-                                    <td colspan="2"></td>
-                                    <td>{{number_format(abs($profitTotal),2) }} {{ $profitTotal != 0 ? ' / ' . ($profitTotal > 0 ? __('main.credit') : __('main.debit')) : '' }}</td>
+                                {{-- نتيجة الفترة صارت داخل حقوق الملكية على «حساب الربح أو الخسارة»،
+                                     فيكفي هنا سطر المجموع الذي يُظهر توازن الميزانية. --}}
+                                <tr style="font-weight:700; background:#e8f5e9; font-size:15px">
+                                    <td class="text-right">الإجمالي</td>
+                                    <td>{{ number_format($totals['debit'] ?? 0, 2) }}</td>
+                                    <td>{{ number_format($totals['credit'] ?? 0, 2) }}</td>
+                                    <td>{{ number_format(abs(($totals['debit'] ?? 0) - ($totals['credit'] ?? 0)), 2) }}</td>
                                 </tr>
                             </tbody>
                         </table>

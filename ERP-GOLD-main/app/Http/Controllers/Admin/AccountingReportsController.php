@@ -416,6 +416,13 @@ class AccountingReportsController extends Controller
             + $accountMetrics[$liabilitiesAccount->id]['closing_net']
             + $accountMetrics[$equityAccount->id]['closing_net'];
 
+        // نتيجة الفترة ما زالت في حسابات الإيرادات والمصروفات ولم تُقفل بعد إلى
+        // حقوق الملكية، فتُحمَّل على «حساب الربح أو الخسارة» عرضًا لا قيدًا —
+        // وبها وحدها تتوازن الميزانية: مدينها يساوي دائنها.
+        $accountMetrics = $this->carryPeriodResultToEquity($accountMetrics, $equityAccount, $profitTotal);
+
+        $totals = $this->balanceSheetTotals($accountMetrics, [$assetsAccount, $liabilitiesAccount, $equityAccount]);
+
         $branch = $branchSelection['single_branch'];
         $branchLabel = $branchSelection['branch_label'];
         // عند اختيار فرع معيّن تُخفى الحسابات التي لا حركة لها فيه، وإلا ظهرت
@@ -429,12 +436,90 @@ class AccountingReportsController extends Controller
             'equityAccount',
             'liabilitiesAccount',
             'profitTotal',
+            'totals',
             'accountMetrics',
             'branch',
             'branchLabel',
             'accountLevel',
             'hideEmpty'
         );
+    }
+
+    /**
+     * تُضاف نتيجة الفترة إلى «حساب الربح أو الخسارة» وإلى كل ما فوقه حتى جذر
+     * حقوق الملكية، فتظهر حيث ينتظرها المحاسب بدل أن تتدلّى سطرًا وحده أسفل
+     * التقرير.
+     *
+     * `$periodResult` هو مجموع الأصول والخصوم وحقوق الملكية بالإشارة، وهو
+     * بحكم معادلة القيد المزدوج يساوي صافي ربح قائمة الدخل نفسه. يُحمَّل
+     * بإشارته المعاكسة: الربح دائن يزيد حقوق الملكية، والخسارة مدينة تنقصها.
+     * ولأنه محسوب من الأرصدة القائمة فهو لا يُضاعف شيئًا لو أُقفلت الفترة
+     * فعلًا بقيد — عندها يصير صفرًا من تلقائه.
+     *
+     * @param  array<int, array<string, float>>  $accountMetrics
+     * @return array<int, array<string, float>>
+     */
+    private function carryPeriodResultToEquity(array $accountMetrics, Account $equityRoot, float $periodResult): array
+    {
+        $carried = -$periodResult;
+
+        if (abs($carried) < 0.005) {
+            return $accountMetrics;
+        }
+
+        foreach ($this->periodResultCarriers($equityRoot) as $accountId) {
+            if (! isset($accountMetrics[$accountId])) {
+                continue;
+            }
+
+            if ($carried > 0) {
+                $accountMetrics[$accountId]['closing_debit'] = round($accountMetrics[$accountId]['closing_debit'] + $carried, 2);
+            } else {
+                $accountMetrics[$accountId]['closing_credit'] = round($accountMetrics[$accountId]['closing_credit'] - $carried, 2);
+            }
+
+            $accountMetrics[$accountId]['closing_net'] = round($accountMetrics[$accountId]['closing_net'] + $carried, 2);
+        }
+
+        return $accountMetrics;
+    }
+
+    /**
+     * الحسابات التي تحمل نتيجة الفترة: «حساب الربح أو الخسارة» وجذر حقوق
+     * الملكية فوقه. وإن لم يوجد ذلك الحساب في الشجرة حُملت على الجذر وحده،
+     * فالميزانية تتوازن على كل حال.
+     *
+     * @return array<int, int>
+     */
+    private function periodResultCarriers(Account $equityRoot): array
+    {
+        $profitAndLoss = $equityRoot->childrens
+            ->first(fn (Account $child) => (string) $child->code === $equityRoot->code . '1');
+
+        return $profitAndLoss
+            ? [(int) $profitAndLoss->id, (int) $equityRoot->id]
+            : [(int) $equityRoot->id];
+    }
+
+    /**
+     * إجمالي المدين والدائن: يُجمعان من جذور الميزانية الثلاثة وحدها، فمجاميع
+     * الآباء تشمل أبناءها ولو جُمع كل صف لتضاعفت الأرقام.
+     *
+     * @param  array<int, array<string, float>>  $accountMetrics
+     * @param  array<int, Account>  $roots
+     * @return array{debit: float, credit: float}
+     */
+    private function balanceSheetTotals(array $accountMetrics, array $roots): array
+    {
+        $debit = 0.0;
+        $credit = 0.0;
+
+        foreach ($roots as $root) {
+            $debit += (float) ($accountMetrics[$root->id]['closing_debit'] ?? 0);
+            $credit += (float) ($accountMetrics[$root->id]['closing_credit'] ?? 0);
+        }
+
+        return ['debit' => round($debit, 2), 'credit' => round($credit, 2)];
     }
 
     public function balance_sheet()
