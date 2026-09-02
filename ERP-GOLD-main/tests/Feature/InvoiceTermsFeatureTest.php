@@ -274,6 +274,65 @@ class InvoiceTermsFeatureTest extends TestCase
         $response->assertSee('هذه الفاتورة تعرض نسخة الشروط المحفوظة وقت الإنشاء');
     }
 
+    /**
+     * فاتورة صدرت قبل ضبط الشروط فلم تُحفظ فيها نسخة: تبقى بلا شروط ولا سبب
+     * ظاهر. صارت ترث قالب صفحتها الحالي، فالتعديل يظهر عليها.
+     */
+    public function test_invoice_without_saved_terms_inherits_the_current_template(): void
+    {
+        $branch = $this->createBranch('فرع الوراثة', 'inherit-branch@example.com', '111111112');
+        $user = $this->createUser($branch, 'inherit-user@example.com');
+        $invoice = $this->createInvoice($branch, $user, 'sale', [
+            'sale_type' => 'simplified',
+            'bill_client_name' => 'عميل نقدي',
+            'invoice_terms' => null,
+        ]);
+
+        SystemSetting::putValue('default_invoice_terms', 'شرط محدَّث يظهر على الفاتورة القديمة');
+
+        $response = $this
+            ->actingAs($user, 'admin-web')
+            ->get(route('sales.show', ['id' => $invoice->id], false));
+
+        $response->assertOk();
+        $response->assertSee('شروط الفاتورة');
+        $response->assertSee('شرط محدَّث يظهر على الفاتورة القديمة');
+        // لا تنبيه «نسخة محفوظة»: هذه الفاتورة تعرض القالب الحالي لا نسخة قديمة
+        $response->assertDontSee('هذه الفاتورة تعرض نسخة الشروط المحفوظة وقت الإنشاء');
+    }
+
+    /**
+     * والوراثة تتبع القالب في إخفائه أيضًا: قالب مطفأ في الطباعة لا يُظهر
+     * شروطًا على فاتورة ورثت منه.
+     */
+    public function test_invoice_without_saved_terms_stays_empty_when_the_template_is_hidden(): void
+    {
+        $branch = $this->createBranch('فرع الإخفاء', 'hidden-branch@example.com', '111111113');
+        $user = $this->createUser($branch, 'hidden-user@example.com');
+        $invoice = $this->createInvoice($branch, $user, 'sale', [
+            'sale_type' => 'simplified',
+            'bill_client_name' => 'عميل نقدي',
+            'invoice_terms' => null,
+        ]);
+
+        app(InvoiceTermsService::class)->setTemplates([
+            [
+                'key' => 'retail-exchange',
+                'title' => 'استبدال وبيع تجزئة',
+                'content' => 'شرط مخفي عن الطباعة',
+                'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
+                'show_on_invoice' => false,
+            ],
+        ], [InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED => 'retail-exchange']);
+
+        $response = $this
+            ->actingAs($user, 'admin-web')
+            ->get(route('sales.show', ['id' => $invoice->id], false));
+
+        $response->assertOk();
+        $response->assertDontSee('شرط مخفي عن الطباعة');
+    }
+
     public function test_invoice_terms_settings_update_persists_full_multiline_template_content(): void
     {
         $admin = $this->createAdminUser([

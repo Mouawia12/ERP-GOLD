@@ -20,7 +20,7 @@
         $showFooter = $printSettings['show_footer'] ?? true;
         $printOrientation = $printSettings['orientation'] ?? 'portrait';
         $showInvoiceTerms = $invoiceTermsService->shouldShowInvoiceTermsForInvoice($invoice);
-        $inlineInvoiceTerms = $invoiceTermsService->formatTermsForPrint($invoice->invoice_terms);
+        $inlineInvoiceTerms = $invoiceTermsService->formatTermsForPrint($invoiceTermsService->termsForInvoice($invoice));
         $paymentTypeLabel = [
             'cash' => 'نقدي',
             'credit_card' => 'شبكة / بطاقة',

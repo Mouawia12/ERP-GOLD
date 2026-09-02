@@ -166,10 +166,33 @@ class InvoiceTermsService
 
     public function shouldShowInvoiceTermsForInvoice(Invoice $invoice): bool
     {
-        return $this->shouldShowSnapshotOnInvoice(
-            $invoice->invoice_terms,
-            $this->contextForInvoice($invoice),
-        );
+        $context = $this->contextForInvoice($invoice);
+
+        // فاتورة لم تُحفظ فيها شروط أصلًا ترث قالب صفحتها الحالي، ظهورًا
+        // وإخفاءً معًا: إن كان القالب مخفيًا في الطباعة بقيت بلا شروط.
+        if ($this->normalize($invoice->invoice_terms) === '') {
+            return $this->shouldShowOnInvoice($context);
+        }
+
+        return $this->shouldShowSnapshotOnInvoice($invoice->invoice_terms, $context);
+    }
+
+    /**
+     * نصّ الشروط الذي يظهر على الفاتورة: النسخة المحفوظة وقت الإنشاء إن وُجدت،
+     * وإلا قالب صفحتها الحالي.
+     *
+     * الفواتير التي حفظت شروطها تبقى على نصّها فلا يتبدّل ما سُلّم للعميل،
+     * والتي صدرت بلا شروط لا تبقى خالية بلا سبب ظاهر.
+     */
+    public function termsForInvoice(Invoice $invoice): string
+    {
+        $snapshot = $this->normalize($invoice->invoice_terms);
+
+        if ($snapshot !== '') {
+            return $snapshot;
+        }
+
+        return $this->normalize($this->defaultTerms($this->contextForInvoice($invoice)));
     }
 
     public function currentDefaultDiffersFromInvoiceSnapshot(Invoice $invoice): bool

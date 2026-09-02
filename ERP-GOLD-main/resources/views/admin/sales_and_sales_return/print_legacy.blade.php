@@ -7,7 +7,7 @@
         $printFormat = $printSettings['format'];
         $printTemplate = $printSettings['template'];
         $showInvoiceTerms = $invoiceTermsService->shouldShowInvoiceTermsForInvoice($invoice);
-        $inlineInvoiceTerms = $invoiceTermsService->formatTermsForPrint($invoice->invoice_terms);
+        $inlineInvoiceTerms = $invoiceTermsService->formatTermsForPrint($invoiceTermsService->termsForInvoice($invoice));
         $previewNotice = $invoiceTermsService->currentDefaultDiffersFromInvoiceSnapshot($invoice)
             ? 'هذه الفاتورة تعرض نسخة الشروط المحفوظة وقت الإنشاء. أي تعديل جديد على الشروط يطبق على الفواتير الجديدة فقط.'
             : null;

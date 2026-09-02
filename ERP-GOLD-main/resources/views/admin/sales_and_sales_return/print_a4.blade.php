@@ -96,7 +96,7 @@
         }
 
         $detailRows = $invoice->details->values();
-        $inlineInvoiceTerms = $invoiceTermsService->formatTermsForPrint($invoice->invoice_terms);
+        $inlineInvoiceTerms = $invoiceTermsService->formatTermsForPrint($invoiceTermsService->termsForInvoice($invoice));
         $branchAddressAr = $branch->short_address ?: $branch->full_address ?: '---';
         $branchAddressEn = $branchNameEn . ' - ' . ($branch->city ?: $branch->region ?: $branchAddressAr);
         $backUrl = route($isSale ? 'sales.index' : 'sales_return.index', $invoice->sale_type);

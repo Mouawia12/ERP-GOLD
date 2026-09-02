@@ -215,7 +215,7 @@
 >
 @php
     $showInvoiceTerms = app(\App\Services\Invoices\InvoiceTermsService::class)->shouldShowInvoiceTermsForInvoice($invoice);
-    $inlineInvoiceTerms = $invoiceTermsService->formatTermsForPrint($invoice->invoice_terms);
+    $inlineInvoiceTerms = $invoiceTermsService->formatTermsForPrint($invoiceTermsService->termsForInvoice($invoice));
 @endphp
 
 <div class="pos_details  justify-content-center text-center">

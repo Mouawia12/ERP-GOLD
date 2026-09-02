@@ -72,7 +72,7 @@
             $summaryRows[] = ['label' => 'الصافي بعد المرتجع', 'label_en' => '(Net After Returns)', 'value' => $netAfterReturns, 'is_net_after_return' => true];
         }
 
-        $invoiceTerms = trim((string) ($invoice->invoice_terms ?? ''));
+        $invoiceTerms = $invoiceTermsService->termsForInvoice($invoice);
         $inlineInvoiceTerms = $invoiceTermsService->formatTermsForPrint($invoiceTerms);
         $showInvoiceTerms = $invoiceTermsService->shouldShowInvoiceTermsForInvoice($invoice);
 
