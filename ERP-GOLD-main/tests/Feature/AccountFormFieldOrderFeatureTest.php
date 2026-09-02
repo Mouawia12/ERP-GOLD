@@ -98,8 +98,8 @@ class AccountFormFieldOrderFeatureTest extends TestCase
     }
 
     /**
-     * الحساب الجديد يخصّ كل الفروع، فلا معنى لعرض خانة الفروع عند إنشائه —
-     * وتبقى في شاشة التعديل لمن أراد قصر الحساب على فرع.
+     * الحساب يخصّ كل الفروع، فخانة الفروع مرفوعة من الشاشتين معًا — لا تظهر
+     * عند الإنشاء ولا عند التعديل.
      */
     public function test_branches_field_is_absent_when_creating_an_account(): void
     {
@@ -113,7 +113,7 @@ class AccountFormFieldOrderFeatureTest extends TestCase
         $this->assertStringNotContainsString('name="branch_ids[]"', $content);
     }
 
-    public function test_branches_field_stays_when_editing_an_account(): void
+    public function test_branches_field_is_absent_when_editing_an_account(): void
     {
         $admin = $this->createAdminUser(['employee.accounts.add', 'employee.accounts.edit']);
         $accountId = $this->createAccount();
@@ -123,7 +123,36 @@ class AccountFormFieldOrderFeatureTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringContainsString('name="branch_ids[]"', $content);
+        $this->assertStringNotContainsString('name="branch_ids[]"', $content);
+    }
+
+    /**
+     * الخانة رُفعت من الشاشة، فلو بقيت المزامنة في الحفظ لمحا كلُّ تعديل عادي
+     * ربطَ الحساب بفرعه صامتًا. الربط القائم يبقى كما هو بعد التعديل.
+     */
+    public function test_editing_an_account_keeps_its_existing_branch_links(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.add', 'employee.accounts.edit']);
+        $accountId = $this->createAccount();
+
+        DB::table('account_branch')->insert([
+            'account_id' => $accountId,
+            'branch_id' => $admin->branch_id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($admin, 'admin-web')
+            ->post(route('accounts.update', $accountId), [
+                'name' => 'حساب بعد التعديل',
+                'accounts_type' => 'assets',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('account_branch', [
+            'account_id' => $accountId,
+            'branch_id' => $admin->branch_id,
+        ]);
     }
 
     /**

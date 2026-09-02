@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
-use App\Models\Branch;
 use App\Models\FinancialYear;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryDocument;
@@ -74,56 +73,7 @@ class AccountsController extends Controller
             ->whereNotIn('id', app(ParentAccountEligibility::class)->postedAccountIds())
             ->orderBy('code')
             ->get();
-
-        // لا قائمة فروع هنا: خانة الفروع لا تظهر إلا في شاشة التعديل.
         return view('admin.accounts.form', compact('accounts'));
-    }
-
-    /**
-     * فروع المشترك الحالي (لاختيارها عند ربط الحساب).
-     */
-    private function subscriberBranches()
-    {
-        $actor = request()->user('admin-web');
-
-        return Branch::query()
-            ->when(
-                filled($actor?->subscriber_id),
-                fn ($query) => $query->where('subscriber_id', $actor->subscriber_id)
-            )
-            ->orderBy('id')
-            ->get();
-    }
-
-    /**
-     * تنقية معرّفات الفروع المرسلة إلى ما يخص المشترك الحالي فقط.
-     *
-     * @param  mixed  $branchIds
-     * @return array<int, int>
-     */
-    private function allowedBranchIds($branchIds): array
-    {
-        $ids = collect($branchIds)
-            ->map(fn ($value) => (int) $value)
-            ->filter()
-            ->unique()
-            ->values();
-
-        if ($ids->isEmpty()) {
-            return [];
-        }
-
-        $actor = request()->user('admin-web');
-
-        return Branch::query()
-            ->when(
-                filled($actor?->subscriber_id),
-                fn ($query) => $query->where('subscriber_id', $actor->subscriber_id)
-            )
-            ->whereIn('id', $ids)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
     }
 
     /**
@@ -158,8 +108,6 @@ class AccountsController extends Controller
             'name' => 'required|unique:accounts',
             'parent_account_id' => 'nullable|exists:accounts,id',
             'accounts_type' => 'required|in:' . implode(',', config('settings.accounts_types')),
-            'branch_ids' => 'nullable|array',
-            'branch_ids.*' => 'integer|exists:branches,id',
         ]);
 
         if ($this->parentCarriesMovement($request->parent_account_id)) {
@@ -178,8 +126,6 @@ class AccountsController extends Controller
                 'transfer_side' => $sides->forList($request->accounts_type),
             ]);
 
-            $account->branches()->sync($this->allowedBranchIds($request->input('branch_ids', [])));
-
             DB::commit();
             return redirect()->route('accounts.index');
         } catch (\Throwable $th) {
@@ -196,7 +142,7 @@ class AccountsController extends Controller
      */
     public function edit($id)
     {
-        $account = Account::with('branches')->findOrFail($id);
+        $account = Account::findOrFail($id);
 
         // الحساب نفسه وفروعه مستبعدون من قائمة الآباء حتى لا تُبنى دورة في الشجرة.
         // وكذلك كل حساب عليه حركة: القيود تُرحَّل على النهائية وحدها، فجعله أبًا
@@ -211,9 +157,7 @@ class AccountsController extends Controller
             ->whereNotIn('id', $blockedParentIds)
             ->orderBy('code')
             ->get();
-        $branches = $this->subscriberBranches();
-
-        return view('admin.accounts.form', compact('accounts', 'account', 'branches'));
+        return view('admin.accounts.form', compact('accounts', 'account'));
     }
 
     /**
@@ -229,8 +173,6 @@ class AccountsController extends Controller
             'name' => 'required',
             'parent_account_id' => 'nullable|exists:accounts,id',
             'accounts_type' => 'required|in:' . implode(',', config('settings.accounts_types')),
-            'branch_ids' => 'nullable|array',
-            'branch_ids.*' => 'integer|exists:branches,id',
         ]);
 
         $account = Account::findOrFail($id);
@@ -263,8 +205,6 @@ class AccountsController extends Controller
                 'account_type' => $request->accounts_type,
                 'transfer_side' => $sides->forList($request->accounts_type),
             ]);
-
-            $account->branches()->sync($this->allowedBranchIds($request->input('branch_ids', [])));
 
             // تغيير الأب يعني تغيير موضع الحساب في الشجرة، فيُصرف له كود جديد تحت
             // الأب الجديد وتُعاد ترقيم كل حساباته الفرعية تبعًا له.
