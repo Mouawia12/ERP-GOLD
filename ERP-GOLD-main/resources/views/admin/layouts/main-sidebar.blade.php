@@ -971,6 +971,7 @@
                         'trail_balance.*',
                         'income_statement.*',
                         'balance_sheet.*',
+                        'cost_centers.*',
                         'account_statement.*',
                         'tax.declaration.*'
                     );
@@ -999,6 +1000,11 @@
                             {{__('main.balance_sheet')}}
                             </a>
                         </li> 
+                        <li>
+                            <a class="slide-item" href="{{route('cost_centers.index')}}">
+                            مراكز التكلفة
+                            </a>
+                        </li>
                         <li>
                             <a class="slide-item" href="{{route('account_statement.index')}}">
                             {{__('main.account_movement_report')}}

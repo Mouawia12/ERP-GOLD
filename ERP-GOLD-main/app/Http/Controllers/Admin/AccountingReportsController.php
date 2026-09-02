@@ -13,6 +13,7 @@ use App\Models\JournalEntryDocument;
 use App\Models\User;
 use App\Services\Printing\PrintFormatResolver;
 use App\Services\Printing\PrintUrlBuilder;
+use App\Services\Reports\CostCenterReportBuilder;
 use App\Services\Reports\ReportBranchSelectionService;
 use App\Services\Reports\TrialBalanceReportPayloadBuilder;
 use Barryvdh\DomPDF\Facade\Pdf as DomPdf;
@@ -206,6 +207,48 @@ class AccountingReportsController extends Controller
             'hideEmpty',
             'accountLevel'
         ));
+    }
+
+    public function cost_centers()
+    {
+        return view('admin.reports.cost_centers.search', $this->summaryReportFiltersData());
+    }
+
+    public function cost_centers_search(Request $request)
+    {
+        return $this->costCentersView($request, 'admin.reports.cost_centers.index');
+    }
+
+    public function cost_centers_print(Request $request)
+    {
+        return $this->costCentersView($request, 'admin.reports.cost_centers.index');
+    }
+
+    /**
+     * قائمة الدخل موزّعة على الفروع. الفروع المعروضة هي المختارة، أو كل ما
+     * يراه المستخدم حين لا يختار.
+     */
+    private function costCentersView(Request $request, string $view)
+    {
+        $branchSelection = $this->branchSelection($request);
+        [$periodFrom, $periodTo] = $this->resolvePeriod(
+            $request,
+            Carbon::now()->startOfYear()->format('Y-m-d'),
+            Carbon::now()->endOfYear()->format('Y-m-d')
+        );
+
+        $accountLevel = $request->input('account_level') ? (int) $request->input('account_level') : null;
+
+        $report = app(CostCenterReportBuilder::class)->build(
+            $branchSelection['effective_branch_ids'],
+            $periodFrom,
+            $periodTo,
+            $accountLevel
+        );
+
+        $branchLabel = $branchSelection['branch_label'];
+
+        return view($view, compact('report', 'periodFrom', 'periodTo', 'branchLabel', 'accountLevel'));
     }
 
     public function balance_sheet_print(Request $request)

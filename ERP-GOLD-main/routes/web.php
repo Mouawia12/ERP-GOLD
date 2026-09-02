@@ -217,6 +217,9 @@ Route::group(
                     Route::post('/reports/income_statement', [AccountingReportsController::class, 'income_statement_search'])->name('income_statement.search');
                     Route::get('/reports/income_statement/print', [AccountingReportsController::class, 'income_statement_print'])->name('income_statement.print');
 
+                    Route::get('/reports/cost_centers', [AccountingReportsController::class, 'cost_centers'])->name('cost_centers.index');
+                    Route::post('/reports/cost_centers', [AccountingReportsController::class, 'cost_centers_search'])->name('cost_centers.search');
+                    Route::get('/reports/cost_centers/print', [AccountingReportsController::class, 'cost_centers_print'])->name('cost_centers.print');
                     Route::get('/reports/balance_sheet', [AccountingReportsController::class, 'balance_sheet'])->name('balance_sheet.index');
                     Route::post('/reports/balance_sheet', [AccountingReportsController::class, 'balance_sheet_search'])->name('balance_sheet.search');
                     Route::get('/reports/balance_sheet/print', [AccountingReportsController::class, 'balance_sheet_print'])->name('balance_sheet.print');
