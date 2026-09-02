@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Services\Accounts\BranchAccountEligibility;
 use App\Models\AccountSetting;
 use App\Models\Branch;
 use Illuminate\Http\Request;
@@ -120,7 +121,7 @@ class AccountSettingController extends Controller
     {
         $setting = AccountSetting::query()->findOrFail($id);
         if ($setting) {
-            $setting->update($this->validatedPayload($request));
+            $setting->update($this->validatedPayload($request, $setting));
             return redirect()->route('accounts.settings.index');
         }
     }
@@ -139,7 +140,7 @@ class AccountSettingController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function validatedPayload(Request $request): array
+    private function validatedPayload(Request $request, ?AccountSetting $current = null): array
     {
         $payload = $request->validate([
             'branch_id' => 'nullable|exists:branches,id',
@@ -219,10 +220,44 @@ class AccountSettingController extends Controller
                     403,
                     'لا يمكنك ربط حساب يخص مشتركًا آخر.'
                 );
+
+                $this->guardBranchOwnership($payload, $field, $current);
             }
         }
 
         return $payload;
+    }
+
+    /**
+     * يمنع ربط حساب مخصّص لفرع آخر بإعدادات هذا الفرع.
+     *
+     * حساب بلا تخصيص يخص كل الفروع فيُقبل. ولا يُفحص إلا الحقل الذي تغيّرت
+     * قيمته فعلًا: ربط قديم خاطئ لا يجب أن يمنع المستخدم من تعديل حقل آخر،
+     * وإلا احتُجز في شاشة لا تُحفظ.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function guardBranchOwnership(array $payload, string $field, ?AccountSetting $current): void
+    {
+        $accountId = (int) $payload[$field];
+
+        if ($current && (int) ($current->{$field} ?? 0) === $accountId) {
+            return;
+        }
+
+        $branchId = $payload['branch_id'] ?? $current?->branch_id;
+
+        if (app(BranchAccountEligibility::class)->isLinkableTo($accountId, $branchId ? (int) $branchId : null)) {
+            return;
+        }
+
+        $owner = app(BranchAccountEligibility::class)->branchNamesFor($accountId);
+
+        abort(
+            422,
+            'لا يمكن ربط حساب يخص فرعًا آخر' . ($owner !== '' ? ' (' . $owner . ')' : '')
+                . '. اختر حسابًا يخص هذا الفرع، أو اترك حقل «الفروع» في شاشة الحساب فارغًا ليخص كل الفروع.'
+        );
     }
 
     private function branchesQuery()
