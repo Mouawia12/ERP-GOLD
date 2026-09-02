@@ -12,6 +12,10 @@
     $hideEmpty = ($hideEmpty ?? false) === true;
     $skip = $hideEmpty && $subtreeEmpty;
     $font_percentage = 130 - (($account->level - 1) * 10);
+
+    // «مستوى الحساب» يوقف النزول عند العمق المطلوب، فتُقرأ القائمة مجمّعة.
+    $accountLevel = $accountLevel ?? null;
+    $shouldDescend = $accountLevel === null || $account->level < $accountLevel;
 @endphp
 
 @unless ($skip)
@@ -28,9 +32,9 @@
         </td>
     </tr>
 
-    @if ($account->childrens && $account->childrens->count())
+    @if ($shouldDescend && $account->childrens && $account->childrens->count())
         @foreach ($account->childrens as $child)
-            @include('admin.reports.income_statement.recursive', ['account' => $child, 'hideEmpty' => $hideEmpty])
+            @include('admin.reports.income_statement.recursive', ['account' => $child, 'hideEmpty' => $hideEmpty, 'accountLevel' => $accountLevel])
         @endforeach
     @endif
 @endunless

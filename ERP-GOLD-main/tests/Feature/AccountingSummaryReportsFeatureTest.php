@@ -762,6 +762,81 @@ class AccountingSummaryReportsFeatureTest extends TestCase
             ->assertSee('صندوق المرقب الكبير');
     }
 
+    public function test_income_statement_offers_and_honours_an_account_level_filter(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounting_reports.show']);
+        $financialYearId = $this->createFinancialYear();
+
+        $revenuesId = $this->createAccount([
+            'name' => ['ar' => 'الإيرادات', 'en' => 'Revenues'],
+            'code' => '4000',
+            'level' => '1',
+            'account_type' => 'revenues',
+            'transfer_side' => 'income_statement',
+        ]);
+        $expensesId = $this->createAccount([
+            'name' => ['ar' => 'المصروفات', 'en' => 'Expenses'],
+            'code' => '5000',
+            'level' => '1',
+            'account_type' => 'expenses',
+            'transfer_side' => 'income_statement',
+        ]);
+        $expensesChildId = $this->createAccount([
+            'name' => ['ar' => 'مصروفات عمومية', 'en' => 'General Expenses'],
+            'code' => '5100',
+            'level' => '2',
+            'parent_account_id' => $expensesId,
+            'account_type' => 'expenses',
+            'transfer_side' => 'income_statement',
+        ]);
+        $this->createAccount([
+            'name' => ['ar' => 'كهرباء الفرع', 'en' => 'Branch Power'],
+            'code' => '5101',
+            'level' => '3',
+            'parent_account_id' => $expensesChildId,
+            'account_type' => 'expenses',
+            'transfer_side' => 'income_statement',
+        ]);
+
+        $journalId = $this->insertJournalEntry([
+            'serial' => 'J-LVL-1',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $journalId,
+            'account_id' => $revenuesId,
+            'document_date' => '2026-03-22',
+            'credit' => 900,
+        ]);
+
+        // الشاشة تعرض الحقل أصلًا
+        $this->actingAs($admin, 'admin-web')
+            ->get(route('income_statement.index', [], false))
+            ->assertOk()
+            ->assertSee('name="account_level"', false)
+            ->assertSee('مستوى الحساب');
+
+        $payload = [
+            'date_from' => '2026-03-22',
+            'date_to' => '2026-03-22',
+            'branch_id' => $admin->branch_id,
+        ];
+
+        // «حتى مستوى 2» يوقف النزول قبل المستوى الثالث
+        $this->actingAs($admin, 'admin-web')
+            ->post(route('income_statement.search', [], false), $payload + ['account_level' => 2])
+            ->assertOk()
+            ->assertSee('مصروفات عمومية')
+            ->assertDontSee('كهرباء الفرع');
+
+        // بلا مستوى تُعرض كل الشجرة
+        $this->actingAs($admin, 'admin-web')
+            ->post(route('income_statement.search', [], false), $payload)
+            ->assertOk()
+            ->assertSee('كهرباء الفرع');
+    }
+
     private function createAdminUser(array $permissions): User
     {
         $branch = $this->createBranch('فرع التقارير المحاسبية');

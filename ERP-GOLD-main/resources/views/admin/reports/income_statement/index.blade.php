@@ -111,11 +111,11 @@
                             <tbody>
 
                                 @foreach ([$revenuesAccount] ?? [] as $account)
-                                    @include('admin.reports.income_statement.recursive', ['account' => $account])
+                                    @include('admin.reports.income_statement.recursive', ['account' => $account, 'accountLevel' => $accountLevel ?? null])
                                 @endforeach
 
                                 @foreach([$expensesAccount]??[] as $account)
-                                    @include('admin.reports.income_statement.recursive', ['account' => $account])
+                                    @include('admin.reports.income_statement.recursive', ['account' => $account, 'accountLevel' => $accountLevel ?? null])
                                 @endforeach
 
                                 <tr>

@@ -114,6 +114,8 @@ class AccountingReportsController extends Controller
             'branch_scope_all' => $branchSelection['selects_all'],
         ];
 
+        $accountLevel = $request->input('account_level') ? (int) $request->input('account_level') : null;
+
         $revenuesAccount = Account::where('parent_account_id', null)->where('account_type', 'revenues')->where('transfer_side', 'income_statement')->first();
         $expensesAccount = Account::where('parent_account_id', null)->where('account_type', 'expenses')->where('transfer_side', 'income_statement')->first();
 
@@ -141,7 +143,7 @@ class AccountingReportsController extends Controller
 
         return view('admin.reports.income_statement.index', compact(
             'periodFrom', 'periodTo', 'revenuesAccount', 'expensesAccount',
-            'profitTotal', 'accountMetrics', 'branch', 'branchLabel', 'hideEmpty'
+            'profitTotal', 'accountMetrics', 'branch', 'branchLabel', 'hideEmpty', 'accountLevel'
         ));
     }
 
@@ -164,6 +166,8 @@ class AccountingReportsController extends Controller
             'branch_ids' => $branchSelection['effective_branch_ids'],
             'branch_scope_all' => $branchSelection['selects_all'],
         ];
+
+        $accountLevel = $request->input('account_level') ? (int) $request->input('account_level') : null;
 
         $revenuesAccount = Account::where('parent_account_id', null)->where('account_type', 'revenues')->where('transfer_side', 'income_statement')->first();
         $expensesAccount = Account::where('parent_account_id', null)->where('account_type', 'expenses')->where('transfer_side', 'income_statement')->first();
@@ -199,7 +203,8 @@ class AccountingReportsController extends Controller
             'accountMetrics',
             'branch',
             'branchLabel',
-            'hideEmpty'
+            'hideEmpty',
+            'accountLevel'
         ));
     }
 
