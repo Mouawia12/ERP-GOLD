@@ -98,6 +98,35 @@ class AccountFormFieldOrderFeatureTest extends TestCase
     }
 
     /**
+     * الحساب الجديد يخصّ كل الفروع، فلا معنى لعرض خانة الفروع عند إنشائه —
+     * وتبقى في شاشة التعديل لمن أراد قصر الحساب على فرع.
+     */
+    public function test_branches_field_is_absent_when_creating_an_account(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.add']);
+
+        $content = $this->actingAs($admin, 'admin-web')
+            ->get(route('accounts.create'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('name="branch_ids[]"', $content);
+    }
+
+    public function test_branches_field_stays_when_editing_an_account(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.add', 'employee.accounts.edit']);
+        $accountId = $this->createAccount();
+
+        $content = $this->actingAs($admin, 'admin-web')
+            ->get(route('accounts.edit', $accountId))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('name="branch_ids[]"', $content);
+    }
+
+    /**
      * @param  array<int, string>  $permissions
      */
     private function createAdminUser(array $permissions = []): User

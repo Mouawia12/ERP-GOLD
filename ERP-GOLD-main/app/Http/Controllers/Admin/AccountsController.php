@@ -74,8 +74,9 @@ class AccountsController extends Controller
             ->whereNotIn('id', app(ParentAccountEligibility::class)->postedAccountIds())
             ->orderBy('code')
             ->get();
-        $branches = $this->subscriberBranches();
-        return view('admin.accounts.form', compact('accounts', 'branches'));
+
+        // لا قائمة فروع هنا: خانة الفروع لا تظهر إلا في شاشة التعديل.
+        return view('admin.accounts.form', compact('accounts'));
     }
 
     /**
