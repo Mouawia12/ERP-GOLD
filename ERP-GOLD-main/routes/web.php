@@ -210,23 +210,32 @@ Route::group(
                     Route::post('/reports/trail_balance', [AccountingReportsController::class, 'trail_balance_search'])->name('trail_balance.search');
                     Route::get('/reports/trail_balance/print', [AccountingReportsController::class, 'trail_balance_print'])->name('trail_balance.print');
                     Route::get('/reports/trail_balance/pdf', [AccountingReportsController::class, 'trail_balance_pdf'])->name('trail_balance.pdf');
+                    Route::get('/reports/trail_balance/excel', [AccountingReportsController::class, 'trail_balance_excel'])->name('trail_balance.excel');
                     Route::get('/reports/trial-balance/print', [AccountingReportsController::class, 'reports_trial_balance_print'])->name('reports.trial_balance.print');
                     Route::get('/reports/trial-balance/pdf', [AccountingReportsController::class, 'reports_trial_balance_pdf'])->name('reports.trial_balance.pdf');
 
                     Route::get('/reports/income_statement', [AccountingReportsController::class, 'income_statement'])->name('income_statement.index');
                     Route::post('/reports/income_statement', [AccountingReportsController::class, 'income_statement_search'])->name('income_statement.search');
                     Route::get('/reports/income_statement/print', [AccountingReportsController::class, 'income_statement_print'])->name('income_statement.print');
+                    Route::get('/reports/income_statement/pdf', [AccountingReportsController::class, 'income_statement_pdf'])->name('income_statement.pdf');
+                    Route::get('/reports/income_statement/excel', [AccountingReportsController::class, 'income_statement_excel'])->name('income_statement.excel');
 
                     Route::get('/reports/cost_centers', [AccountingReportsController::class, 'cost_centers'])->name('cost_centers.index');
                     Route::post('/reports/cost_centers', [AccountingReportsController::class, 'cost_centers_search'])->name('cost_centers.search');
                     Route::get('/reports/cost_centers/print', [AccountingReportsController::class, 'cost_centers_print'])->name('cost_centers.print');
+                    Route::get('/reports/cost_centers/pdf', [AccountingReportsController::class, 'cost_centers_pdf'])->name('cost_centers.pdf');
+                    Route::get('/reports/cost_centers/excel', [AccountingReportsController::class, 'cost_centers_excel'])->name('cost_centers.excel');
                     Route::get('/reports/balance_sheet', [AccountingReportsController::class, 'balance_sheet'])->name('balance_sheet.index');
                     Route::post('/reports/balance_sheet', [AccountingReportsController::class, 'balance_sheet_search'])->name('balance_sheet.search');
                     Route::get('/reports/balance_sheet/print', [AccountingReportsController::class, 'balance_sheet_print'])->name('balance_sheet.print');
+                    Route::get('/reports/balance_sheet/pdf', [AccountingReportsController::class, 'balance_sheet_pdf'])->name('balance_sheet.pdf');
+                    Route::get('/reports/balance_sheet/excel', [AccountingReportsController::class, 'balance_sheet_excel'])->name('balance_sheet.excel');
 
                     Route::get('/reports/account_statement', [AccountingReportsController::class, 'account_statement'])->name('account_statement.index');
                     Route::post('/reports/account_statement', [AccountingReportsController::class, 'account_statement_search'])->name('account_statement.search');
                     Route::get('/reports/account_statement/print', [AccountingReportsController::class, 'account_statement_print'])->name('account_statement.print');
+                    Route::get('/reports/account_statement/pdf', [AccountingReportsController::class, 'account_statement_pdf'])->name('account_statement.pdf');
+                    Route::get('/reports/account_statement/excel', [AccountingReportsController::class, 'account_statement_excel'])->name('account_statement.excel');
 
                     Route::get('/reports/tax_declaration', [AccountingReportsController::class, 'tax_declaration'])->name('tax.declaration.index');
                     Route::post('/reports/tax_declaration', [AccountingReportsController::class, 'tax_declaration_search'])->name('tax.declaration.search');

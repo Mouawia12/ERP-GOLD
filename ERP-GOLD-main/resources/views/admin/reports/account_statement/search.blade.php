@@ -113,6 +113,24 @@
                         >
                             طباعة
                         </button>
+                        <button
+                            type="button"
+                            class="btn btn-secondary px-5"
+                            data-print-open
+                            data-print-form="#account-statement-form"
+                            data-print-url="{{ route('account_statement.pdf') }}"
+                        >
+                            حفظ PDF
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-dark px-5"
+                            data-print-open
+                            data-print-form="#account-statement-form"
+                            data-print-url="{{ route('account_statement.excel') }}"
+                        >
+                            حفظ Excel
+                        </button>
                     </div>
                 </form>
             </div>

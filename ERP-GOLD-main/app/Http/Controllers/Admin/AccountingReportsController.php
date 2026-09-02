@@ -14,11 +14,16 @@ use App\Models\User;
 use App\Services\Printing\PrintFormatResolver;
 use App\Services\Printing\PrintUrlBuilder;
 use App\Services\Reports\CostCenterReportBuilder;
+use App\Services\Reports\Export\AccountingReportTables;
+use App\Services\Reports\Export\ReportTable;
+use App\Services\Reports\Export\XlsxWriter;
 use App\Services\Reports\ReportBranchSelectionService;
 use App\Services\Reports\TrialBalanceReportPayloadBuilder;
 use Barryvdh\DomPDF\Facade\Pdf as DomPdf;
 use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use DB;
 
 class AccountingReportsController extends Controller
@@ -47,6 +52,7 @@ class AccountingReportsController extends Controller
             'company' => $this->companyPrintPayload($payload['branch'] ?? null),
             'backUrl' => route('trail_balance.index'),
             'pdfUrl' => $urlBuilder->routeFromRequest('trail_balance.pdf', $request),
+            'excelUrl' => $urlBuilder->routeFromRequest('trail_balance.excel', $request),
         ]);
     }
 
@@ -62,11 +68,24 @@ class AccountingReportsController extends Controller
             'printFormat' => $printFormat,
             'company' => $this->companyPrintPayload($payload['branch'] ?? null),
             'hidePrintActions' => true,
+            'pdfMode' => true,
             'pdfUrl' => null,
+            'excelUrl' => null,
             'backUrl' => null,
-        ])->setPaper(strtolower($printFormat['format']) === 'a5' ? 'a5' : 'a4', $printFormat['orientation']);
+        ])
+            // dompdf يقرأ أنماط الشاشة افتراضًا، فتضيع قواعد @media print التي
+            // تُلغي هوامش الصفحة وظلّها — ومعها يخرج آخر عمود خارج الورقة.
+            ->setOption('defaultMediaType', 'print')
+            ->setPaper(strtolower($printFormat['format']) === 'a5' ? 'a5' : 'a4', $printFormat['orientation']);
 
         return $pdf->download('trial-balance-' . now()->format('Ymd-His') . '.pdf');
+    }
+
+    public function trail_balance_excel(Request $request, TrialBalanceReportPayloadBuilder $payloadBuilder)
+    {
+        $payload = $payloadBuilder->build($request, $request->user('admin-web'));
+
+        return $this->reportExcel($this->tables()->trialBalance($payload));
     }
 
     public function reports_trial_balance_print(
@@ -100,7 +119,85 @@ class AccountingReportsController extends Controller
         ];
     }
 
-    public function income_statement_print(Request $request)
+    /**
+     * أدوات بناء جداول التصدير — تُحلّ عند الحاجة بدل إقحامها في توقيع كل دالة.
+     */
+    private function tables(): AccountingReportTables
+    {
+        return app(AccountingReportTables::class);
+    }
+
+    /**
+     * صفحة عرض التقرير للطباعة، وفيها زرّا حفظ PDF و Excel — على منوال صفحة
+     * ميزان المراجعة حتى لا تختلف التقارير في شكلها ولا في سلوكها.
+     */
+    private function reportPrintView(
+        Request $request,
+        ReportTable $table,
+        ?Branch $branch,
+        string $backRoute,
+        string $pdfRoute,
+        string $excelRoute,
+        string $defaultOrientation = 'landscape'
+    ) {
+        $printFormat = app(PrintFormatResolver::class)->resolve($request, 'a4', $defaultOrientation);
+        $urlBuilder = app(PrintUrlBuilder::class);
+
+        return view('admin.reports.print', [
+            'table' => $table,
+            'printFormat' => $printFormat,
+            'company' => $this->companyPrintPayload($branch),
+            'backUrl' => route($backRoute),
+            'pdfUrl' => $urlBuilder->routeFromRequest($pdfRoute, $request),
+            'excelUrl' => $urlBuilder->routeFromRequest($excelRoute, $request),
+        ]);
+    }
+
+    private function reportPdf(
+        Request $request,
+        ReportTable $table,
+        ?Branch $branch,
+        string $defaultOrientation = 'landscape'
+    ) {
+        $printFormat = app(PrintFormatResolver::class)->resolve($request, 'a4', $defaultOrientation);
+
+        $pdf = DomPdf::loadView('admin.reports.print', [
+            'table' => $table,
+            'printFormat' => $printFormat,
+            'company' => $this->companyPrintPayload($branch),
+            'hidePrintActions' => true,
+            'pdfMode' => true,
+            'pdfUrl' => null,
+            'excelUrl' => null,
+            'backUrl' => null,
+        ])
+            // dompdf يقرأ أنماط الشاشة افتراضًا، فتضيع قواعد @media print التي
+            // تُلغي هوامش الصفحة وظلّها — ومعها يخرج آخر عمود خارج الورقة.
+            ->setOption('defaultMediaType', 'print')
+            ->setPaper(strtolower($printFormat['format']) === 'a5' ? 'a5' : 'a4', $printFormat['orientation']);
+
+        return $pdf->download($table->fileName . '-' . now()->format('Ymd-His') . '.pdf');
+    }
+
+    private function reportExcel(ReportTable $table): Response
+    {
+        $workbook = app(XlsxWriter::class)->build($table);
+        $fileName = $table->fileName . '-' . now()->format('Ymd-His') . '.xlsx';
+
+        return response($workbook, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+            'Content-Length' => (string) strlen($workbook),
+        ]);
+    }
+
+    /**
+     * حمولة قائمة الدخل. تُبنى مرة واحدة ويقرأها العرض والطباعة و PDF و Excel،
+     * فلا تفترق أرقام ملف عن أرقام شاشة.
+     *
+     * @return array<string, mixed>|RedirectResponse
+     */
+    private function incomeStatementPayload(Request $request): array|RedirectResponse
     {
         $branchSelection = $this->branchSelection($request);
         [$periodFrom, $periodTo] = $this->resolvePeriod(
@@ -142,60 +239,7 @@ class AccountingReportsController extends Controller
         // so other branches' accounts don't appear as empty (0.00) rows.
         $hideEmpty = $branchSelection['selects_all'] !== true;
 
-        return view('admin.reports.income_statement.index', compact(
-            'periodFrom', 'periodTo', 'revenuesAccount', 'expensesAccount',
-            'profitTotal', 'accountMetrics', 'branch', 'branchLabel', 'hideEmpty', 'accountLevel'
-        ));
-    }
-
-    public function income_statement()
-    {
-        return view('admin.reports.income_statement.search', $this->summaryReportFiltersData());
-    }
-
-    public function income_statement_search(Request $request)
-    {
-        $branchSelection = $this->branchSelection($request);
-        [$periodFrom, $periodTo] = $this->resolvePeriod(
-            $request,
-            Carbon::now()->startOfYear()->format('Y-m-d'),
-            Carbon::now()->endOfYear()->format('Y-m-d')
-        );
-        $filters = [
-            'period_from' => $periodFrom,
-            'period_to' => $periodTo,
-            'branch_ids' => $branchSelection['effective_branch_ids'],
-            'branch_scope_all' => $branchSelection['selects_all'],
-        ];
-
-        $accountLevel = $request->input('account_level') ? (int) $request->input('account_level') : null;
-
-        $revenuesAccount = Account::where('parent_account_id', null)->where('account_type', 'revenues')->where('transfer_side', 'income_statement')->first();
-        $expensesAccount = Account::where('parent_account_id', null)->where('account_type', 'expenses')->where('transfer_side', 'income_statement')->first();
-
-        if (!$revenuesAccount || !$expensesAccount) {
-            return redirect()->back()->with('error', 'Revenues or Expenses account not found');
-        }
-
-        $accountMetrics = $this->buildSummaryMetricsTree([
-            $revenuesAccount,
-            $expensesAccount,
-        ], $filters);
-
-        // صافي الربح = الإيرادات - المصروفات. الإيرادات دائنة فـ `closing_net`
-        // سالب لها، لذلك يُعكس مجموعهما بالإشارة بدل أخذ القيمة المطلقة.
-        $profitTotal = -(
-            $accountMetrics[$revenuesAccount->id]['closing_net']
-            + $accountMetrics[$expensesAccount->id]['closing_net']
-        );
-
-        $branch = $branchSelection['single_branch'];
-        $branchLabel = $branchSelection['branch_label'];
-        // When a specific branch is chosen, hide accounts with no movement in it
-        // so other branches' accounts don't appear as empty (0.00) rows.
-        $hideEmpty = $branchSelection['selects_all'] !== true;
-
-        return view('admin.reports.income_statement.index', compact(
+        return compact(
             'periodFrom',
             'periodTo',
             'revenuesAccount',
@@ -206,7 +250,64 @@ class AccountingReportsController extends Controller
             'branchLabel',
             'hideEmpty',
             'accountLevel'
-        ));
+        );
+    }
+
+    public function income_statement()
+    {
+        return view('admin.reports.income_statement.search', $this->summaryReportFiltersData());
+    }
+
+    public function income_statement_search(Request $request)
+    {
+        $payload = $this->incomeStatementPayload($request);
+
+        if ($payload instanceof RedirectResponse) {
+            return $payload;
+        }
+
+        return view('admin.reports.income_statement.index', $payload);
+    }
+
+    public function income_statement_print(Request $request)
+    {
+        $payload = $this->incomeStatementPayload($request);
+
+        if ($payload instanceof RedirectResponse) {
+            return $payload;
+        }
+
+        return $this->reportPrintView(
+            $request,
+            $this->tables()->incomeStatement($payload),
+            $payload['branch'],
+            'income_statement.index',
+            'income_statement.pdf',
+            'income_statement.excel',
+            'portrait'
+        );
+    }
+
+    public function income_statement_pdf(Request $request)
+    {
+        $payload = $this->incomeStatementPayload($request);
+
+        if ($payload instanceof RedirectResponse) {
+            return $payload;
+        }
+
+        return $this->reportPdf($request, $this->tables()->incomeStatement($payload), $payload['branch'], 'portrait');
+    }
+
+    public function income_statement_excel(Request $request)
+    {
+        $payload = $this->incomeStatementPayload($request);
+
+        if ($payload instanceof RedirectResponse) {
+            return $payload;
+        }
+
+        return $this->reportExcel($this->tables()->incomeStatement($payload));
     }
 
     public function cost_centers()
@@ -216,19 +317,38 @@ class AccountingReportsController extends Controller
 
     public function cost_centers_search(Request $request)
     {
-        return $this->costCentersView($request, 'admin.reports.cost_centers.index');
+        return view('admin.reports.cost_centers.index', $this->costCentersPayload($request));
     }
 
     public function cost_centers_print(Request $request)
     {
-        return $this->costCentersView($request, 'admin.reports.cost_centers.index');
+        return $this->reportPrintView(
+            $request,
+            $this->tables()->costCenters($this->costCentersPayload($request)),
+            null,
+            'cost_centers.index',
+            'cost_centers.pdf',
+            'cost_centers.excel'
+        );
+    }
+
+    public function cost_centers_pdf(Request $request)
+    {
+        return $this->reportPdf($request, $this->tables()->costCenters($this->costCentersPayload($request)), null);
+    }
+
+    public function cost_centers_excel(Request $request)
+    {
+        return $this->reportExcel($this->tables()->costCenters($this->costCentersPayload($request)));
     }
 
     /**
      * قائمة الدخل موزّعة على الفروع. الفروع المعروضة هي المختارة، أو كل ما
      * يراه المستخدم حين لا يختار.
+     *
+     * @return array<string, mixed>
      */
-    private function costCentersView(Request $request, string $view)
+    private function costCentersPayload(Request $request): array
     {
         $branchSelection = $this->branchSelection($request);
         [$periodFrom, $periodTo] = $this->resolvePeriod(
@@ -248,65 +368,15 @@ class AccountingReportsController extends Controller
 
         $branchLabel = $branchSelection['branch_label'];
 
-        return view($view, compact('report', 'periodFrom', 'periodTo', 'branchLabel', 'accountLevel'));
+        return compact('report', 'periodFrom', 'periodTo', 'branchLabel', 'accountLevel');
     }
 
-    public function balance_sheet_print(Request $request)
-    {
-        $branchSelection = $this->branchSelection($request);
-        [$periodFrom, $periodTo] = $this->resolvePeriod(
-            $request,
-            Carbon::now()->startOfYear()->format('Y-m-d'),
-            Carbon::now()->endOfYear()->format('Y-m-d')
-        );
-        $filters = [
-            'period_from' => $periodFrom,
-            'period_to' => $periodTo,
-            'branch_ids' => $branchSelection['effective_branch_ids'],
-            'branch_scope_all' => $branchSelection['selects_all'],
-        ];
-
-        $accountLevel = $request->input('account_level') ? (int) $request->input('account_level') : null;
-
-        $assetsAccount = Account::where('parent_account_id', null)->where('account_type', 'assets')->where('transfer_side', 'budget')->first();
-        $equityAccount = Account::where('parent_account_id', null)->where('account_type', 'equity')->where('transfer_side', 'budget')->first();
-        $liabilitiesAccount = Account::where('parent_account_id', null)->where('account_type', 'liabilities')->where('transfer_side', 'budget')->first();
-
-        if (!$assetsAccount || !$equityAccount || !$liabilitiesAccount) {
-            return redirect()->back()->with('error', 'Assets, Equity or Liabilities account not found');
-        }
-
-        $accountMetrics = $this->buildSummaryMetricsTree([
-            $assetsAccount, $equityAccount, $liabilitiesAccount,
-        ], $filters);
-
-        // الأصول = الخصوم + حقوق الملكية + صافي الربح.
-        // `closing_net` = مدين - دائن، فالأصول موجبة والخصوم وحقوق الملكية سالبة
-        // في وضعها الطبيعي، ومن ثم يكون الربح مجموعها الجبري. الجمع بالإشارة لا
-        // بالقيمة المطلقة: حساب على الجانب المعاكس (خسائر مبقاة مدينة مثلًا)
-        // تقلبه `abs` فتنكسر المعادلة.
-        $profitTotal = $accountMetrics[$assetsAccount->id]['closing_net']
-            + $accountMetrics[$liabilitiesAccount->id]['closing_net']
-            + $accountMetrics[$equityAccount->id]['closing_net'];
-
-        $branch = $branchSelection['single_branch'];
-        $branchLabel = $branchSelection['branch_label'];
-        // عند اختيار فرع معيّن تُخفى الحسابات التي لا حركة لها فيه، وإلا ظهرت
-        // حسابات الفروع الأخرى بأصفار داخل ميزانية فرع لا تخصّه.
-        $hideEmpty = $branchSelection['selects_all'] !== true;
-
-        return view('admin.reports.balance_sheet.index', compact(
-            'periodFrom', 'periodTo', 'assetsAccount', 'equityAccount', 'liabilitiesAccount',
-            'profitTotal', 'accountMetrics', 'branch', 'branchLabel', 'accountLevel', 'hideEmpty'
-        ));
-    }
-
-    public function balance_sheet()
-    {
-        return view('admin.reports.balance_sheet.search', $this->summaryReportFiltersData());
-    }
-
-    public function balance_sheet_search(Request $request)
+    /**
+     * حمولة الميزانية، مشتركة بين العرض والطباعة والتصدير.
+     *
+     * @return array<string, mixed>|RedirectResponse
+     */
+    private function balanceSheetPayload(Request $request): array|RedirectResponse
     {
         $branchSelection = $this->branchSelection($request);
         [$periodFrom, $periodTo] = $this->resolvePeriod(
@@ -352,7 +422,7 @@ class AccountingReportsController extends Controller
         // حسابات الفروع الأخرى بأصفار داخل ميزانية فرع لا تخصّه.
         $hideEmpty = $branchSelection['selects_all'] !== true;
 
-        return view('admin.reports.balance_sheet.index', compact(
+        return compact(
             'periodFrom',
             'periodTo',
             'assetsAccount',
@@ -364,10 +434,72 @@ class AccountingReportsController extends Controller
             'branchLabel',
             'accountLevel',
             'hideEmpty'
-        ));
+        );
     }
 
-    public function account_statement_print(Request $request)
+    public function balance_sheet()
+    {
+        return view('admin.reports.balance_sheet.search', $this->summaryReportFiltersData());
+    }
+
+    public function balance_sheet_search(Request $request)
+    {
+        $payload = $this->balanceSheetPayload($request);
+
+        if ($payload instanceof RedirectResponse) {
+            return $payload;
+        }
+
+        return view('admin.reports.balance_sheet.index', $payload);
+    }
+
+    public function balance_sheet_print(Request $request)
+    {
+        $payload = $this->balanceSheetPayload($request);
+
+        if ($payload instanceof RedirectResponse) {
+            return $payload;
+        }
+
+        return $this->reportPrintView(
+            $request,
+            $this->tables()->balanceSheet($payload),
+            $payload['branch'],
+            'balance_sheet.index',
+            'balance_sheet.pdf',
+            'balance_sheet.excel',
+            'portrait'
+        );
+    }
+
+    public function balance_sheet_pdf(Request $request)
+    {
+        $payload = $this->balanceSheetPayload($request);
+
+        if ($payload instanceof RedirectResponse) {
+            return $payload;
+        }
+
+        return $this->reportPdf($request, $this->tables()->balanceSheet($payload), $payload['branch'], 'portrait');
+    }
+
+    public function balance_sheet_excel(Request $request)
+    {
+        $payload = $this->balanceSheetPayload($request);
+
+        if ($payload instanceof RedirectResponse) {
+            return $payload;
+        }
+
+        return $this->reportExcel($this->tables()->balanceSheet($payload));
+    }
+
+    /**
+     * حمولة حركة حساب، مشتركة بين العرض والطباعة والتصدير.
+     *
+     * @return array<string, mixed>
+     */
+    private function accountStatementPayload(Request $request): array
     {
         $branchSelection = $this->branchSelection($request);
         [$periodFrom, $periodTo] = $this->resolvePeriod(
@@ -401,9 +533,14 @@ class AccountingReportsController extends Controller
             })
             ->values();
 
-        return view('admin.reports.account_statement.index', compact(
-            'periodFrom', 'periodTo', 'account', 'documents', 'openingBalance', 'branchSelection'
-        ));
+        return compact(
+            'periodFrom',
+            'periodTo',
+            'account',
+            'documents',
+            'openingBalance',
+            'branchSelection'
+        );
     }
 
     public function account_statement()
@@ -417,46 +554,37 @@ class AccountingReportsController extends Controller
 
     public function account_statement_search(Request $request)
     {
-        $branchSelection = $this->branchSelection($request);
-        [$periodFrom, $periodTo] = $this->resolvePeriod(
+        return view('admin.reports.account_statement.index', $this->accountStatementPayload($request));
+    }
+
+    public function account_statement_print(Request $request)
+    {
+        $payload = $this->accountStatementPayload($request);
+
+        return $this->reportPrintView(
             $request,
-            Carbon::now()->startOfYear()->format('Y-m-d'),
-            Carbon::now()->endOfYear()->format('Y-m-d')
+            $this->tables()->accountStatement($payload),
+            $payload['branchSelection']['single_branch'] ?? null,
+            'account_statement.index',
+            'account_statement.pdf',
+            'account_statement.excel'
         );
+    }
 
-        $filters = [
-            'period_from' => $periodFrom,
-            'period_to' => $periodTo,
-            'account_id' => (int) $request->input('account_id'),
-            'branch_ids' => $branchSelection['effective_branch_ids'],
-            'branch_scope_all' => $branchSelection['selects_all'],
-            'user_id' => $this->normalizeOptionalFilter($request->input('user_id')),
-            'invoice_number' => $this->normalizeOptionalFilter($request->input('invoice_number', $request->input('billNumber'))),
-            'source_type' => $this->normalizeOptionalFilter($request->input('source_type')),
-            'from_time' => $this->normalizeTime($request->input('from_time')),
-            'to_time' => $this->normalizeTime($request->input('to_time')),
-        ];
+    public function account_statement_pdf(Request $request)
+    {
+        $payload = $this->accountStatementPayload($request);
 
-        $account = Account::query()->findOrFail($filters['account_id']);
-        $openingBalance = $this->openingBalanceForAccountStatement($account, $filters);
+        return $this->reportPdf(
+            $request,
+            $this->tables()->accountStatement($payload),
+            $payload['branchSelection']['single_branch'] ?? null
+        );
+    }
 
-        $documents = $this->accountStatementDocumentsQuery($account, $filters)
-            ->orderBy('document_date')
-            ->orderBy('id')
-            ->get()
-            ->map(function (JournalEntryDocument $document) {
-                return $this->mapAccountStatementDocument($document);
-            })
-            ->values();
-
-        return view('admin.reports.account_statement.index', compact(
-            'periodFrom',
-            'periodTo',
-            'account',
-            'documents',
-            'openingBalance',
-            'branchSelection'
-        ));
+    public function account_statement_excel(Request $request)
+    {
+        return $this->reportExcel($this->tables()->accountStatement($this->accountStatementPayload($request)));
     }
 
     public function tax_declaration_print(Request $request)

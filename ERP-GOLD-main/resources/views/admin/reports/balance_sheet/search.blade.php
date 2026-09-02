@@ -89,6 +89,24 @@
                                         >
                                             طباعة
                                         </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-labeled btn-secondary"
+                                            data-print-open
+                                            data-print-form="#balance-sheet-form"
+                                            data-print-url="{{ route('balance_sheet.pdf') }}"
+                                        >
+                                            حفظ PDF
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-labeled btn-dark"
+                                            data-print-open
+                                            data-print-form="#balance-sheet-form"
+                                            data-print-url="{{ route('balance_sheet.excel') }}"
+                                        >
+                                            حفظ Excel
+                                        </button>
                                     </div>
                                 </div>
                             </form>

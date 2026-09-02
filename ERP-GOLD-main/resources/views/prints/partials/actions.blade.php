@@ -5,6 +5,10 @@
         <a class="print-actions__link print-actions__link--pdf" href="{{ $pdfUrl }}">حفظ PDF</a>
     @endif
 
+    @if(! empty($excelUrl))
+        <a class="print-actions__link print-actions__link--excel" href="{{ $excelUrl }}">حفظ Excel</a>
+    @endif
+
     @if(! empty($backUrl))
         <a class="print-actions__link" href="{{ $backUrl }}">رجوع</a>
     @else

@@ -4,10 +4,22 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? config('app.name') }}</title>
+    @if($pdfMode ?? false)
+    {{-- خطوط dompdf المدمجة لا تحمل حروفًا عربية، فتخرج الصفحة علامات استفهام.
+         يُسجَّل هنا خط عربي من المشروع بأوزانه الأربعة (الملف نفسه، إذ لا توجد
+         نسخة عريضة) حتى لا يسقط أي نص على خط بديل لا يعرف العربية. --}}
+    <style>
+        @font-face { font-family: 'tajawal'; font-style: normal; font-weight: 400; src: url('{{ public_path('fonts/Tajawal-Regular.ttf') }}') format('truetype'); }
+        @font-face { font-family: 'tajawal'; font-style: normal; font-weight: 700; src: url('{{ public_path('fonts/Tajawal-Regular.ttf') }}') format('truetype'); }
+        @font-face { font-family: 'tajawal'; font-style: italic; font-weight: 400; src: url('{{ public_path('fonts/Tajawal-Regular.ttf') }}') format('truetype'); }
+        @font-face { font-family: 'tajawal'; font-style: italic; font-weight: 700; src: url('{{ public_path('fonts/Tajawal-Regular.ttf') }}') format('truetype'); }
+    </style>
+    @endif
     <style>
         :root {
             --print-page-width: {{ ($printFormat ?? 'a4') === 'pos' ? '80mm' : '100%' }};
-            --print-font: "Tahoma", "Arial", sans-serif;
+            /* «tajawal» غير معرّف في المتصفح فيسقط النص إلى Tahoma، ويُعرَّف في PDF فقط */
+            --print-font: 'tajawal', "Tahoma", "Arial", sans-serif;
             --print-border: #cbd5e1;
             --print-muted: #64748b;
             --print-ink: #111827;
@@ -146,6 +158,7 @@
         .print-actions__link { background: #475569; }
         .print-actions__link--danger { background: #b91c1c; }
         .print-actions__link--pdf { background: #1d4ed8; }
+        .print-actions__link--excel { background: #15803d; }
 
         @media print {
             @page {
@@ -214,6 +227,57 @@
             }
         }
     </style>
+    @if($pdfMode ?? false)
+    <style>
+        /* dompdf لا يقرأ متغيّرات CSS، فيُثبَّت الخط العربي صراحةً على كل عنصر */
+        html, body, table, th, td, div, span, strong, h1, h2, h3, h4, p {
+            font-family: 'tajawal', sans-serif;
+        }
+
+        /* ولا يقرأ var()، فتُعاد الألوان والحدود المعتمدة عليها بقيم صريحة —
+           وبدونها تختفي خطوط الجدول تمامًا */
+        body {
+            color: #111827;
+        }
+
+        /* عرض 100% مع حشوة داخلية يتجاوز الورقة في dompdf لأنه لا يطبّق
+           box-sizing، فيُترك العرض تلقائيًا لتبقى الحشوة داخل الصفحة */
+        .print-shell,
+        .print-page {
+            width: auto !important;
+            max-width: none !important;
+        }
+
+        .print-page {
+            padding: {{ $pageMargin ?? '10mm' }} !important;
+        }
+
+        /* ولا يعرف dompdf شبكة CSS، فتُصفّ أقسام الترويسة الثلاثة كخلايا جدول */
+        .print-report-header {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 12px 14px;
+        }
+
+        .print-report-header > div {
+            display: table-cell;
+            vertical-align: top;
+            padding: 0 6px;
+        }
+
+        .print-generated-at {
+            color: #64748b;
+        }
+
+        .print-table th,
+        .print-table td {
+            border: 1px solid #cbd5e1;
+        }
+    </style>
+    @endif
     @stack('styles')
 </head>
 <body class="{{ $bodyClass ?? '' }}">
@@ -225,6 +289,7 @@
         @include('prints.partials.actions', [
             'backUrl' => $backUrl ?? null,
             'pdfUrl' => $pdfUrl ?? null,
+            'excelUrl' => $excelUrl ?? null,
         ])
     @endunless
 

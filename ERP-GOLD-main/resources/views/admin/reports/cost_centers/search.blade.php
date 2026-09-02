@@ -89,6 +89,24 @@
                                         >
                                             طباعة
                                         </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-labeled btn-secondary"
+                                            data-print-open
+                                            data-print-form="#cost-centers-form"
+                                            data-print-url="{{ route('cost_centers.pdf') }}"
+                                        >
+                                            حفظ PDF
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-labeled btn-dark"
+                                            data-print-open
+                                            data-print-form="#cost-centers-form"
+                                            data-print-url="{{ route('cost_centers.excel') }}"
+                                        >
+                                            حفظ Excel
+                                        </button>
                                     </div>
                                 </div>
                             </form>

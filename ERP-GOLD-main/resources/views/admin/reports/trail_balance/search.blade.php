@@ -99,6 +99,15 @@
                                         >
                                             حفظ PDF
                                         </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-labeled btn-dark"
+                                            data-print-open
+                                            data-print-form="#trail-balance-form"
+                                            data-print-url="{{ route('trail_balance.excel') }}"
+                                        >
+                                            حفظ Excel
+                                        </button>
                                     </div>
                                 </div>
 

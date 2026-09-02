@@ -89,6 +89,24 @@
                                         >
                                             طباعة
                                         </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-labeled btn-secondary"
+                                            data-print-open
+                                            data-print-form="#income-statement-form"
+                                            data-print-url="{{ route('income_statement.pdf') }}"
+                                        >
+                                            حفظ PDF
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-labeled btn-dark"
+                                            data-print-open
+                                            data-print-form="#income-statement-form"
+                                            data-print-url="{{ route('income_statement.excel') }}"
+                                        >
+                                            حفظ Excel
+                                        </button>
                                     </div>
                                 </div>
                             </form>
