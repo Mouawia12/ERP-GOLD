@@ -42,6 +42,21 @@
             min-height: 100vh;
         }
 
+        /* شريط الأدوات يقتطع مساحته من أسفل الشاشة بدل أن يطفو فوق الجدول،
+           فلا يختفي تحته صفّ أو رقم مهما كان موضع التمرير. */
+        body.has-print-actions {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        body.has-print-actions .print-shell {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+        }
+
         .print-shell {
             width: var(--print-page-width);
             max-width: 100%;
@@ -126,16 +141,13 @@
         }
 
         .print-actions {
-            position: fixed;
-            left: 16px;
-            bottom: 16px;
-            z-index: 1000;
+            flex: 0 0 auto;
             display: flex;
+            flex-wrap: wrap;
             gap: 8px;
-            padding: 10px;
-            border-radius: 8px;
+            padding: 10px 16px;
             background: rgba(15, 23, 42, 0.94);
-            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+            box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.18);
         }
 
         .print-actions__button,
@@ -184,6 +196,16 @@
             .print-actions {
                 display: none !important;
                 visibility: hidden !important;
+            }
+
+            body.has-print-actions {
+                display: block !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+
+            body.has-print-actions .print-shell {
+                overflow: visible !important;
             }
 
             .print-shell,
@@ -280,7 +302,7 @@
     @endif
     @stack('styles')
 </head>
-<body class="{{ $bodyClass ?? '' }}">
+<body class="{{ $bodyClass ?? '' }}{{ ($hidePrintActions ?? false) ? '' : ' has-print-actions' }}">
     <main class="print-shell">
         @yield('content')
     </main>

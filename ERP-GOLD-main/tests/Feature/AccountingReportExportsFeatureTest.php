@@ -84,6 +84,21 @@ class AccountingReportExportsFeatureTest extends TestCase
     }
 
     /**
+     * شريط الأدوات كان يطفو فوق الجدول فيحجب آخر صفوفه ومجموعه. صار يقتطع
+     * مساحته من الشاشة، وعلامة ذلك صنف يوضع على الجسم حين يظهر الشريط وحده.
+     */
+    public function test_print_page_reserves_room_for_the_actions_bar(): void
+    {
+        $admin = $this->createAdminUser();
+        $this->seedAccountingData($admin);
+
+        $this->actingAs($admin, 'admin-web')
+            ->get(route('trail_balance.print', $this->period(), false))
+            ->assertOk()
+            ->assertSee('has-print-actions', false);
+    }
+
+    /**
      * خطوط dompdf المدمجة بلا حروف عربية، فبدون تضمين خط عربي تخرج كل كلمة
      * في التقرير علامات استفهام. هذا الاختبار يحرس التضمين.
      */
