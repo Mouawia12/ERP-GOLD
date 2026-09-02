@@ -286,6 +286,39 @@
                                             @enderror
                                         </div>
                                     </div>
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label>{{ __('main.made_account') }} </label>
+                                            <select class="js-example-basic-single w-100" id="made_account" name="made_account">
+                                                <option value="">-- اختر الحساب --</option>
+                                                @foreach($accounts as $brand)
+                                                    <option value="{{$brand->id}}" @if($brand -> id == $setting -> made_account) selected @endif>{{$brand->name}}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label>{{ __('main.supplier_default_account') }} </label>
+                                            <select class="js-example-basic-single w-100" id="supplier_default_account" name="supplier_default_account">
+                                                <option value="">-- اختر الحساب --</option>
+                                                @foreach($accounts as $brand)
+                                                    <option value="{{$brand->id}}" @if($brand -> id == $setting -> supplier_default_account) selected @endif>{{$brand->name}}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="form-group">
+                                            <label>{{ __('main.sales_tax_excise_account') }} </label>
+                                            <select class="js-example-basic-single w-100" id="sales_tax_excise_account" name="sales_tax_excise_account">
+                                                <option value="">-- اختر الحساب --</option>
+                                                @foreach($accounts as $brand)
+                                                    <option value="{{$brand->id}}" @if($brand -> id == $setting -> sales_tax_excise_account) selected @endif>{{$brand->name}}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
 
 

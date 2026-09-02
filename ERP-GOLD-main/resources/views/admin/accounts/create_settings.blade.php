@@ -177,6 +177,72 @@
                                         </select>
                                     </div>
                                 </div>
+                                <div class="col-12">
+                                    <div class="form-group">
+                                        <label>{{ __('main.cost_account_scrap') }}</label>
+                                        <select class="js-example-basic-single w-100" name="cost_account_scrap">
+                                            <option value="">-- اختر الحساب --</option>
+                                            @foreach($accounts as $account)
+                                                <option value="{{ $account->id }}">{{ $account->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-group">
+                                        <label>{{ __('main.cost_account_pure') }}</label>
+                                        <select class="js-example-basic-single w-100" name="cost_account_pure">
+                                            <option value="">-- اختر الحساب --</option>
+                                            @foreach($accounts as $account)
+                                                <option value="{{ $account->id }}">{{ $account->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-group">
+                                        <label>{{ __('main.sales_discount_account') }}</label>
+                                        <select class="js-example-basic-single w-100" name="sales_discount_account">
+                                            <option value="">-- اختر الحساب --</option>
+                                            @foreach($accounts as $account)
+                                                <option value="{{ $account->id }}">{{ $account->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-group">
+                                        <label>{{ __('main.made_account') }}</label>
+                                        <select class="js-example-basic-single w-100" name="made_account">
+                                            <option value="">-- اختر الحساب --</option>
+                                            @foreach($accounts as $account)
+                                                <option value="{{ $account->id }}">{{ $account->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-group">
+                                        <label>{{ __('main.supplier_default_account') }}</label>
+                                        <select class="js-example-basic-single w-100" name="supplier_default_account">
+                                            <option value="">-- اختر الحساب --</option>
+                                            @foreach($accounts as $account)
+                                                <option value="{{ $account->id }}">{{ $account->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-group">
+                                        <label>{{ __('main.sales_tax_excise_account') }}</label>
+                                        <select class="js-example-basic-single w-100" name="sales_tax_excise_account">
+                                            <option value="">-- اختر الحساب --</option>
+                                            @foreach($accounts as $account)
+                                                <option value="{{ $account->id }}">{{ $account->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="row col-6">

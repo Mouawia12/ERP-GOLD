@@ -267,6 +267,8 @@ return [
   'stock_account_scrap' => 'حساب مخزون الكسر',
   'stock_account_pure' => 'حساب مخزون الصافي',
   'sales_discount_account' => 'حساب خصم المبيعات',
+  'supplier_default_account' => 'حساب المورد الافتراضي',
+  'sales_tax_excise_account' => 'حساب ضريبة الاستهلاك',
   'sales_tax_account' => 'حساب ضريبة المبيعات',
   'purchase_discount_account' => 'حساب خصم المشتريات',
   'purchase_tax_account' => 'حساب ضريبة المشتريات',

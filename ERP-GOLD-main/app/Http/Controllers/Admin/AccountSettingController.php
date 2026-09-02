@@ -28,7 +28,9 @@ class AccountSettingController extends Controller
                 $accountSetting->sales_discount_account,
                 $accountSetting->sales_tax_account,
                 $accountSetting->purchase_tax_account,
-                $accountSetting->cost_account,
+                $accountSetting->cost_account_crafted,
+                $accountSetting->cost_account_scrap,
+                $accountSetting->cost_account_pure,
                 $accountSetting->profit_account,
                 $accountSetting->reverse_profit_account,
                 $accountSetting->bank_account,
@@ -50,7 +52,11 @@ class AccountSettingController extends Controller
             $account->sales_discount_account_name = $accountsById->get($account->sales_discount_account)?->name ?? 'غير محدد';
             $account->sales_tax_account_name = $accountsById->get($account->sales_tax_account)?->name ?? 'غير محدد';
             $account->purchase_tax_account_name = $accountsById->get($account->purchase_tax_account)?->name ?? 'غير محدد';
-            $account->cost_account_name = $accountsById->get($account->cost_account)?->name ?? 'غير محدد';
+            // كان يقرأ `cost_account` وهو عمود غير موجود في الجدول، فتظهر الخانة
+            // «غير محدد» دائمًا. التكلفة ثلاثة حسابات لا واحد.
+            $account->cost_account_crafted_name = $accountsById->get($account->cost_account_crafted)?->name ?? 'غير محدد';
+            $account->cost_account_scrap_name = $accountsById->get($account->cost_account_scrap)?->name ?? 'غير محدد';
+            $account->cost_account_pure_name = $accountsById->get($account->cost_account_pure)?->name ?? 'غير محدد';
             $account->profit_account_name = $accountsById->get($account->profit_account)?->name ?? 'غير محدد';
             $account->reverse_profit_account_name = $accountsById->get($account->reverse_profit_account)?->name ?? 'غير محدد';
             $account->bank_account_name = $accountsById->get($account->bank_account)?->name ?? 'غير محدد';

@@ -41,7 +41,9 @@
                                             <th>{{__('main.sales_discount_account')}}</th>
                                             <th>{{__('main.sales_tax_account')}}</th>
                                             <th>{{__('main.purchase_tax_account')}}</th>
-                                            <th>{{__('main.cost_account')}}</th>
+                                            <th>{{__('main.cost_account_crafted')}}</th>
+                                            <th>{{__('main.cost_account_scrap')}}</th>
+                                            <th>{{__('main.cost_account_pure')}}</th>
                                             <th>{{__('main.profit_account')}}</th>
                                             <th>{{__('main.reverse_profit_account')}}</th>
                                             <th>{{__('main.bank_account')}}</th>
@@ -62,7 +64,9 @@
                                             <td class="text-center">{{$account->sales_discount_account_name}}</td>
                                             <td class="text-center">{{$account->sales_tax_account_name}}</td>
                                             <td class="text-center">{{$account->purchase_tax_account_name}}</td>
-                                            <td class="text-center">{{$account->cost_account_name}}</td>
+                                            <td class="text-center">{{$account->cost_account_crafted_name}}</td>
+                                            <td class="text-center">{{$account->cost_account_scrap_name}}</td>
+                                            <td class="text-center">{{$account->cost_account_pure_name}}</td>
                                             <td class="text-center">{{$account->profit_account_name}}</td>
                                             <td class="text-center">{{$account->reverse_profit_account_name}}</td>
                                             <td class="text-center">{{$account->bank_account_name}}</td>
