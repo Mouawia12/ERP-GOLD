@@ -11,6 +11,7 @@ use App\Models\JournalEntryDocument;
 use App\Models\OpeningBalance;
 use App\Services\Accounts\AccountCodeService;
 use App\Services\Accounts\AccountReferenceInspector;
+use App\Services\Accounts\ParentAccountEligibility;
 use App\Services\Accounts\AccountStatementSideResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -69,7 +70,10 @@ class AccountsController extends Controller
      */
     public function create()
     {
-        $accounts = Account::query()->orderBy('code')->get();
+        $accounts = Account::query()
+            ->whereNotIn('id', app(ParentAccountEligibility::class)->postedAccountIds())
+            ->orderBy('code')
+            ->get();
         $branches = $this->subscriberBranches();
         return view('admin.accounts.form', compact('accounts', 'branches'));
     }
@@ -157,6 +161,13 @@ class AccountsController extends Controller
             'branch_ids.*' => 'integer|exists:branches,id',
         ]);
 
+        if ($this->parentCarriesMovement($request->parent_account_id)) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', $this->postedParentMessage($request->parent_account_id));
+        }
+
         try {
             DB::beginTransaction();
             $account = Account::create([
@@ -187,8 +198,16 @@ class AccountsController extends Controller
         $account = Account::with('branches')->findOrFail($id);
 
         // الحساب نفسه وفروعه مستبعدون من قائمة الآباء حتى لا تُبنى دورة في الشجرة.
+        // وكذلك كل حساب عليه حركة: القيود تُرحَّل على النهائية وحدها، فجعله أبًا
+        // يحبس رصيده. الأب الحالي يبقى ظاهرًا مهما كان حتى لا يُفقد عند الحفظ.
+        $blockedParentIds = array_diff(
+            app(ParentAccountEligibility::class)->postedAccountIds(),
+            array_filter([(int) $account->parent_account_id])
+        );
+
         $accounts = Account::query()
             ->whereNotIn('id', $account->childrensIds)
+            ->whereNotIn('id', $blockedParentIds)
             ->orderBy('code')
             ->get();
         $branches = $this->subscriberBranches();
@@ -228,6 +247,13 @@ class AccountsController extends Controller
                 ->with('error', 'لا يمكن نقل الحساب ليصبح تابعًا لنفسه أو لأحد حساباته الفرعية.');
         }
 
+        if ($newParentId !== $currentParentId && $this->parentCarriesMovement($newParentId)) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', $this->postedParentMessage($newParentId));
+        }
+
         try {
             DB::beginTransaction();
             $account->update([
@@ -261,6 +287,24 @@ class AccountsController extends Controller
             DB::rollBack();
             return redirect()->back()->with('error', $th->getMessage());
         }
+    }
+
+    /**
+     * الأب المقترح عليه حركة؟ القيود تُرحَّل على الحسابات النهائية وحدها، فجعله
+     * أبًا يخرجه من متناول الترحيل ورصيده باقٍ عليه.
+     */
+    private function parentCarriesMovement($parentId): bool
+    {
+        return filled($parentId)
+            && app(ParentAccountEligibility::class)->carriesMovement((int) $parentId);
+    }
+
+    private function postedParentMessage($parentId): string
+    {
+        $parent = Account::find($parentId);
+
+        return 'لا يمكن جعل «' . ($parent?->name ?? $parentId) . '» حسابًا أبًا لأن عليه حركة. '
+            . 'القيود تُسجَّل على الحسابات النهائية فقط، فاختر أبًا بلا حركة أو أنشئ حسابًا جديدًا للتجميع.';
     }
 
     public function destroy($id, AccountReferenceInspector $references)

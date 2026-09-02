@@ -422,6 +422,99 @@ class AccountsTreeFeatureTest extends TestCase
         $this->assertStringContainsString('سنة مالية نشطة', $response->json('errors'));
     }
 
+    public function test_an_account_that_carries_movement_is_not_offered_as_a_parent(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.add']);
+        $financialYearId = $this->createFinancialYear();
+
+        $cashGroup = $this->createAccount([
+            'code' => '1101',
+            'name' => ['ar' => 'نقدية بالصناديق', 'en' => 'Cash Group'],
+        ]);
+        $posted = $this->createAccount([
+            'code' => '1101001',
+            'level' => '2',
+            'parent_account_id' => $cashGroup,
+            'name' => ['ar' => 'الصندوق الرئيسي', 'en' => 'Main Safe'],
+        ]);
+
+        $journalId = DB::table('journal_entries')->insertGetId([
+            'serial' => 'PARENT-1',
+            'journal_date' => '2026-03-22',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('journal_entry_documents')->insert([
+            'journal_id' => $journalId,
+            'account_id' => $posted,
+            'document_date' => '2026-03-22',
+            'debit' => 500,
+            'credit' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $content = $this->actingAs($admin, 'admin-web')
+            ->get(route('accounts.create', [], false))
+            ->assertOk()
+            ->getContent();
+
+        // القيود تُرحَّل على النهائية وحدها، فحساب عليه حركة لا يصلح أبًا
+        $this->assertStringNotContainsString('value="' . $posted . '" data-account-type', $content);
+        // بينما حساب بلا حركة يبقى صالحًا ولو كان نهائيًا اليوم
+        $this->assertStringContainsString('value="' . $cashGroup . '" data-account-type', $content);
+    }
+
+    public function test_creating_under_an_account_that_carries_movement_is_refused(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.add']);
+        $financialYearId = $this->createFinancialYear();
+
+        $posted = $this->createAccount(['code' => '1101001', 'name' => ['ar' => 'الصندوق الرئيسي', 'en' => 'Safe']]);
+
+        DB::table('opening_balances')->insert([
+            'account_id' => $posted,
+            'financial_year' => $financialYearId,
+            'debit' => 900,
+            'credit' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $before = DB::table('accounts')->count();
+
+        $this->actingAs($admin, 'admin-web')
+            ->post(route('accounts.store', [], false), [
+                'name' => 'ابن تحت حساب عليه حركة',
+                'type' => 'child',
+                'parent_account_id' => $posted,
+                'accounts_type' => 'assets',
+            ]);
+
+        $this->assertStringContainsString('عليه حركة', (string) session('error'));
+        $this->assertSame($before, DB::table('accounts')->count());
+    }
+
+    public function test_creating_under_an_account_without_movement_is_allowed(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.add']);
+        $this->createFinancialYear();
+
+        $clean = $this->createAccount(['code' => '1101', 'name' => ['ar' => 'نقدية بالصناديق', 'en' => 'Cash']]);
+
+        $this->actingAs($admin, 'admin-web')
+            ->post(route('accounts.store', [], false), [
+                'name' => 'صندوق فرعي جديد',
+                'type' => 'child',
+                'parent_account_id' => $clean,
+                'accounts_type' => 'assets',
+            ]);
+
+        $this->assertDatabaseHas('accounts', ['parent_account_id' => $clean]);
+    }
+
     /**
      * @param  array<int, string>  $permissions
      */
