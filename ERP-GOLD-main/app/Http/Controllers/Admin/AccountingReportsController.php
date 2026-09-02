@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Models\AccountSetting;
 use App\Models\Branch;
 use App\Models\FinancialVoucher;
 use App\Models\FinancialYear;
@@ -486,19 +487,55 @@ class AccountingReportsController extends Controller
 
     /**
      * الحسابات التي تحمل نتيجة الفترة: «حساب الربح أو الخسارة» وجذر حقوق
-     * الملكية فوقه. وإن لم يوجد ذلك الحساب في الشجرة حُملت على الجذر وحده،
-     * فالميزانية تتوازن على كل حال.
+     * الملكية فوقه.
+     *
+     * يُعرَف الحساب من «حساب صافي الربح» المضبوط في إعدادات الحسابات، صعودًا
+     * منه إلى أول ابن مباشر لجذر حقوق الملكية — لا من ترتيب الكود. فشجرة
+     * الحسابات القديمة تجعل الكود «31» رأسَ المال الابتدائي وتضع الربح
+     * والخسارة في «33»، فاستدلالٌ بالكود كان يحمّل نتيجة الفترة على رأس المال.
+     *
+     * وإن تعذّر التعرّف حُملت النتيجة على جذر حقوق الملكية وحده — تتوازن
+     * الميزانية ولا يُمسّ حساب لا يخصّها.
      *
      * @return array<int, int>
      */
     private function periodResultCarriers(Account $equityRoot): array
     {
-        $profitAndLoss = $equityRoot->childrens
-            ->first(fn (Account $child) => (string) $child->code === $equityRoot->code . '1');
+        $carrier = $this->profitAndLossAccount($equityRoot);
 
-        return $profitAndLoss
-            ? [(int) $profitAndLoss->id, (int) $equityRoot->id]
+        return $carrier
+            ? [(int) $carrier->id, (int) $equityRoot->id]
             : [(int) $equityRoot->id];
+    }
+
+    private function profitAndLossAccount(Account $equityRoot): ?Account
+    {
+        $profitAccountId = AccountSetting::query()
+            ->whereNotNull('profit_account')
+            ->value('profit_account');
+
+        if (! $profitAccountId) {
+            return null;
+        }
+
+        $account = Account::query()->find($profitAccountId);
+        $rootId = (int) $equityRoot->id;
+
+        // صعودًا حتى الابن المباشر لجذر حقوق الملكية. الحدّ الأقصى يحمي من
+        // شجرة معطوبة تدور على نفسها.
+        for ($depth = 0; $account && $depth < 20; $depth++) {
+            if ((int) $account->id === $rootId) {
+                return null; // حساب الربح هو الجذر نفسه، فلا وسيط تحته
+            }
+
+            if ((int) $account->parent_account_id === $rootId) {
+                return $account;
+            }
+
+            $account = $account->parent;
+        }
+
+        return null;
     }
 
     /**

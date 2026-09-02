@@ -653,6 +653,48 @@ class AccountingSummaryReportsFeatureTest extends TestCase
     }
 
     /**
+     * الشجرة القديمة تجعل الكود «31» رأسَ المال، فاستدلالٌ بالكود كان يحمّل
+     * نتيجة الفترة عليه. رأس المال يبقى كما هو مهما ربحت المنشأة أو خسرت.
+     */
+    public function test_period_result_never_lands_on_the_capital_account(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounting_reports.show']);
+        $financialYearId = $this->createFinancialYear();
+        [$assetsId, , , , $revenuesId, $capitalId] = $this->createChartWithProfitAndLossAccount();
+
+        $journalId = $this->insertJournalEntry([
+            'serial' => 'J-PL-3',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $journalId,
+            'account_id' => $assetsId,
+            'document_date' => '2026-03-22',
+            'debit' => 1000,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $journalId,
+            'account_id' => $revenuesId,
+            'document_date' => '2026-03-22',
+            'credit' => 1000,
+        ]);
+
+        $metrics = $this->actingAs($admin, 'admin-web')
+            ->post(route('balance_sheet.search', [], false), [
+                'date_from' => '2026-03-22',
+                'date_to' => '2026-03-22',
+                'branch_id' => $admin->branch_id,
+            ])
+            ->assertOk()
+            ->viewData('accountMetrics');
+
+        $this->assertSame(0.0, $metrics[$capitalId]['closing_debit']);
+        $this->assertSame(0.0, $metrics[$capitalId]['closing_credit']);
+        $this->assertSame(0.0, $metrics[$capitalId]['closing_net']);
+    }
+
+    /**
      * وبعد حمل النتيجة على حقوق الملكية يتساوى إجمالي المدين وإجمالي الدائن،
      * وهو ما يقرأه المحاسب ليطمئن أن الميزانية متوازنة.
      */
@@ -700,7 +742,7 @@ class AccountingSummaryReportsFeatureTest extends TestCase
      * شجرة الميزانية بأكوادها المعتمدة: حقوق الملكية «3» وتحته «31» حساب
      * الربح أو الخسارة، كما ينشئها SubscriberChartProvisioner.
      *
-     * @return array{0:int,1:int,2:int,3:int,4:int}
+     * @return array{0:int,1:int,2:int,3:int,4:int,5:int}
      */
     private function createChartWithProfitAndLossAccount(): array
     {
@@ -725,11 +767,29 @@ class AccountingSummaryReportsFeatureTest extends TestCase
             'account_type' => 'equity',
             'transfer_side' => 'budget',
         ]);
-        $profitAndLossId = $this->createAccount([
-            'name' => ['ar' => 'حساب الربح أو الخسارة', 'en' => 'Profit and Loss Account'],
+        // شجرة الحسابات القديمة تجعل «31» رأسَ المال و«33» الربح أو الخسارة،
+        // فتُبنى هنا كذلك ليثبت أن النتيجة لا تُحمَّل على رأس المال.
+        $capitalId = $this->createAccount([
+            'name' => ['ar' => 'رأس المال', 'en' => 'Capital'],
             'code' => '31',
             'level' => '2',
             'parent_account_id' => $equityId,
+            'account_type' => 'equity',
+            'transfer_side' => 'budget',
+        ]);
+        $profitAndLossId = $this->createAccount([
+            'name' => ['ar' => 'حساب الربح أو الخسارة', 'en' => 'Profit and Loss Account'],
+            'code' => '33',
+            'level' => '2',
+            'parent_account_id' => $equityId,
+            'account_type' => 'equity',
+            'transfer_side' => 'budget',
+        ]);
+        $netProfitId = $this->createAccount([
+            'name' => ['ar' => 'صافي الربح', 'en' => 'Net Profit'],
+            'code' => '3301',
+            'level' => '3',
+            'parent_account_id' => $profitAndLossId,
             'account_type' => 'equity',
             'transfer_side' => 'budget',
         ]);
@@ -748,7 +808,12 @@ class AccountingSummaryReportsFeatureTest extends TestCase
             'transfer_side' => 'income_statement',
         ]);
 
-        return [$assetsId, $liabilitiesId, $equityId, $profitAndLossId, $revenuesId];
+        \App\Models\AccountSetting::query()->create([
+            'branch_id' => auth('admin-web')->user()?->branch_id,
+            'profit_account' => $netProfitId,
+        ]);
+
+        return [$assetsId, $liabilitiesId, $equityId, $profitAndLossId, $revenuesId, $capitalId];
     }
 
     /**
