@@ -198,6 +198,117 @@ class BranchAccountLinkFeatureTest extends TestCase
             ->assertSuccessful();
     }
 
+    public function test_a_journal_cannot_post_to_another_branchs_account(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.add']);
+        $this->createFinancialYear();
+        $theirs = $this->createBranch('فرع المرقب الكبير');
+
+        $shared = $this->createAccount(['code' => '1101001']);
+        $theirAccount = $this->createAccount([
+            'code' => '4109',
+            'name' => ['ar' => 'مبيعات فرع المرقب الكبير', 'en' => 'Their Sales'],
+        ]);
+        DB::table('account_branch')->insert([
+            'account_id' => $theirAccount,
+            'branch_id' => $theirs->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($admin, 'admin-web')
+            ->post(route('accounts.journals.store', [], false), [
+                'date' => '2026-09-02',
+                'notes' => 'ترحيل على حساب فرع آخر',
+                'branch_id' => $admin->branch_id,
+                'account_id' => [$shared, $theirAccount],
+                'debit' => [100, 0],
+                'credit' => [0, 100],
+            ])
+            ->assertStatus(422);
+
+        $this->assertStringContainsString('يخص', (string) $response->json('errors'));
+        $this->assertSame(0, DB::table('journal_entries')->count());
+        $this->assertSame(0, DB::table('journal_entry_documents')->count());
+    }
+
+    public function test_a_journal_posts_normally_to_shared_and_own_accounts(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.add']);
+        $this->createFinancialYear();
+
+        $shared = $this->createAccount(['code' => '1101001']);
+        $mine = $this->createAccount(['code' => '4110']);
+        DB::table('account_branch')->insert([
+            'account_id' => $mine,
+            'branch_id' => $admin->branch_id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($admin, 'admin-web')
+            ->post(route('accounts.journals.store', [], false), [
+                'date' => '2026-09-02',
+                'notes' => 'ترحيل سليم',
+                'branch_id' => $admin->branch_id,
+                'account_id' => [$shared, $mine],
+                'debit' => [100, 0],
+                'credit' => [0, 100],
+            ])
+            ->assertOk();
+
+        $this->assertSame(1, DB::table('journal_entries')->count());
+        $this->assertSame(2, DB::table('journal_entry_documents')->count());
+    }
+
+    public function test_the_account_search_hides_another_branchs_account(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounts.show']);
+        $theirs = $this->createBranch('فرع المرقب الكبير');
+
+        $shared = $this->createAccount(['code' => '4111', 'name' => ['ar' => 'مبيعات مشتركة', 'en' => 'Shared']]);
+        $theirAccount = $this->createAccount(['code' => '4112', 'name' => ['ar' => 'مبيعات فرعهم', 'en' => 'Theirs']]);
+        DB::table('account_branch')->insert([
+            'account_id' => $theirAccount,
+            'branch_id' => $theirs->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $scoped = $this->actingAs($admin, 'admin-web')
+            ->post(route('accounts.search', [], false), [
+                'search' => 'مبيعات',
+                'branch_id' => $admin->branch_id,
+            ])
+            ->assertOk()
+            ->json();
+
+        $names = array_column($scoped, 'name');
+        $this->assertContains('مبيعات مشتركة', $names);
+        $this->assertNotContains('مبيعات فرعهم', $names);
+
+        // بلا فرع تبقى كل الحسابات ظاهرة كما كانت
+        $all = $this->actingAs($admin, 'admin-web')
+            ->post(route('accounts.search', [], false), ['search' => 'مبيعات'])
+            ->assertOk()
+            ->json();
+
+        $this->assertContains('مبيعات فرعهم', array_column($all, 'name'));
+    }
+
+    private function createFinancialYear(): int
+    {
+        return DB::table('financial_years')->insertGetId([
+            'description' => 'FY 2026',
+            'from' => '2026-01-01',
+            'to' => '2026-12-31',
+            'is_closed' => false,
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
     private function createBranch(string $name): Branch
     {
         return Branch::create([

@@ -319,7 +319,21 @@ class AccountsController extends Controller
             $query
                 ->where('code', 'like', '%' . $request->search . '%')
                 ->orWhere('name', 'like', '%' . $request->search . '%');
-        })->whereDoesntHave('childrens')->get();
+        })
+            ->whereDoesntHave('childrens')
+            // لا تُعرض حسابات فرع آخر حين يكون القيد على فرع محدّد؛ الحسابات
+            // غير المخصّصة لفرع تخص الجميع فتبقى ظاهرة دائمًا.
+            ->when($request->filled('branch_id'), function ($query) use ($request) {
+                $branchId = (int) $request->branch_id;
+
+                $query->where(function ($scoped) use ($branchId) {
+                    $scoped
+                        ->whereDoesntHave('branches')
+                        ->orWhereHas('branches', fn ($branch) => $branch->whereKey($branchId));
+                });
+            })
+            ->get();
+
         return response()->json($accounts);
     }
 

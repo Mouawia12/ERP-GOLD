@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\Branch;
 use App\Models\FinancialYear;
+use App\Services\Accounts\BranchAccountEligibility;
 use App\Models\JournalEntry;
 use App\Services\Branches\BranchContextService;
 use App\Services\Reports\ReportBranchSelectionService;
@@ -152,6 +153,26 @@ class JournalEntryController extends Controller
             return response()->json([
                 'status' => false,
                 'errors' => __('validations.branch_id_required'),
+            ], 422);
+        }
+
+        // القيد يخص فرعًا، فلا يُرحَّل على حساب أُعلن أنه يخص فرعًا آخر — وإلا
+        // حمل هذا الفرع رصيدًا في حساب فرع غيره، وهو أصل اختلاط الفروع في
+        // قائمة الدخل. الحسابات غير المخصّصة لفرع تخص الجميع فتبقى مسموحة.
+        $eligibility = app(BranchAccountEligibility::class);
+
+        foreach (array_unique($request->account_id) as $accountId) {
+            if ($eligibility->isLinkableTo((int) $accountId, $branchId)) {
+                continue;
+            }
+
+            $account = Account::query()->find($accountId);
+
+            return response()->json([
+                'status' => false,
+                'errors' => 'الحساب «' . ($account?->name ?? $accountId) . '» يخص «'
+                    . $eligibility->branchNamesFor((int) $accountId)
+                    . '»، ولا يمكن الترحيل عليه من هذا الفرع.',
             ], 422);
         }
 

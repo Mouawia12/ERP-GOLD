@@ -235,7 +235,8 @@
             url:url,
             dataType: 'json',
             data: {
-                search: code
+                search: code,
+                branch_id: $('#branch_id').val() || ''
             },
             success:function(response){
                 document.getElementById('products_suggestions').innerHTML = '';
