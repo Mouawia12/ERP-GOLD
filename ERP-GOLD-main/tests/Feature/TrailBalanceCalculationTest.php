@@ -461,6 +461,10 @@ class TrailBalanceCalculationTest extends TestCase
     /**
      * When account_level is null (default), only leaf accounts (no children) are shown.
      */
+    /**
+     * حساب سُجّل عليه قيد ثم أُضيف تحته حساب فرعي يبقى في الوضع التفصيلي
+     * بمبلغه المباشر وحده. إسقاطه كان يُخفي مبلغه ويترك الميزان مختلًّا.
+     */
     public function test_default_mode_shows_only_leaf_accounts(): void
     {
         $admin = $this->createAdminUser(['employee.accounting_reports.show']);
@@ -499,10 +503,53 @@ class TrailBalanceCalculationTest extends TestCase
             ]);
 
         $response->assertOk();
-        // Parent has child → not a leaf → excluded
-        $response->assertDontSee('حساب أب');
-        // Child has no children → leaf → included
+        // الأب يحمل ٣٠٠ مسجّلة عليه مباشرة، فيظهر بها وحدها لا بمجموع فروعه
+        $response->assertSee('حساب أب');
         $response->assertSee('حساب ورقة');
+
+        $metrics = $response->viewData('accountMetrics');
+        $this->assertSame(300.0, $metrics[$parentId]['closing_debit']);
+        $this->assertSame(200.0, $metrics[$childId]['closing_debit']);
+
+        // ٣٠٠ + ٢٠٠ = ٥٠٠: لا مبلغ ساقط ولا مبلغ محسوب مرّتين
+        $this->assertSame(500.0, $response->viewData('totals')['closing_debit']);
+    }
+
+    /**
+     * وحساب طرفي لا حركة عليه يبقى خارج الوضع التفصيلي كما كان.
+     */
+    public function test_default_mode_still_excludes_accounts_without_movement(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounting_reports.show']);
+        $fyId = $this->createFinancialYear();
+
+        $activeId = $this->createAccount([
+            'name' => ['ar' => 'حساب عليه حركة', 'en' => 'Active Account'],
+            'code' => '3001',
+            'account_type' => 'assets',
+            'transfer_side' => 'budget',
+            'level' => 1,
+        ]);
+        $this->createAccount([
+            'name' => ['ar' => 'حساب ساكن', 'en' => 'Idle Account'],
+            'code' => '3002',
+            'account_type' => 'assets',
+            'transfer_side' => 'budget',
+            'level' => 1,
+        ]);
+
+        $journalId = $this->insertJournalEntry(['serial' => 'JIDLE-001', 'financial_year' => $fyId, 'branch_id' => $admin->branch_id]);
+        $this->insertJournalEntryDocument(['journal_id' => $journalId, 'account_id' => $activeId, 'document_date' => '2026-03-05', 'debit' => 120]);
+
+        $this->actingAs($admin, 'admin-web')
+            ->post(route('trail_balance.search', [], false), [
+                'date_from' => '2026-03-01',
+                'date_to' => '2026-03-31',
+                'branch_id' => $admin->branch_id,
+            ])
+            ->assertOk()
+            ->assertSee('حساب عليه حركة')
+            ->assertDontSee('حساب ساكن');
     }
 
     /**

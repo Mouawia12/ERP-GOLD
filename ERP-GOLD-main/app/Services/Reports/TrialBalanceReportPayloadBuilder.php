@@ -64,25 +64,38 @@ class TrialBalanceReportPayloadBuilder
             'branch_scope_all' => $branchSelection['selects_all'],
         ];
 
+        // «حتى مستوى N» يعرض الشجرة مجمّعة: رقم كل حساب يشمل فروعه.
+        // و«تفصيلي» يعرض كل حساب بحركته المباشرة وحدها، فلا يتكرّر مبلغ.
+        $aggregated = $accountLevel !== null;
+
         $accountQuery = Account::query()->orderBy('code')->orderBy('id');
-        if ($accountLevel !== null) {
+
+        if ($aggregated) {
             $accountQuery->where('level', '<=', $accountLevel);
         } else {
-            $accountQuery->whereDoesntHave('childrens');
+            // الأطراف، ومعها كل حساب سُجّل عليه قيد مباشرةً وإن صار له أبناء
+            // بعد ذلك — وإلا سقط مبلغه من التقرير ومن الإجمالي فاختلّ الميزان.
+            $postedAccountIds = $this->accountIdsCarryingEntries();
+
+            $accountQuery->where(function ($query) use ($postedAccountIds) {
+                $query
+                    ->whereDoesntHave('childrens')
+                    ->orWhereIn('id', $postedAccountIds);
+            });
         }
 
         $accounts = $accountQuery
             ->get()
-            ->filter(function (Account $account) use ($filters) {
-                $metrics = $this->buildSummaryMetricsForAccount($account, $filters);
+            ->filter(function (Account $account) use ($filters, $aggregated) {
+                $metrics = $this->buildSummaryMetricsForAccount($account, $filters, $aggregated);
 
                 return $this->hasVisibleActivity($metrics);
             })
             ->values();
 
         $accountMetrics = $accounts
-            ->mapWithKeys(function (Account $account) use ($filters) {
-                return [$account->id => $this->buildSummaryMetricsForAccount($account, $filters)];
+            ->mapWithKeys(function (Account $account) use ($filters, $aggregated) {
+                return [$account->id => $this->buildSummaryMetricsForAccount($account, $filters, $aggregated)];
             })
             ->all();
 
@@ -91,7 +104,7 @@ class TrialBalanceReportPayloadBuilder
             'periodTo' => $periodTo,
             'accounts' => $accounts,
             'accountMetrics' => $accountMetrics,
-            'totals' => $this->totals($accounts, $accountMetrics),
+            'totals' => $this->totals($accounts, $accountMetrics, $aggregated),
             'branch' => $branchSelection['single_branch'],
             'branchLabel' => $branchSelection['branch_label'],
             'branchSelection' => $branchSelection,
@@ -131,14 +144,15 @@ class TrialBalanceReportPayloadBuilder
      * @param  array<string, mixed>  $filters
      * @return array<string, float>
      */
-    private function buildSummaryMetricsForAccount(Account $account, array $filters): array
+    private function buildSummaryMetricsForAccount(Account $account, array $filters, bool $includeChildren = true): array
     {
+        $accountIds = $includeChildren ? $account->childrensIds : [(int) $account->id];
         $openingDebit = 0.0;
         $openingCredit = 0.0;
 
         if (($filters['branch_scope_all'] ?? false) === true) {
             $openingTotals = DB::table('opening_balances')
-                ->whereIn('account_id', $account->childrensIds)
+                ->whereIn('account_id', $accountIds)
                 ->select(DB::raw('COALESCE(SUM(debit), 0) as debit_total, COALESCE(SUM(credit), 0) as credit_total'))
                 ->first();
 
@@ -146,12 +160,12 @@ class TrialBalanceReportPayloadBuilder
             $openingCredit += (float) ($openingTotals->credit_total ?? 0);
         }
 
-        $beforeTotals = $this->summaryDocumentsQuery($account, $filters)
+        $beforeTotals = $this->summaryDocumentsQuery($accountIds, $filters)
             ->where('document_date', '<', $filters['period_from'])
             ->select(DB::raw('COALESCE(SUM(debit), 0) as debit_total, COALESCE(SUM(credit), 0) as credit_total'))
             ->first();
 
-        $periodTotals = $this->summaryDocumentsQuery($account, $filters)
+        $periodTotals = $this->summaryDocumentsQuery($accountIds, $filters)
             ->whereBetween('document_date', [$filters['period_from'], $filters['period_to']])
             ->select(DB::raw('COALESCE(SUM(debit), 0) as debit_total, COALESCE(SUM(credit), 0) as credit_total'))
             ->first();
@@ -177,12 +191,13 @@ class TrialBalanceReportPayloadBuilder
     }
 
     /**
+     * @param  array<int, int>  $accountIds
      * @param  array<string, mixed>  $filters
      */
-    private function summaryDocumentsQuery(Account $account, array $filters)
+    private function summaryDocumentsQuery(array $accountIds, array $filters)
     {
         return JournalEntryDocument::query()
-            ->whereIn('account_id', $account->childrensIds)
+            ->whereIn('account_id', $accountIds)
             ->when(($filters['branch_ids'] ?? []) !== [], function ($query) use ($filters) {
                 return $query->whereHas('journal_entry', function ($journalQuery) use ($filters) {
                     $journalQuery->whereIn('branch_id', $filters['branch_ids']);
@@ -191,7 +206,34 @@ class TrialBalanceReportPayloadBuilder
     }
 
     /**
-     * إجمالي الميزان: يُجمع من الصفوف العليا وحدها — أي صفّ لا يظهر فوقه أبٌ
+     * الحسابات التي سُجّل عليها قيد أو رصيد افتتاحي مباشرةً — تُستعمل مرشّحةً
+     * لصفوف الوضع التفصيلي، ثم تُنقّى بعدها بحسب الفرع والمدة.
+     *
+     * @return array<int, int>
+     */
+    private function accountIdsCarryingEntries(): array
+    {
+        return DB::table('journal_entry_documents')
+            ->select('account_id')
+            ->distinct()
+            ->pluck('account_id')
+            ->merge(
+                DB::table('opening_balances')->select('account_id')->distinct()->pluck('account_id')
+            )
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * إجمالي الميزان.
+     *
+     * في الوضع التفصيلي كل صفّ يحمل حركته المباشرة وحدها، ولا يشمل صفٌّ صفًّا
+     * آخر، فتُجمع الصفوف كلها.
+     *
+     * وفي وضع المستوى تُجمع الصفوف العليا وحدها — أي صفّ لا يظهر فوقه أبٌ
      * له في التقرير.
      *
      * أرقام كل حساب تشمل حساباته الفرعية، فحين يُطلب «حتى مستوى 3» يظهر الأب
@@ -203,10 +245,10 @@ class TrialBalanceReportPayloadBuilder
      * @param  array<int, array<string, float>>  $accountMetrics
      * @return array<string, float>
      */
-    private function totals(Collection $accounts, array $accountMetrics): array
+    private function totals(Collection $accounts, array $accountMetrics, bool $aggregated = true): array
     {
         $displayedIds = $accounts->pluck('id')->map(fn ($id) => (int) $id)->flip();
-        $parentOf = Account::query()->pluck('parent_account_id', 'id');
+        $parentOf = $aggregated ? Account::query()->pluck('parent_account_id', 'id') : collect();
 
         $totals = [
             'opening_debit' => 0.0,
@@ -219,7 +261,7 @@ class TrialBalanceReportPayloadBuilder
         ];
 
         foreach ($accounts as $account) {
-            if ($this->hasDisplayedAncestor($account, $displayedIds, $parentOf)) {
+            if ($aggregated && $this->hasDisplayedAncestor($account, $displayedIds, $parentOf)) {
                 continue;
             }
 
