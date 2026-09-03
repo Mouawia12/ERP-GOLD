@@ -1,14 +1,13 @@
 @php
     $metrics = $accountMetrics[$account->id] ?? null;
     $balance = $metrics['closing_net'] ?? $account->closingBalance($periodFrom, $periodTo);
-    // When a specific branch is selected ($hideEmpty), drop accounts whose whole
-    // subtree nets to zero in that branch — that's how other branches' accounts
-    // are kept out, including one that carried this branch's movement before a
-    // reclassification entry moved it away (big debit and credit, zero balance).
-    // Decision uses branch-aware metrics only; if metrics are missing we never
-    // hide, to stay safe.
+    // عند اختيار فرع ($hideEmpty) يُسقَط الحساب الذي لا أثر له في ذلك الفرع هو
+    // وكل ما تحته، فتبقى حسابات الفروع الأخرى خارج القائمة. «لا أثر له» = لا
+    // مدين ولا دائن، لا صافيًا صفرًا: حساب استوى طرفاه عامل في هذا الفرع.
+    // القرار مبني على أرقام الفرع وحدها؛ وإن غابت الأرقام لا نخفي شيئًا.
     $subtreeEmpty = $metrics !== null
-        && abs((float) ($metrics['closing_net'] ?? 0)) < 0.005;
+        && abs((float) ($metrics['closing_debit'] ?? 0)) < 0.005
+        && abs((float) ($metrics['closing_credit'] ?? 0)) < 0.005;
     $hideEmpty = ($hideEmpty ?? false) === true;
     $skip = $hideEmpty && $subtreeEmpty;
     $font_percentage = 130 - (($account->level - 1) * 10);

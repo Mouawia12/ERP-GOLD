@@ -260,7 +260,7 @@ class AccountingSummaryReportsFeatureTest extends TestCase
         $response->assertDontSee('900.00');
     }
 
-    public function test_balance_sheet_hides_other_branch_account_left_with_zero_balance(): void
+    public function test_balance_sheet_keeps_an_account_that_carried_branch_movement_even_when_its_sides_even_out(): void
     {
         $admin = $this->createAdminUser(['employee.accounting_reports.show']);
         $financialYearId = $this->createFinancialYear();
@@ -286,6 +286,17 @@ class AccountingSummaryReportsFeatureTest extends TestCase
             'account_type' => 'assets',
             'transfer_side' => 'budget',
         ]);
+
+        // حساب لا أثر له في هذا الفرع إطلاقًا — يبقى مخفيًا كما كان.
+        $untouched = $this->createAccount([
+            'name' => ['ar' => 'صندوق فرع لا حركة له', 'en' => 'Idle Branch Cash'],
+            'code' => '1004',
+            'level' => '2',
+            'parent_account_id' => $assetsId,
+            'account_type' => 'assets',
+            'transfer_side' => 'budget',
+        ]);
+        unset($untouched);
 
         // حركة الفرع سُجّلت أولًا على صندوق الفرع الآخر…
         $saleJournal = $this->insertJournalEntry([
@@ -329,7 +340,11 @@ class AccountingSummaryReportsFeatureTest extends TestCase
             ->assertOk();
 
         $response->assertSee('صندوق العويس');
-        $response->assertDontSee('صندوق المرقب الكبير');
+        // مرّت عليه حركة هذا الفرع ثم رُحّلت عنه، فمدينه ودائنه ٧٠٠ ورصيده صفر.
+        // هو حساب عامل في الفرع فيظهر؛ وإخفاؤه كان يترك أقسامًا بلا حسابات.
+        $response->assertSee('صندوق المرقب الكبير');
+        // أما ما لا مدين له ولا دائن في هذا الفرع فيبقى خارج الميزانية.
+        $response->assertDontSee('صندوق فرع لا حركة له');
     }
 
     public function test_subscriber_primary_account_can_select_multiple_accounting_branches_from_search_and_limit_trail_balance(): void
@@ -653,6 +668,59 @@ class AccountingSummaryReportsFeatureTest extends TestCase
     }
 
     /**
+     * حساب مرّت عليه حركة الفرع ثم قابلها ما يعادلها — مدينه ودائنه كبيران
+     * ورصيده صفر — كان يختفي فيبقى قسم الخصوم بلا حسابات تحته.
+     */
+    public function test_balance_sheet_lists_liability_accounts_whose_sides_even_out_in_the_branch(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounting_reports.show']);
+        $financialYearId = $this->createFinancialYear();
+        $otherBranch = $this->createBranch('فرع آخر للخصوم');
+        $admin->branches()->sync([$admin->branch_id, $otherBranch->id]);
+        $admin = $admin->fresh();
+
+        [, $liabilitiesId] = $this->createBalanceSheetRoots();
+
+        $suppliers = $this->createAccount([
+            'name' => ['ar' => 'الموردين', 'en' => 'Suppliers'],
+            'code' => '2001',
+            'level' => '2',
+            'parent_account_id' => $liabilitiesId,
+            'account_type' => 'liabilities',
+            'transfer_side' => 'budget',
+        ]);
+
+        // شراء بالآجل ثم سداده: دائن ٥٠٠ ومدين ٥٠٠ ورصيد صفر
+        $journalId = $this->insertJournalEntry([
+            'serial' => 'J-SUP-1',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $journalId,
+            'account_id' => $suppliers,
+            'document_date' => '2026-03-22',
+            'credit' => 500,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $journalId,
+            'account_id' => $suppliers,
+            'document_date' => '2026-03-22',
+            'debit' => 500,
+        ]);
+
+        $this->actingAs($admin, 'admin-web')
+            ->post(route('balance_sheet.search', [], false), [
+                'date_from' => '2026-03-22',
+                'date_to' => '2026-03-22',
+                'branch_ids' => [$admin->branch_id],
+                'branch_id' => $admin->branch_id,
+            ])
+            ->assertOk()
+            ->assertSee('الموردين');
+    }
+
+    /**
      * الشجرة القديمة تجعل الكود «31» رأسَ المال، فاستدلالٌ بالكود كان يحمّل
      * نتيجة الفترة عليه. رأس المال يبقى كما هو مهما ربحت المنشأة أو خسرت.
      */
@@ -692,6 +760,49 @@ class AccountingSummaryReportsFeatureTest extends TestCase
         $this->assertSame(0.0, $metrics[$capitalId]['closing_debit']);
         $this->assertSame(0.0, $metrics[$capitalId]['closing_credit']);
         $this->assertSame(0.0, $metrics[$capitalId]['closing_net']);
+    }
+
+    /**
+     * وإن لم تضبط إعدادات الحسابات حسابَ الربح، يُلتمس بين أبناء حقوق الملكية
+     * بالاسم — وإلا بقيت النتيجة على الجذر ولم يظهر تحته حساب.
+     */
+    public function test_period_result_finds_the_profit_and_loss_account_by_name_when_settings_are_silent(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounting_reports.show']);
+        $financialYearId = $this->createFinancialYear();
+        [$assetsId, , , $profitAndLossId, $revenuesId] = $this->createChartWithProfitAndLossAccount(
+            configureProfitAccount: false
+        );
+
+        $journalId = $this->insertJournalEntry([
+            'serial' => 'J-PL-4',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $journalId,
+            'account_id' => $assetsId,
+            'document_date' => '2026-03-22',
+            'debit' => 1000,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $journalId,
+            'account_id' => $revenuesId,
+            'document_date' => '2026-03-22',
+            'credit' => 1000,
+        ]);
+
+        $metrics = $this->actingAs($admin, 'admin-web')
+            ->post(route('balance_sheet.search', [], false), [
+                'date_from' => '2026-03-22',
+                'date_to' => '2026-03-22',
+                'branch_id' => $admin->branch_id,
+            ])
+            ->assertOk()
+            ->viewData('accountMetrics');
+
+        $this->assertSame(1000.0, $metrics[$profitAndLossId]['closing_credit']);
+        $this->assertSame(-1000.0, $metrics[$profitAndLossId]['closing_net']);
     }
 
     /**
@@ -744,7 +855,7 @@ class AccountingSummaryReportsFeatureTest extends TestCase
      *
      * @return array{0:int,1:int,2:int,3:int,4:int,5:int}
      */
-    private function createChartWithProfitAndLossAccount(): array
+    private function createChartWithProfitAndLossAccount(bool $configureProfitAccount = true): array
     {
         $assetsId = $this->createAccount([
             'name' => ['ar' => 'الأصول', 'en' => 'Assets'],
@@ -808,10 +919,12 @@ class AccountingSummaryReportsFeatureTest extends TestCase
             'transfer_side' => 'income_statement',
         ]);
 
-        \App\Models\AccountSetting::query()->create([
-            'branch_id' => auth('admin-web')->user()?->branch_id,
-            'profit_account' => $netProfitId,
-        ]);
+        if ($configureProfitAccount) {
+            \App\Models\AccountSetting::query()->create([
+                'branch_id' => auth('admin-web')->user()?->branch_id,
+                'profit_account' => $netProfitId,
+            ]);
+        }
 
         return [$assetsId, $liabilitiesId, $equityId, $profitAndLossId, $revenuesId, $capitalId];
     }

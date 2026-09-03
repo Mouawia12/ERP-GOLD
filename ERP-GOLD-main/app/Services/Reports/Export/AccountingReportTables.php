@@ -342,9 +342,12 @@ class AccountingReportTables
         $accountMetrics = $metrics[$account->id] ?? null;
         $balance = $accountMetrics['closing_net'] ?? $account->closingBalance($periodFrom, $periodTo);
 
-        // عند اختيار فرع، يُسقَط الحساب الذي صافيه صفر فيه هو وكل ما تحته حتى لا
-        // تظهر حسابات الفروع الأخرى بأصفار. الميزانية تُبقي أقسامها الرئيسية.
-        $subtreeEmpty = $accountMetrics !== null && abs((float) ($accountMetrics['closing_net'] ?? 0)) < 0.005;
+        // عند اختيار فرع، يُسقَط الحساب الذي لا مدين له ولا دائن فيه هو وكل ما
+        // تحته حتى لا تظهر حسابات الفروع الأخرى بأصفار. الميزانية تُبقي أقسامها
+        // الرئيسية. المعيار الحركة لا الصافي: حساب استوى طرفاه عامل في الفرع.
+        $subtreeEmpty = $accountMetrics !== null
+            && abs((float) ($accountMetrics['closing_debit'] ?? 0)) < 0.005
+            && abs((float) ($accountMetrics['closing_credit'] ?? 0)) < 0.005;
         $skip = $hideEmpty && $subtreeEmpty && (! $keepRoots || (int) $account->level > 1);
 
         if ($skip) {

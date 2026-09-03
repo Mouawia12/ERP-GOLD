@@ -510,6 +510,16 @@ class AccountingReportsController extends Controller
 
     private function profitAndLossAccount(Account $equityRoot): ?Account
     {
+        return $this->profitAndLossFromSettings($equityRoot)
+            ?? $this->profitAndLossByName($equityRoot);
+    }
+
+    /**
+     * من «حساب صافي الربح» المضبوط في الإعدادات، صعودًا إلى الابن المباشر لجذر
+     * حقوق الملكية.
+     */
+    private function profitAndLossFromSettings(Account $equityRoot): ?Account
+    {
         $profitAccountId = AccountSetting::query()
             ->whereNotNull('profit_account')
             ->value('profit_account');
@@ -521,8 +531,7 @@ class AccountingReportsController extends Controller
         $account = Account::query()->find($profitAccountId);
         $rootId = (int) $equityRoot->id;
 
-        // صعودًا حتى الابن المباشر لجذر حقوق الملكية. الحدّ الأقصى يحمي من
-        // شجرة معطوبة تدور على نفسها.
+        // الحدّ الأقصى يحمي من شجرة معطوبة تدور على نفسها.
         for ($depth = 0; $account && $depth < 20; $depth++) {
             if ((int) $account->id === $rootId) {
                 return null; // حساب الربح هو الجذر نفسه، فلا وسيط تحته
@@ -536,6 +545,22 @@ class AccountingReportsController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * وإن لم تضبط الإعدادات حساب الربح، أو ضبطته خارج شجرة حقوق الملكية،
+     * يُلتمس بين أبناء الجذر بالاسم. لا يطال هذا رأس المال ولا الاحتياطي، فلا
+     * ذكر للربح أو الخسارة في اسميهما.
+     */
+    private function profitAndLossByName(Account $equityRoot): ?Account
+    {
+        return $equityRoot->childrens->first(function (Account $child) {
+            $name = (string) $child->name;
+
+            return str_contains($name, 'الربح')
+                || str_contains($name, 'ربح')
+                || str_contains($name, 'خسار');
+        });
     }
 
     /**
