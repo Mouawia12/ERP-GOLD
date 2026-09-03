@@ -75,7 +75,7 @@ class JournalEntryController extends Controller
 
     public function preview_journal($id)
     {
-        $journal = JournalEntry::find($id);
+        $journal = JournalEntry::with(['documents.account'])->findOrFail($id);
         $html = view('admin.accounts.journal_entry.preview_journal', compact('journal'))->render();
 
         return $html;

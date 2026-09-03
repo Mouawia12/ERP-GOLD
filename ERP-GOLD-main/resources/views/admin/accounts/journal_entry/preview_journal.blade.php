@@ -30,8 +30,8 @@ $credit = 0;
                         @foreach($journal->documents as $document)
                             <tr>
                                <td>{{$document->id}}</td>
-                                <td>{{$document->account->code}}</td>
-                                <td>{{$document->account->name}}</td>
+                                <td>{{ $document->account?->code ?? '-' }}</td>
+                                <td>{{ $document->account?->name ?? '-' }}</td>
                                 <td>{{round($document->debit, 2)}}</td>
                                 <td>{{round($document->credit, 2)}}</td>
                                 <td>{{$document->notes}}</td>
