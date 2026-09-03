@@ -647,6 +647,18 @@ class TrailBalanceCalculationTest extends TestCase
             'level' => '3',
             'parent_account_id' => $currentAssetsId,
         ]);
+        $mainSafeId = $this->createAccount([
+            'name' => ['ar' => 'الصندوق الرئيسي', 'en' => 'Main Safe'],
+            'code' => '110101',
+            'level' => '4',
+            'parent_account_id' => $cashId,
+        ]);
+        $branchSafeId = $this->createAccount([
+            'name' => ['ar' => 'صندوق الفرع', 'en' => 'Branch Safe'],
+            'code' => '11010101',
+            'level' => '5',
+            'parent_account_id' => $mainSafeId,
+        ]);
 
         $journalId = $this->insertJournalEntry([
             'serial' => 'J-LVL-1',
@@ -655,14 +667,14 @@ class TrailBalanceCalculationTest extends TestCase
         ]);
         $this->insertJournalEntryDocument([
             'journal_id' => $journalId,
-            'account_id' => $cashId,
+            'account_id' => $branchSafeId,
             'document_date' => '2026-03-22',
             'debit' => 900,
         ]);
 
         $totalsByLevel = [];
 
-        foreach ([null, 1, 2, 3] as $level) {
+        foreach ([null, 1, 2, 3, 4, 5] as $level) {
             $payload = ['date_from' => '2026-03-22', 'date_to' => '2026-03-22'];
 
             if ($level !== null) {
