@@ -620,6 +620,66 @@ class TrailBalanceCalculationTest extends TestCase
     /**
      * @param  array<int, string>  $permissions
      */
+    /**
+     * أرقام كل حساب تشمل فروعه، فحين يُطلب مستوى يظهر الأب وابنه معًا. جمع كل
+     * صفّ كان يحسب المبلغ مرّتين فيتضاعف الإجمالي بارتفاع المستوى، والميزان
+     * لم يتغيّر. الإجمالي واحد مهما اختير المستوى.
+     */
+    public function test_total_row_stays_the_same_across_account_levels(): void
+    {
+        $admin = $this->createAdminUser(['employee.accounting_reports.show']);
+        $financialYearId = $this->createFinancialYear();
+
+        $assetsId = $this->createAccount([
+            'name' => ['ar' => 'الأصول', 'en' => 'Assets'],
+            'code' => '1',
+            'level' => '1',
+        ]);
+        $currentAssetsId = $this->createAccount([
+            'name' => ['ar' => 'الأصول المتداولة', 'en' => 'Current Assets'],
+            'code' => '11',
+            'level' => '2',
+            'parent_account_id' => $assetsId,
+        ]);
+        $cashId = $this->createAccount([
+            'name' => ['ar' => 'الصندوق', 'en' => 'Cash'],
+            'code' => '1101',
+            'level' => '3',
+            'parent_account_id' => $currentAssetsId,
+        ]);
+
+        $journalId = $this->insertJournalEntry([
+            'serial' => 'J-LVL-1',
+            'financial_year' => $financialYearId,
+            'branch_id' => $admin->branch_id,
+        ]);
+        $this->insertJournalEntryDocument([
+            'journal_id' => $journalId,
+            'account_id' => $cashId,
+            'document_date' => '2026-03-22',
+            'debit' => 900,
+        ]);
+
+        $totalsByLevel = [];
+
+        foreach ([null, 1, 2, 3] as $level) {
+            $payload = ['date_from' => '2026-03-22', 'date_to' => '2026-03-22'];
+
+            if ($level !== null) {
+                $payload['account_level'] = $level;
+            }
+
+            $totalsByLevel[$level ?? 'detailed'] = $this->actingAs($admin, 'admin-web')
+                ->post(route('trail_balance.search', [], false), $payload)
+                ->assertOk()
+                ->viewData('totals')['closing_debit'];
+        }
+
+        foreach ($totalsByLevel as $label => $total) {
+            $this->assertSame(900.0, $total, 'إجمالي المدين تغيّر عند المستوى: ' . $label);
+        }
+    }
+
     private function createAdminUser(array $permissions): User
     {
         $branch = $this->createBranch('فرع اختبار الميزان');

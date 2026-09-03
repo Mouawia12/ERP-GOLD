@@ -7,6 +7,7 @@ use App\Models\JournalEntryDocument;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class TrialBalanceReportPayloadBuilder
@@ -90,7 +91,7 @@ class TrialBalanceReportPayloadBuilder
             'periodTo' => $periodTo,
             'accounts' => $accounts,
             'accountMetrics' => $accountMetrics,
-            'totals' => $this->totals($accountMetrics),
+            'totals' => $this->totals($accounts, $accountMetrics),
             'branch' => $branchSelection['single_branch'],
             'branchLabel' => $branchSelection['branch_label'],
             'branchSelection' => $branchSelection,
@@ -190,18 +191,24 @@ class TrialBalanceReportPayloadBuilder
     }
 
     /**
+     * إجمالي الميزان: يُجمع من الصفوف العليا وحدها — أي صفّ لا يظهر فوقه أبٌ
+     * له في التقرير.
+     *
+     * أرقام كل حساب تشمل حساباته الفرعية، فحين يُطلب «حتى مستوى 3» يظهر الأب
+     * وابنه معًا؛ ولو جُمع كل صفّ لحُسب المبلغ مرّتين أو ثلاثًا، فيتضاعف
+     * الإجمالي بارتفاع المستوى وهو لم يتغيّر. أما في الوضع التفصيلي فالصفوف
+     * كلها أطراف لا أب لأحدها في القائمة، فتُجمع جميعًا.
+     *
+     * @param  Collection<int, Account>  $accounts
      * @param  array<int, array<string, float>>  $accountMetrics
      * @return array<string, float>
      */
-    private function totals(array $accountMetrics): array
+    private function totals(Collection $accounts, array $accountMetrics): array
     {
-        return collect($accountMetrics)->reduce(function (array $totals, array $metrics) {
-            foreach (['opening_debit', 'opening_credit', 'period_debit', 'period_credit', 'closing_debit', 'closing_credit', 'closing_net'] as $key) {
-                $totals[$key] += (float) ($metrics[$key] ?? 0);
-            }
+        $displayedIds = $accounts->pluck('id')->map(fn ($id) => (int) $id)->flip();
+        $parentOf = Account::query()->pluck('parent_account_id', 'id');
 
-            return $totals;
-        }, [
+        $totals = [
             'opening_debit' => 0.0,
             'opening_credit' => 0.0,
             'period_debit' => 0.0,
@@ -209,6 +216,42 @@ class TrialBalanceReportPayloadBuilder
             'closing_debit' => 0.0,
             'closing_credit' => 0.0,
             'closing_net' => 0.0,
-        ]);
+        ];
+
+        foreach ($accounts as $account) {
+            if ($this->hasDisplayedAncestor($account, $displayedIds, $parentOf)) {
+                continue;
+            }
+
+            $metrics = $accountMetrics[$account->id] ?? [];
+
+            foreach ($totals as $key => $value) {
+                $totals[$key] = $value + (float) ($metrics[$key] ?? 0);
+            }
+        }
+
+        return $totals;
+    }
+
+    /**
+     * @param  Collection<int, int>  $displayedIds  المعرّفات الظاهرة مفاتيحَ
+     * @param  Collection<int, int|null>  $parentOf
+     */
+    private function hasDisplayedAncestor(Account $account, Collection $displayedIds, Collection $parentOf): bool
+    {
+        $parentId = $parentOf->get($account->id);
+
+        // الحدّ الأقصى يحمي من شجرة معطوبة تدور على نفسها
+        for ($depth = 0; $parentId !== null && $depth < 50; $depth++) {
+            $parentId = (int) $parentId;
+
+            if ($displayedIds->has($parentId)) {
+                return true;
+            }
+
+            $parentId = $parentOf->get($parentId);
+        }
+
+        return false;
     }
 }
