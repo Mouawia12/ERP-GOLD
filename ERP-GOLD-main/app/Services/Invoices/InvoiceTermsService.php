@@ -2,10 +2,11 @@
 
 namespace App\Services\Invoices;
 
+use App\Models\BranchInvoiceTermsSetting;
 use App\Models\Invoice;
 use App\Models\SystemSetting;
-use App\Models\User;
-use App\Models\UserInvoiceTermsSetting;
+use App\Services\Branches\BranchContextService;
+use Illuminate\Database\QueryException;
 
 class InvoiceTermsService
 {
@@ -17,6 +18,32 @@ class InvoiceTermsService
     public const CONTEXT_SALES_SIMPLIFIED = 'sales_simplified';
     public const CONTEXT_SALES_STANDARD = 'sales_standard';
     public const CONTEXT_PURCHASES = 'purchases';
+
+    private ?int $branchId = null;
+
+    private ?BranchInvoiceTermsSetting $branchSettings = null;
+
+    private bool $branchSettingsLoaded = false;
+
+    /**
+     * الشروط تخصّ الفرع: فرع الفاتورة عند الطباعة، والفرع النشط عند ضبط
+     * الشروط أو إنشاء فاتورة جديدة. تثبيت الفرع يعطي نسخة مستقلة من الخدمة
+     * حتى لا يتسرّب فرع فاتورة إلى الفاتورة التي تليها في نفس الطلب.
+     */
+    public function forBranch(?int $branchId): self
+    {
+        $service = clone $this;
+        $service->branchId = $branchId && $branchId > 0 ? (int) $branchId : null;
+        $service->branchSettings = null;
+        $service->branchSettingsLoaded = false;
+
+        return $service;
+    }
+
+    public function forInvoice(Invoice $invoice): self
+    {
+        return $this->forBranch($invoice->branch_id ? (int) $invoice->branch_id : null);
+    }
 
     /**
      * @return array<int, array{key: string, title: string}>
@@ -53,11 +80,12 @@ class InvoiceTermsService
     {
         $templates = $this->normalizedStoredTemplates();
 
-        if ($templates === []) {
-            $templates = $this->defaultTemplates();
+        // فرع لم تُضبط شروطه بعد يبدأ من القوالب الجاهزة. أما الفرع الذي ضبط
+        // شروطه فقائمته هي المرجع: ما حذفه المالك منها يبقى محذوفًا، ولا
+        // يُبعث نصّ عام قديم في صفحة فاتورة تركها بلا شروط.
+        if ($templates === [] && ! $this->hasBranchScopedSettings()) {
+            $templates = $this->fallbackTemplates();
         }
-
-        $templates = $this->mergeFallbackTemplates($templates);
 
         if ($context === null) {
             return $templates;
@@ -106,22 +134,28 @@ class InvoiceTermsService
      */
     public function defaultTemplate(string $context): array
     {
-        $defaultKey = $this->defaultTemplateKey($context);
-        $template = collect($this->templates($context))->firstWhere('key', $defaultKey);
+        $contextTemplates = $this->templates($context);
 
-        if (is_array($template)) {
-            return $template;
+        if ($contextTemplates === []) {
+            return [
+                'key' => '',
+                'title' => '',
+                'content' => '',
+                'context' => $context,
+                'show_on_invoice' => false,
+            ];
         }
 
-        return collect($this->defaultTemplates())
-            ->firstWhere('context', $context) ?? $this->defaultTemplates()[0];
+        $template = collect($contextTemplates)->firstWhere('key', $this->defaultTemplateKey($context));
+
+        return is_array($template) ? $template : $contextTemplates[0];
     }
 
     public function defaultTerms(string $context): string
     {
         $legacyTerms = $this->legacyDefaultTerms();
 
-        if ($legacyTerms !== '' && ! $this->hasScopedTemplates()) {
+        if ($legacyTerms !== '' && ! $this->hasScopedTemplates() && ! $this->hasBranchScopedSettings()) {
             return $legacyTerms;
         }
 
@@ -132,80 +166,34 @@ class InvoiceTermsService
     {
         $legacyTerms = $this->legacyDefaultTerms();
 
-        if ($legacyTerms !== '' && ! $this->hasScopedTemplates()) {
+        if ($legacyTerms !== '' && ! $this->hasScopedTemplates() && ! $this->hasBranchScopedSettings()) {
             return true;
         }
 
-        return (bool) ($this->defaultTemplate($context)['show_on_invoice'] ?? true);
+        $template = $this->defaultTemplate($context);
+
+        return $this->normalize($template['content'] ?? '') !== ''
+            && (bool) ($template['show_on_invoice'] ?? true);
     }
 
-    public function shouldShowSnapshotOnInvoice(?string $terms, string $context): bool
+    /**
+     * نصّ الشروط الذي يظهر على الفاتورة: شروط فرعها الحالية. أي تعديل على
+     * شروط الفرع يظهر على فواتيره فور حفظه، وهو ما يطلبه المالك. ويبقى عمود
+     * invoice_terms في الفاتورة كما حُفظ وقت الإصدار — لا يُمَس — فيظل سجلًّا
+     * لِما صدر، ويمكن العودة إليه لاحقًا إن أُريد تجميد الفواتير القديمة.
+     */
+    public function termsForInvoice(Invoice $invoice): string
     {
-        $normalizedTerms = $this->normalize($terms);
+        $service = $this->forInvoice($invoice);
 
-        if ($normalizedTerms === '') {
-            return false;
-        }
-
-        $legacyTerms = $this->legacyDefaultTerms();
-
-        if ($legacyTerms !== '' && ! $this->hasScopedTemplates()) {
-            return true;
-        }
-
-        $matchedTemplate = collect($this->templates($context))->first(function (array $template) use ($normalizedTerms) {
-            return $this->normalize($template['content'] ?? '') === $normalizedTerms;
-        });
-
-        if (is_array($matchedTemplate)) {
-            return (bool) ($matchedTemplate['show_on_invoice'] ?? true);
-        }
-
-        return true;
+        return $service->normalize($service->defaultTerms($service->contextForInvoice($invoice)));
     }
 
     public function shouldShowInvoiceTermsForInvoice(Invoice $invoice): bool
     {
-        $context = $this->contextForInvoice($invoice);
+        $service = $this->forInvoice($invoice);
 
-        // فاتورة لم تُحفظ فيها شروط أصلًا ترث قالب صفحتها الحالي، ظهورًا
-        // وإخفاءً معًا: إن كان القالب مخفيًا في الطباعة بقيت بلا شروط.
-        if ($this->normalize($invoice->invoice_terms) === '') {
-            return $this->shouldShowOnInvoice($context);
-        }
-
-        return $this->shouldShowSnapshotOnInvoice($invoice->invoice_terms, $context);
-    }
-
-    /**
-     * نصّ الشروط الذي يظهر على الفاتورة: النسخة المحفوظة وقت الإنشاء إن وُجدت،
-     * وإلا قالب صفحتها الحالي.
-     *
-     * الفواتير التي حفظت شروطها تبقى على نصّها فلا يتبدّل ما سُلّم للعميل،
-     * والتي صدرت بلا شروط لا تبقى خالية بلا سبب ظاهر.
-     */
-    public function termsForInvoice(Invoice $invoice): string
-    {
-        $snapshot = $this->normalize($invoice->invoice_terms);
-
-        if ($snapshot !== '') {
-            return $snapshot;
-        }
-
-        return $this->normalize($this->defaultTerms($this->contextForInvoice($invoice)));
-    }
-
-    public function currentDefaultDiffersFromInvoiceSnapshot(Invoice $invoice): bool
-    {
-        $snapshotTerms = $this->normalize($invoice->invoice_terms);
-
-        if ($snapshotTerms === '') {
-            return false;
-        }
-
-        return $snapshotTerms !== $this->normalize(
-            $this->defaultTerms($this->contextForInvoice($invoice))
-        );
+        return $service->shouldShowOnInvoice($service->contextForInvoice($invoice));
     }
 
     public function contextForInvoice(Invoice $invoice): string
@@ -248,7 +236,6 @@ class InvoiceTermsService
             ->values()
             ->all();
 
-        $normalizedTemplates = $this->mergeFallbackTemplates($normalizedTemplates);
         $resolvedDefaultKeys = [];
 
         foreach ($this->contexts() as $context) {
@@ -266,16 +253,19 @@ class InvoiceTermsService
                     : ($contextTemplates[0]['key'] ?? '');
         }
 
-        $user = $this->currentUser();
+        $branchId = $this->resolvedBranchId();
 
-        if ($user instanceof User) {
-            UserInvoiceTermsSetting::query()->updateOrCreate(
-                ['user_id' => $user->id],
+        if ($branchId !== null) {
+            BranchInvoiceTermsSetting::query()->updateOrCreate(
+                ['branch_id' => $branchId],
                 [
                     'templates' => $normalizedTemplates,
                     'default_template_keys' => $resolvedDefaultKeys,
                 ],
             );
+
+            $this->branchSettings = null;
+            $this->branchSettingsLoaded = false;
 
             return;
         }
@@ -383,23 +373,36 @@ class InvoiceTermsService
     }
 
     /**
-     * @param  array<int, array{key: string, title: string, content: string, context: string, show_on_invoice: bool}>  $templates
+     * قوالب البداية لفرع لم يُضبط بعد: الشروط العامة القديمة إن وُجدت، وإلا
+     * القوالب الجاهزة لكل صفحة فاتورة.
+     *
      * @return array<int, array{key: string, title: string, content: string, context: string, show_on_invoice: bool}>
      */
-    private function mergeFallbackTemplates(array $templates): array
+    private function fallbackTemplates(): array
     {
-        $existingContexts = collect($templates)->pluck('context')->unique()->all();
-        $fallbackTemplates = [];
+        $legacyTerms = $this->legacyDefaultTerms();
+        $templates = [];
 
         foreach ($this->contexts() as $context) {
-            if (in_array($context['key'], $existingContexts, true)) {
+            if ($legacyTerms !== '') {
+                $templates[] = [
+                    'key' => $context['key'] . '-default',
+                    'title' => 'الشروط الافتراضية',
+                    'content' => $legacyTerms,
+                    'context' => $context['key'],
+                    'show_on_invoice' => true,
+                ];
+
                 continue;
             }
 
-            $fallbackTemplates = array_merge($fallbackTemplates, $this->fallbackTemplatesForContext($context['key']));
+            $templates = array_merge($templates, array_values(array_filter(
+                $this->defaultTemplates(),
+                fn (array $template) => $template['context'] === $context['key'],
+            )));
         }
 
-        return array_values(array_merge($templates, $fallbackTemplates));
+        return array_values($templates);
     }
 
     /**
@@ -432,29 +435,6 @@ class InvoiceTermsService
         ];
     }
 
-    /**
-     * @return array<int, array{key: string, title: string, content: string, context: string, show_on_invoice: bool}>
-     */
-    private function fallbackTemplatesForContext(string $context): array
-    {
-        $legacyTerms = $this->legacyDefaultTerms();
-
-        if ($legacyTerms !== '') {
-            return [[
-                'key' => $context . '-default',
-                'title' => 'الشروط الافتراضية',
-                'content' => $legacyTerms,
-                'context' => $context,
-                'show_on_invoice' => true,
-            ]];
-        }
-
-        return array_values(array_filter(
-            $this->defaultTemplates(),
-            fn (array $template) => $template['context'] === $context,
-        ));
-    }
-
     private function hasScopedTemplates(): bool
     {
         $stored = $this->storedTemplates();
@@ -477,10 +457,10 @@ class InvoiceTermsService
      */
     private function storedTemplates(): array
     {
-        $userSettings = $this->userSettings();
+        $branchSettings = $this->branchSettings();
 
-        if ($userSettings instanceof UserInvoiceTermsSetting && is_array($userSettings->templates) && $userSettings->templates !== []) {
-            return $userSettings->templates;
+        if ($branchSettings instanceof BranchInvoiceTermsSetting) {
+            return is_array($branchSettings->templates) ? $branchSettings->templates : [];
         }
 
         return $this->globalStoredTemplates();
@@ -491,48 +471,66 @@ class InvoiceTermsService
      */
     private function storedDefaultTemplateKeys(): array
     {
-        $userSettings = $this->userSettings();
+        $branchSettings = $this->branchSettings();
 
-        if ($userSettings instanceof UserInvoiceTermsSetting && is_array($userSettings->default_template_keys) && $userSettings->default_template_keys !== []) {
-            return $userSettings->default_template_keys;
+        if ($branchSettings instanceof BranchInvoiceTermsSetting) {
+            return is_array($branchSettings->default_template_keys) ? $branchSettings->default_template_keys : [];
         }
 
         return $this->globalStoredDefaultTemplateKeys();
     }
 
-    private function currentUser(): ?User
+    private function hasBranchScopedSettings(): bool
     {
-        $user = auth('admin-web')->user();
-
-        return $user instanceof User ? $user : null;
+        return $this->branchSettings() instanceof BranchInvoiceTermsSetting;
     }
 
-    private function userSettings(): ?UserInvoiceTermsSetting
+    private function branchSettings(): ?BranchInvoiceTermsSetting
     {
-        $user = $this->currentUser();
-
-        if (! $user instanceof User) {
-            return null;
+        if ($this->branchSettingsLoaded) {
+            return $this->branchSettings;
         }
 
-        $settings = $user->invoiceTermsSettings()->first();
+        $this->branchSettingsLoaded = true;
+        $branchId = $this->resolvedBranchId();
 
-        if ($settings instanceof UserInvoiceTermsSetting) {
-            return $settings;
+        try {
+            $this->branchSettings = $branchId === null
+                ? null
+                : BranchInvoiceTermsSetting::query()->firstWhere('branch_id', $branchId);
+        } catch (QueryException) {
+            // نسخة نُشر كودها قبل تشغيل المهاجرة: نعود إلى الإعداد العام بدل
+            // إسقاط صفحة الطباعة، فتطبع الفاتورة نصّها المعتاد.
+            $this->branchSettings = null;
         }
 
-        $globalTemplates = $this->globalStoredTemplates();
-        $globalDefaultTemplateKeys = $this->globalStoredDefaultTemplateKeys();
+        return $this->branchSettings;
+    }
 
-        if ($globalTemplates === [] && $globalDefaultTemplateKeys === []) {
-            return null;
+    /**
+     * الفرع المثبَّت إن وُجد، وإلا الفرع النشط في الجلسة، وإلا فرع المستخدم.
+     */
+    private function resolvedBranchId(): ?int
+    {
+        if ($this->branchId !== null) {
+            return $this->branchId;
         }
 
-        return UserInvoiceTermsSetting::query()->create([
-            'user_id' => $user->id,
-            'templates' => $globalTemplates,
-            'default_template_keys' => $globalDefaultTemplateKeys,
-        ]);
+        try {
+            $sessionBranchId = session()->has(BranchContextService::SESSION_KEY)
+                ? (int) session(BranchContextService::SESSION_KEY)
+                : 0;
+        } catch (\Throwable) {
+            $sessionBranchId = 0;
+        }
+
+        if ($sessionBranchId > 0) {
+            return $sessionBranchId;
+        }
+
+        $userBranchId = (int) (auth('admin-web')->user()?->branch_id ?? 0);
+
+        return $userBranchId > 0 ? $userBranchId : null;
     }
 
     /**

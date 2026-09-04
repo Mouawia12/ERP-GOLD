@@ -117,12 +117,13 @@ class SystemSettingController extends Controller
             ->with('success', 'تم تحديث المورد الافتراضي للمشتريات بنجاح.');
     }
 
-    public function editInvoiceTerms(): View
+    public function editInvoiceTerms(Request $request): View
     {
         return view('admin.settings.invoice_terms', [
             'invoiceTermContexts' => $this->invoiceTermsService->contexts(),
             'invoiceTermTemplates' => $this->invoiceTermsService->templates(),
             'defaultInvoiceTermsTemplateKeys' => $this->invoiceTermsService->defaultTemplateKeys(),
+            'invoiceTermsBranchName' => $request->user('admin-web')?->branch?->branch_name,
         ]);
     }
 

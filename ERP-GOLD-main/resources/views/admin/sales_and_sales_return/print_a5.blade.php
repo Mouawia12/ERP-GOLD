@@ -83,9 +83,6 @@
         $remainingDetails = $allDetails->skip($itemsPerFirstPage);
         $continuationChunks = $remainingDetails->chunk(8)->values();
 
-        $previewNotice = $invoiceTermsService->currentDefaultDiffersFromInvoiceSnapshot($invoice)
-            ? 'هذه الفاتورة تعرض نسخة الشروط المحفوظة وقت الإنشاء. أي تعديل جديد على الشروط يطبق على الفواتير الجديدة فقط.'
-            : null;
         $backUrl = route($isSale ? 'sales.index' : 'sales_return.index', $invoice->sale_type);
         $whatsappUrl = ! empty($invoice->client_phone)
             ? route('send.invoice.whatsapp', $invoice->id)
@@ -398,6 +395,6 @@
 
     @include('admin.invoices.partials.print_autofit')
 
-    @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice'))
+    @include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl'))
 </body>
 </html>

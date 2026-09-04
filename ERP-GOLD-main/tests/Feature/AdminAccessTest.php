@@ -840,8 +840,8 @@ class AdminAccessTest extends TestCase
             ]);
 
         $response->assertRedirect(route('admin.system-settings.invoice-terms.edit', [], false));
-        $this->assertDatabaseHas('user_invoice_terms_settings', [
-            'user_id' => $admin->id,
+        $this->assertDatabaseHas('branch_invoice_terms_settings', [
+            'branch_id' => $admin->branch_id,
         ]);
     }
 
@@ -856,8 +856,8 @@ class AdminAccessTest extends TestCase
             ]);
 
         $response->assertForbidden();
-        $this->assertDatabaseMissing('user_invoice_terms_settings', [
-            'user_id' => $admin->id,
+        $this->assertDatabaseMissing('branch_invoice_terms_settings', [
+            'branch_id' => $admin->branch_id,
         ]);
     }
 

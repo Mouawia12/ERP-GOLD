@@ -8,7 +8,7 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Models\SystemSetting;
 use App\Models\User;
-use App\Models\UserInvoiceTermsSetting;
+use App\Models\BranchInvoiceTermsSetting;
 use App\Services\Invoices\InvoiceTermsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -175,7 +175,7 @@ class InvoiceTermsFeatureTest extends TestCase
         $response->assertSee('فواتير مبيعات الشركات');
         $response->assertSee('فواتير المشتريات');
         $response->assertSee('إظهار هذه الشروط عند طباعة الفاتورة');
-        $response->assertSee('هذه الإعدادات تخص المستخدم الحالي فقط');
+        $response->assertSee('وأي تعديل عليها يظهر على فواتير هذا الفرع عند الطباعة فور حفظه');
     }
 
     public function test_sales_print_page_can_hide_invoice_terms_without_deleting_saved_template(): void
@@ -210,7 +210,11 @@ class InvoiceTermsFeatureTest extends TestCase
         $response->assertDontSee('لكنها يجب ألا تطبع');
     }
 
-    public function test_sales_print_page_hides_terms_when_invoice_snapshot_matches_hidden_template_even_if_another_template_is_default(): void
+    /**
+     * الإخفاء يتبع القالب الافتراضي لصفحة الفاتورة في فرعها: قالب مطفأ عن
+     * الطباعة لا يطبع شروطًا ولو بقيت نسخة قديمة محفوظة داخل الفاتورة.
+     */
+    public function test_sales_print_page_hides_terms_when_the_branch_default_template_is_hidden(): void
     {
         $branch = $this->createBranch('فرع مطابقة الشروط', 'sales-terms-match@example.com', '777888999');
         $user = $this->createUser($branch, 'sales-terms-match-user@example.com');
@@ -219,25 +223,19 @@ class InvoiceTermsFeatureTest extends TestCase
             'invoice_terms' => "شروط محفوظة قديمة\nيجب إخفاؤها عند الطباعة",
         ]);
 
-        SystemSetting::putValue('invoice_terms_templates', json_encode([
-            [
-                'key' => 'retail-visible',
-                'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
-                'title' => 'مرئي',
-                'content' => "شروط مرئية افتراضية\nتخص قالباً آخر",
-                'show_on_invoice' => true,
-            ],
-            [
-                'key' => 'retail-hidden-snapshot',
+        BranchInvoiceTermsSetting::query()->create([
+            'branch_id' => $branch->id,
+            'templates' => [[
+                'key' => 'retail-hidden-branch',
                 'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
                 'title' => 'مخفي',
-                'content' => "شروط محفوظة قديمة\nيجب إخفاؤها عند الطباعة",
+                'content' => "شروط الفرع الحالية\nمخفية عن الطباعة",
                 'show_on_invoice' => false,
+            ]],
+            'default_template_keys' => [
+                InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED => 'retail-hidden-branch',
             ],
-        ], JSON_UNESCAPED_UNICODE));
-        SystemSetting::putValue('default_invoice_terms_template_keys', json_encode([
-            InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED => 'retail-visible',
-        ], JSON_UNESCAPED_UNICODE));
+        ]);
 
         $response = $this
             ->actingAs($user, 'admin-web')
@@ -245,11 +243,15 @@ class InvoiceTermsFeatureTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee('شروط الفاتورة');
+        $response->assertDontSee('شروط الفرع الحالية');
         $response->assertDontSee('شروط محفوظة قديمة');
-        $response->assertDontSee('يجب إخفاؤها عند الطباعة');
     }
 
-    public function test_sales_print_page_uses_saved_invoice_terms_snapshot_even_after_setting_changes(): void
+    /**
+     * جوهر ما يطلبه المالك: يعدّل شروط الفرع فيظهر التعديل على فواتير هذا
+     * الفرع عند الطباعة، ولا تبقى النسخة القديمة المحفوظة داخل الفاتورة.
+     */
+    public function test_sales_print_page_shows_the_current_branch_terms_after_they_are_edited(): void
     {
         $branch = $this->createBranch('فرع المبيعات', 'sales-branch@example.com', '111111111');
         $user = $this->createUser($branch, 'sales-user@example.com');
@@ -257,10 +259,22 @@ class InvoiceTermsFeatureTest extends TestCase
             'sale_type' => 'simplified',
             'bill_client_name' => 'عميل نقدي',
             'bill_client_phone' => '0555555555',
-            'invoice_terms' => "تم حفظ الشروط داخل الفاتورة\nولا تتغير لاحقًا",
+            'invoice_terms' => "الشرط القديم وقت البيع\nلم يعد ساريًا",
         ]);
 
-        SystemSetting::putValue('default_invoice_terms', 'هذا النص الجديد يجب ألا يظهر');
+        BranchInvoiceTermsSetting::query()->create([
+            'branch_id' => $branch->id,
+            'templates' => [[
+                'key' => 'retail-edited',
+                'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
+                'title' => 'شروط معدلة',
+                'content' => "الشرط الجديد بعد التعديل\nيجب أن يظهر على الفاتورة",
+                'show_on_invoice' => true,
+            ]],
+            'default_template_keys' => [
+                InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED => 'retail-edited',
+            ],
+        ]);
 
         $response = $this
             ->actingAs($user, 'admin-web')
@@ -268,10 +282,57 @@ class InvoiceTermsFeatureTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('شروط الفاتورة');
-        $response->assertSee('تم حفظ الشروط داخل الفاتورة');
-        $response->assertSee('ولا تتغير لاحقًا');
-        $response->assertDontSee('هذا النص الجديد يجب ألا يظهر');
-        $response->assertSee('هذه الفاتورة تعرض نسخة الشروط المحفوظة وقت الإنشاء');
+        $response->assertSee('الشرط الجديد بعد التعديل');
+        $response->assertSee('يجب أن يظهر على الفاتورة');
+        $response->assertDontSee('الشرط القديم وقت البيع');
+
+        // بيانات الفاتورة نفسها لا تُمَس: النسخة المحفوظة تبقى سجلًّا لما صدر
+        $this->assertSame("الشرط القديم وقت البيع\nلم يعد ساريًا", $invoice->refresh()->invoice_terms);
+    }
+
+    /**
+     * انحدار العطل المبلَّغ عنه: المالك يعدّل الشروط من صفحة الإعدادات، وكانت
+     * فواتير الفرع تبقى على النصّ القديم لأن الشروط كانت مخزَّنة لكل مستخدم
+     * على حدة، فلا يصلها تعديله. الآن تظهر على فواتير الفرع مهما كان مُصدرها.
+     */
+    public function test_owner_edit_shows_on_invoices_issued_by_another_user_in_the_same_branch(): void
+    {
+        $admin = $this->createAdminUser([
+            'employee.system_settings.show',
+            'employee.system_settings.edit',
+        ], 'owner-edit-invoice-terms@example.com');
+        $cashier = $this->createUser($admin->branch, 'cashier-invoice-terms@example.com');
+        $invoice = $this->createInvoice($admin->branch, $cashier, 'sale', [
+            'sale_type' => 'simplified',
+            'invoice_terms' => "الشرط القديم المحفوظ\nوقت إصدار الفاتورة",
+        ]);
+
+        $this
+            ->actingAs($admin, 'admin-web')
+            ->patch(route('admin.system-settings.invoice-terms.update', [], false), [
+                'templates' => [
+                    [
+                        'key' => 'retail-owner-edit',
+                        'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
+                        'title' => 'شروط بعد تعديل المالك',
+                        'content' => "شرط عدّله المالك للتو\nويجب أن يطبع على فواتير الفرع",
+                        'show_on_invoice' => '1',
+                    ],
+                ],
+                'default_template_keys' => [
+                    InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED => 'retail-owner-edit',
+                ],
+            ])
+            ->assertRedirect(route('admin.system-settings.invoice-terms.edit', [], false));
+
+        $response = $this
+            ->actingAs($cashier, 'admin-web')
+            ->get(route('sales.show', ['id' => $invoice->id], false));
+
+        $response->assertOk();
+        $response->assertSee('شرط عدّله المالك للتو');
+        $response->assertSee('ويجب أن يطبع على فواتير الفرع');
+        $response->assertDontSee('الشرط القديم المحفوظ');
     }
 
     /**
@@ -297,8 +358,6 @@ class InvoiceTermsFeatureTest extends TestCase
         $response->assertOk();
         $response->assertSee('شروط الفاتورة');
         $response->assertSee('شرط محدَّث يظهر على الفاتورة القديمة');
-        // لا تنبيه «نسخة محفوظة»: هذه الفاتورة تعرض القالب الحالي لا نسخة قديمة
-        $response->assertDontSee('هذه الفاتورة تعرض نسخة الشروط المحفوظة وقت الإنشاء');
     }
 
     /**
@@ -358,7 +417,7 @@ class InvoiceTermsFeatureTest extends TestCase
             ]);
 
         $response->assertRedirect(route('admin.system-settings.invoice-terms.edit', [], false));
-        $settings = UserInvoiceTermsSetting::query()->where('user_id', $admin->id)->first();
+        $settings = BranchInvoiceTermsSetting::query()->where('branch_id', $admin->branch_id)->first();
 
         $this->assertNotNull($settings);
         $this->assertSame(
@@ -367,7 +426,7 @@ class InvoiceTermsFeatureTest extends TestCase
         );
     }
 
-    public function test_invoice_terms_settings_are_isolated_per_user(): void
+    public function test_invoice_terms_settings_are_isolated_per_branch(): void
     {
         $firstAdmin = $this->createAdminUser([
             'employee.system_settings.show',
@@ -378,13 +437,13 @@ class InvoiceTermsFeatureTest extends TestCase
             'employee.system_settings.edit',
         ], 'second-admin-invoice-terms@example.com');
 
-        UserInvoiceTermsSetting::query()->create([
-            'user_id' => $firstAdmin->id,
+        BranchInvoiceTermsSetting::query()->create([
+            'branch_id' => $firstAdmin->branch_id,
             'templates' => [[
                 'key' => 'first-retail',
                 'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
-                'title' => 'قالب المستخدم الأول',
-                'content' => "سطر أول للمستخدم الأول\nسطر ثان للمستخدم الأول",
+                'title' => 'قالب الفرع الأول',
+                'content' => "سطر أول للفرع الأول\nسطر ثان للفرع الأول",
                 'show_on_invoice' => true,
             ]],
             'default_template_keys' => [
@@ -392,13 +451,13 @@ class InvoiceTermsFeatureTest extends TestCase
             ],
         ]);
 
-        UserInvoiceTermsSetting::query()->create([
-            'user_id' => $secondAdmin->id,
+        BranchInvoiceTermsSetting::query()->create([
+            'branch_id' => $secondAdmin->branch_id,
             'templates' => [[
                 'key' => 'second-retail',
                 'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
-                'title' => 'قالب المستخدم الثاني',
-                'content' => "سطر أول للمستخدم الثاني\nسطر ثان للمستخدم الثاني",
+                'title' => 'قالب الفرع الثاني',
+                'content' => "سطر أول للفرع الثاني\nسطر ثان للفرع الثاني",
                 'show_on_invoice' => true,
             ]],
             'default_template_keys' => [
@@ -406,36 +465,20 @@ class InvoiceTermsFeatureTest extends TestCase
             ],
         ]);
 
-        $firstResponse = $this
-            ->actingAs($firstAdmin, 'admin-web')
-            ->get(route('admin.system-settings.invoice-terms.edit', [], false));
-
-        $firstResponse->assertOk();
-
-        $firstResolvedTerms = $this
-            ->actingAs($firstAdmin, 'admin-web')
-            ->app
-            ->make(InvoiceTermsService::class)
+        $firstResolvedTerms = app(InvoiceTermsService::class)
+            ->forBranch((int) $firstAdmin->branch_id)
             ->defaultTerms(InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED);
 
-        $this->assertSame("سطر أول للمستخدم الأول\nسطر ثان للمستخدم الأول", $firstResolvedTerms);
+        $this->assertSame("سطر أول للفرع الأول\nسطر ثان للفرع الأول", $firstResolvedTerms);
 
-        $secondResponse = $this
-            ->actingAs($secondAdmin, 'admin-web')
-            ->get(route('admin.system-settings.invoice-terms.edit', [], false));
-
-        $secondResponse->assertOk();
-
-        $secondResolvedTerms = $this
-            ->actingAs($secondAdmin, 'admin-web')
-            ->app
-            ->make(InvoiceTermsService::class)
+        $secondResolvedTerms = app(InvoiceTermsService::class)
+            ->forBranch((int) $secondAdmin->branch_id)
             ->defaultTerms(InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED);
 
-        $this->assertSame("سطر أول للمستخدم الثاني\nسطر ثان للمستخدم الثاني", $secondResolvedTerms);
+        $this->assertSame("سطر أول للفرع الثاني\nسطر ثان للفرع الثاني", $secondResolvedTerms);
     }
 
-    public function test_user_specific_invoice_terms_override_legacy_global_defaults_when_resolving_snapshot(): void
+    public function test_branch_invoice_terms_override_legacy_global_defaults_when_resolving_snapshot(): void
     {
         SystemSetting::putValue('default_invoice_terms', "قيمة عامة قديمة\nيجب تجاوزها");
 
@@ -444,13 +487,13 @@ class InvoiceTermsFeatureTest extends TestCase
             'employee.system_settings.edit',
         ], 'priority-admin-invoice-terms@example.com');
 
-        UserInvoiceTermsSetting::query()->create([
-            'user_id' => $admin->id,
+        BranchInvoiceTermsSetting::query()->create([
+            'branch_id' => $admin->branch_id,
             'templates' => [[
                 'key' => 'priority-retail',
                 'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
-                'title' => 'أولوية المستخدم',
-                'content' => "شروط المستخدم الحالية\nهي التي تحفظ في الفاتورة",
+                'title' => 'أولوية الفرع',
+                'content' => "شروط الفرع الحالية\nهي التي تحفظ في الفاتورة",
                 'show_on_invoice' => true,
             ]],
             'default_template_keys' => [
@@ -458,16 +501,18 @@ class InvoiceTermsFeatureTest extends TestCase
             ],
         ]);
 
-        $resolvedSnapshot = $this
-            ->actingAs($admin, 'admin-web')
-            ->app
-            ->make(InvoiceTermsService::class)
+        $resolvedSnapshot = app(InvoiceTermsService::class)
+            ->forBranch((int) $admin->branch_id)
             ->resolveSnapshot(null, InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED, false);
 
-        $this->assertSame("شروط المستخدم الحالية\nهي التي تحفظ في الفاتورة", $resolvedSnapshot);
+        $this->assertSame("شروط الفرع الحالية\nهي التي تحفظ في الفاتورة", $resolvedSnapshot);
     }
 
-    public function test_first_authenticated_access_bootstraps_personal_invoice_terms_from_global_settings(): void
+    /**
+     * فرع لم تُضبط شروطه بعد يقرأ الإعداد العام دون أن يُنشأ له صفّ خاص —
+     * فلا تتجمّد عنده نسخة تمنع وصول أي تعديل لاحق.
+     */
+    public function test_branch_without_its_own_settings_falls_back_to_global_settings(): void
     {
         SystemSetting::putValue('invoice_terms_templates', json_encode([
             [
@@ -487,19 +532,13 @@ class InvoiceTermsFeatureTest extends TestCase
             'employee.system_settings.edit',
         ], 'bootstrap-admin-invoice-terms@example.com');
 
-        $this->assertDatabaseMissing('user_invoice_terms_settings', [
-            'user_id' => $admin->id,
-        ]);
-
-        $resolvedTerms = $this
-            ->actingAs($admin, 'admin-web')
-            ->app
-            ->make(InvoiceTermsService::class)
+        $resolvedTerms = app(InvoiceTermsService::class)
+            ->forBranch((int) $admin->branch_id)
             ->defaultTerms(InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED);
 
         $this->assertSame("سطر عام أول\nسطر عام ثان", $resolvedTerms);
-        $this->assertDatabaseHas('user_invoice_terms_settings', [
-            'user_id' => $admin->id,
+        $this->assertDatabaseMissing('branch_invoice_terms_settings', [
+            'branch_id' => $admin->branch_id,
         ]);
     }
 
@@ -509,7 +548,20 @@ class InvoiceTermsFeatureTest extends TestCase
         $user = $this->createUser($branch, 'sales-a5-user@example.com');
         $invoice = $this->createInvoice($branch, $user, 'sale', [
             'sale_type' => 'simplified',
-            'invoice_terms' => "السطر الأول\nالسطر الثاني\nالسطر الثالث",
+        ]);
+
+        BranchInvoiceTermsSetting::query()->create([
+            'branch_id' => $branch->id,
+            'templates' => [[
+                'key' => 'a5-multiline',
+                'context' => InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED,
+                'title' => 'شروط متعددة الأسطر',
+                'content' => "السطر الأول\nالسطر الثاني\nالسطر الثالث",
+                'show_on_invoice' => true,
+            ]],
+            'default_template_keys' => [
+                InvoiceTermsService::CONTEXT_SALES_SIMPLIFIED => 'a5-multiline',
+            ],
         ]);
 
         SystemSetting::putValue('invoice_print_format', 'a5');
@@ -526,7 +578,7 @@ class InvoiceTermsFeatureTest extends TestCase
         $response->assertSee('السطر الأول / السطر الثاني / السطر الثالث');
     }
 
-    public function test_purchases_print_page_uses_saved_invoice_terms_snapshot(): void
+    public function test_purchases_print_page_uses_the_branch_purchase_terms(): void
     {
         $branch = $this->createBranch('فرع المشتريات', 'purchases-branch@example.com', '222222222');
         $user = $this->createUser($branch, 'purchases-user@example.com');
@@ -540,7 +592,20 @@ class InvoiceTermsFeatureTest extends TestCase
         $invoice = $this->createInvoice($branch, $user, 'purchase', [
             'customer_id' => $supplierId,
             'supplier_bill_number' => 'SUP-1001',
-            'invoice_terms' => "يتم اعتماد الوزن بعد الفحص\nوالدفع حسب الحساب البنكي المحدد",
+        ]);
+
+        BranchInvoiceTermsSetting::query()->create([
+            'branch_id' => $branch->id,
+            'templates' => [[
+                'key' => 'branch-purchase',
+                'context' => InvoiceTermsService::CONTEXT_PURCHASES,
+                'title' => 'شروط شراء الفرع',
+                'content' => "يتم اعتماد الوزن بعد الفحص\nوالدفع حسب الحساب البنكي المحدد",
+                'show_on_invoice' => true,
+            ]],
+            'default_template_keys' => [
+                InvoiceTermsService::CONTEXT_PURCHASES => 'branch-purchase',
+            ],
         ]);
 
         $response = $this

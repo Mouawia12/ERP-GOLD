@@ -27,7 +27,7 @@
                 </div>
                 <div class="card-body">
                     <div class="alert alert-info">
-                        هذه الإعدادات تخص المستخدم الحالي فقط، وتطبّق على الفواتير الجديدة التي ينشئها. الفواتير المحفوظة سابقًا تحتفظ بنسخة الشروط وقت الإنشاء.
+                        هذه الشروط تخص فرع <strong>{{ $invoiceTermsBranchName ?? 'غير محدد' }}</strong> وحده، وأي تعديل عليها يظهر على فواتير هذا الفرع عند الطباعة فور حفظه، مهما كان الموظف الذي أصدر الفاتورة. لضبط شروط فرع آخر بدّل الفرع النشط من أعلى الصفحة.
                     </div>
 
                     <form method="POST" action="{{ route('admin.system-settings.invoice-terms.update') }}" id="invoice-terms-settings-form">

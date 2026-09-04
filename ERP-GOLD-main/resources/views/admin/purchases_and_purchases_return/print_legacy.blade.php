@@ -6,9 +6,6 @@
         $printSettings = app(\App\Services\Invoices\InvoicePrintSettingsService::class)->currentSettings();
         $printFormat = $printSettings['format'];
         $printTemplate = $printSettings['template'];
-        $previewNotice = $invoiceTermsService->currentDefaultDiffersFromInvoiceSnapshot($invoice)
-            ? 'هذه الفاتورة تعرض نسخة الشروط المحفوظة وقت الإنشاء. أي تعديل جديد على الشروط يطبق على الفواتير الجديدة فقط.'
-            : null;
         $sheetWidth = $printFormat === 'a5' ? '148mm' : '210mm';
         $screenFontSize = $printFormat === 'a5' ? '12px' : '13px';
         $printFontSize = $printFormat === 'a5' ? '10px' : '11px';
@@ -410,6 +407,6 @@
         ? route('send.invoice.whatsapp', $invoice->id)
         : null;
 @endphp
-@include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl', 'previewNotice'))
+@include('admin.invoices.partials.print_controls', compact('printSettings', 'backUrl', 'whatsappUrl'))
 </body>
 </html>

@@ -85,6 +85,10 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasOne(UserInvoicePrintSetting::class);
     }
 
+    /**
+     * علاقة قديمة: شروط الفاتورة صارت تُضبط لكل فرع في
+     * BranchInvoiceTermsSetting، والصفوف هنا محفوظة كسجلّ للحالة السابقة فقط.
+     */
     public function invoiceTermsSettings(): HasOne
     {
         return $this->hasOne(UserInvoiceTermsSetting::class);
